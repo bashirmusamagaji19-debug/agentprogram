@@ -1,1 +1,11 @@
 .worktrees/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+reports/
+browser-artifacts/
+.env

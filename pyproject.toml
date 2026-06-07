@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "web-task-agent"
+version = "0.1.0"
+description = "A browser-use and LangGraph based Web task agent for AI internship discovery."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "browser-use>=0.1.40",
+  "langgraph>=0.2.60",
+  "pydantic>=2.7",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "pytest-cov>=5.0",
+]
+
+[project.scripts]
+web-task-agent = "web_task_agent.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
