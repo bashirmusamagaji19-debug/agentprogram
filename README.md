@@ -18,3 +18,5 @@ pip install -e ".[dev]"
 pytest
 web-task-agent --keyword "AI engineering intern" --location "Remote" --target-count 3
 ```
+
+如果 Windows PowerShell 显示中文乱码，请使用 UTF-8 终端或执行 chcp 65001 后再查看。
