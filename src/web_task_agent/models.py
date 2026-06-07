@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from math import isfinite
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -75,6 +76,8 @@ class JobPosting(BaseModel):
     @field_validator("confidence")
     @classmethod
     def clamp_confidence(cls, value: float) -> float:
+        if not isfinite(value):
+            raise ValueError("confidence must be finite")
         return min(max(value, 0.0), 1.0)
 
 
@@ -92,13 +95,22 @@ class RunMetrics(BaseModel):
     run_id: str
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
-    pages_visited: int = 0
-    jobs_found: int = 0
-    valid_jobs: int = 0
-    duplicate_jobs: int = 0
-    failed_pages: int = 0
-    avg_steps_per_job: float = 0.0
-    estimated_token_cost: float = 0.0
+    pages_visited: int = Field(default=0, ge=0)
+    jobs_found: int = Field(default=0, ge=0)
+    valid_jobs: int = Field(default=0, ge=0)
+    duplicate_jobs: int = Field(default=0, ge=0)
+    failed_pages: int = Field(default=0, ge=0)
+    avg_steps_per_job: float = Field(default=0.0, ge=0.0)
+    estimated_token_cost: float = Field(default=0.0, ge=0.0)
+
+    @field_validator("started_at", "finished_at")
+    @classmethod
+    def normalize_datetime_to_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return value
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("datetime must be timezone-aware")
+        return value.astimezone(timezone.utc)
 
 
 class WorkflowState(BaseModel):
