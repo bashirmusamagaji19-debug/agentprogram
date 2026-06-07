@@ -112,6 +112,13 @@ class RunMetrics(BaseModel):
             raise ValueError("datetime must be timezone-aware")
         return value.astimezone(timezone.utc)
 
+    @field_validator("avg_steps_per_job", "estimated_token_cost")
+    @classmethod
+    def reject_non_finite_float_metrics(cls, value: float) -> float:
+        if not isfinite(value):
+            raise ValueError("metric float must be finite")
+        return value
+
 
 class WorkflowState(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)

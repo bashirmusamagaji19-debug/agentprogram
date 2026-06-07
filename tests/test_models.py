@@ -76,9 +76,26 @@ def test_run_metrics_rejects_naive_datetimes():
         RunMetrics(run_id="run-1", finished_at=datetime(2026, 6, 7, 11, 45))
 
 
-def test_run_metrics_rejects_negative_counters():
+@pytest.mark.parametrize(
+    "field_name",
+    ["pages_visited", "jobs_found", "valid_jobs", "duplicate_jobs", "failed_pages"],
+)
+def test_run_metrics_rejects_negative_integer_counters(field_name):
     with pytest.raises(ValueError):
-        RunMetrics(run_id="run-1", pages_visited=-1)
+        RunMetrics(run_id="run-1", **{field_name: -1})
+
+
+@pytest.mark.parametrize("field_name", ["avg_steps_per_job", "estimated_token_cost"])
+def test_run_metrics_rejects_negative_float_metrics(field_name):
+    with pytest.raises(ValueError):
+        RunMetrics(run_id="run-1", **{field_name: -0.1})
+
+
+@pytest.mark.parametrize("field_name", ["avg_steps_per_job", "estimated_token_cost"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), "nan", "inf"])
+def test_run_metrics_rejects_non_finite_float_metrics(field_name, value):
+    with pytest.raises(ValueError):
+        RunMetrics(run_id="run-1", **{field_name: value})
 
 
 def test_user_profile_rejects_invalid_target_count():
