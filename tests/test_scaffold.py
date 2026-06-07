@@ -11,3 +11,25 @@ def test_scaffold_cli_returns_success(capsys) -> None:
 
     captured = capsys.readouterr()
     assert "Web task agent scaffold" in captured.out
+
+
+def test_scaffold_cli_accepts_documented_arguments(capsys) -> None:
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI engineering intern",
+                "--location",
+                "Remote",
+                "--target-count",
+                "3",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "not implemented yet" in captured.out
+    assert "AI engineering intern" in captured.out
+    assert "Remote" in captured.out
+    assert "3" in captured.out
