@@ -81,3 +81,27 @@ def test_repository_returns_none_for_missing_run_metrics(tmp_path):
     repo.initialize()
 
     assert repo.get_run_metrics("missing") is None
+
+
+def test_repository_lists_recent_run_metrics(tmp_path):
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+    older = RunMetrics(
+        run_id="run-old",
+        started_at=datetime(2026, 6, 8, 1, 0, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 6, 8, 1, 1, tzinfo=timezone.utc),
+        valid_jobs=1,
+    )
+    newer = RunMetrics(
+        run_id="run-new",
+        started_at=datetime(2026, 6, 8, 2, 0, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 6, 8, 2, 1, tzinfo=timezone.utc),
+        valid_jobs=2,
+    )
+
+    repo.save_run_metrics(older)
+    repo.save_run_metrics(newer)
+
+    runs = repo.list_run_metrics(limit=1)
+    assert [run.run_id for run in runs] == ["run-new"]
+    assert runs[0].valid_jobs == 2

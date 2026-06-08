@@ -258,6 +258,33 @@ def test_write_json_output_creates_parent_directory(tmp_path) -> None:
     assert payload["jobs"] == []
 
 
+def test_cli_history_prints_recent_runs(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--target-count",
+                "2",
+                "--demo",
+                "--db-path",
+                "agent.db",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    assert main(["--history", "--db-path", "agent.db"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Recent runs" in captured.out
+    assert "run-" in captured.out
+    assert "valid_jobs=2" in captured.out
+
+
 def test_cli_non_demo_mode_exits_with_clear_message(monkeypatch, capsys) -> None:
     class FailingBrowser:
         async def search(self, query: str, target_count: int) -> list[object]:

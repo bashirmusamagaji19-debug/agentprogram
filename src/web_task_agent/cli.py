@@ -87,6 +87,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write the LangGraph workflow as a Mermaid Markdown document.",
     )
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help="Print recent workflow runs from SQLite and exit.",
+    )
+    parser.add_argument("--history-limit", type=int, default=10)
     return parser
 
 
@@ -101,6 +107,12 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.history:
+        repo = JobRepository(args.db_path)
+        repo.initialize()
+        print_run_history(repo.list_run_metrics(limit=args.history_limit))
+        return 0
+
     if args.export_graph:
         workflow = build_workflow(
             browser=FakeBrowserClient(DEMO_JOB_PAGES),
@@ -208,6 +220,20 @@ def write_json_output(state, output_path: str) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def print_run_history(runs) -> None:
+    print("Recent runs")
+    if not runs:
+        print("No runs found.")
+        return
+    for run in runs:
+        finished = run.finished_at.isoformat() if run.finished_at else "-"
+        print(
+            f"{run.run_id} | started={run.started_at.isoformat()} | "
+            f"finished={finished} | valid_jobs={run.valid_jobs} | "
+            f"pages={run.pages_visited} | failed_pages={run.failed_pages}"
+        )
 
 
 def build_workflow(

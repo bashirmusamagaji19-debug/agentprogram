@@ -136,6 +136,21 @@ class JobRepository:
         if row is None:
             return None
 
+        return self._run_metrics_from_row(row)
+
+    def list_run_metrics(self, limit: int = 10) -> list[RunMetrics]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM run_metrics
+                ORDER BY started_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [self._run_metrics_from_row(row) for row in rows]
+
+    def _run_metrics_from_row(self, row: sqlite3.Row) -> RunMetrics:
         return RunMetrics(
             run_id=row["run_id"],
             started_at=datetime.fromisoformat(row["started_at"]),
