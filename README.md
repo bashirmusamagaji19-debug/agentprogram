@@ -4,7 +4,7 @@
 
 ## MVP 能力
 
-- 通过浏览器客户端读取网页内容。
+- 通过浏览器客户端读取网页内容，已提供 deterministic fake browser 和 `browser-use` session adapter 两条边界。
 - 用工作流拆分规划、浏览、抽取、验证、匹配、保存和报告生成。
 - 用 SQLite 保存岗位记录和运行指标。
 - 根据技能标签和简历文本生成岗位匹配分数、缺失技能和建议动作。
@@ -32,7 +32,11 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 ```
 
-该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。生成的 Markdown 报告会包含岗位列表、运行指标和匹配分析；`dashboards/` 下会生成可直接打开的 HTML Dashboard。当前真实 `browser-use` 网页搜索仍保留在 adapter 边界之后，后续阶段再接入。
+该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。生成的 Markdown 报告会包含岗位列表、运行指标和匹配分析；`dashboards/` 下会生成可直接打开的 HTML Dashboard。当前真实 `browser-use` 路径已具备 session adapter 入口，但真实招聘网站表现仍需要单独站点评测和失败原因统计。
+
+## 真实 browser-use adapter 状态
+
+非 `--demo` 模式会走 `BrowserUseClient`，通过 `browser_use.BrowserSession` 打开搜索页并读取页面标题和正文。这个路径用于下一阶段真实网页接入；当前推荐演示和评测仍使用 `--demo`，因为它不依赖登录、验证码、反爬策略或外部网页结构变化。
 
 ## 已验证的评测命令
 

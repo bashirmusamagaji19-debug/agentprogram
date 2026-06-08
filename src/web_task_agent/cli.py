@@ -3,7 +3,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from web_task_agent.browser import BrowserUseClient, FakeBrowserClient
+from web_task_agent.browser import (
+    BrowserConfigurationError,
+    BrowserUseClient,
+    FakeBrowserClient,
+)
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.evaluation import EvaluationRunner, build_default_tasks
@@ -47,6 +51,10 @@ def main(argv: list[str] | None = None) -> int:
     return asyncio.run(_run(args))
 
 
+def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
+    return FakeBrowserClient(DEMO_JOB_PAGES) if demo else BrowserUseClient()
+
+
 async def _run(args: argparse.Namespace) -> int:
     if args.evaluate:
         tasks = build_default_tasks()[: args.evaluation_count]
@@ -60,13 +68,9 @@ async def _run(args: argparse.Namespace) -> int:
         print("--keyword is required unless --evaluate is used.")
         return 2
 
-    if not args.demo:
-        print("Real browser-use mode is not implemented yet. Re-run with --demo.")
-        return 2
-
     repo = JobRepository(args.db_path)
     repo.initialize()
-    browser = FakeBrowserClient(DEMO_JOB_PAGES) if args.demo else BrowserUseClient()
+    browser = build_browser(demo=args.demo)
     workflow = WebTaskWorkflow(
         browser=browser,
         extractor=PageExtractor(),
@@ -75,14 +79,19 @@ async def _run(args: argparse.Namespace) -> int:
         repository=repo,
         reporter=MarkdownReporter(args.report_dir),
     )
-    state = await workflow.run(
-        UserProfile(
-            keyword=args.keyword,
-            location=args.location,
-            target_count=args.target_count,
-            skills=args.skill,
+    try:
+        state = await workflow.run(
+            UserProfile(
+                keyword=args.keyword,
+                location=args.location,
+                target_count=args.target_count,
+                skills=args.skill,
+            )
         )
-    )
+    except BrowserConfigurationError as exc:
+        print(f"Real browser-use mode is not configured: {exc}")
+        print("Use --demo for the deterministic local demo path.")
+        return 2
     valid_jobs = state.metrics.valid_jobs if state.metrics else 0
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")

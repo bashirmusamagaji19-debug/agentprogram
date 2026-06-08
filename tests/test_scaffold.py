@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from web_task_agent import __version__
+from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent.cli import main
 
 
@@ -64,12 +65,24 @@ def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     assert "匹配分数" in content
 
 
-def test_cli_non_demo_mode_exits_with_clear_message(capsys) -> None:
+def test_cli_non_demo_mode_exits_with_clear_message(monkeypatch, capsys) -> None:
+    class FailingBrowser:
+        async def search(self, query: str, target_count: int) -> list[object]:
+            raise BrowserConfigurationError("missing local browser")
+
+        async def open_url(self, url: str) -> object:
+            raise AssertionError("open_url should not be called")
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_browser",
+        lambda *, demo: FailingBrowser(),
+    )
+
     assert main(["--keyword", "AI intern"]) == 2
 
     captured = capsys.readouterr()
-    assert "not implemented yet" in captured.out
-    assert "--demo" in captured.out
+    assert "Real browser-use mode is not configured" in captured.out
+    assert "Use --demo" in captured.out
 
 
 def test_cli_evaluate_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
