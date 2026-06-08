@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from web_task_agent.models import JobPosting, RunMetrics, UserProfile
+from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
 
 
 class MarkdownReporter:
@@ -14,12 +14,13 @@ class MarkdownReporter:
         *,
         user: UserProfile,
         jobs: list[JobPosting],
+        matches: list[MatchResult] | None = None,
         metrics: RunMetrics,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.output_dir / f"{metrics.run_id}.md"
         report_path.write_text(
-            self.render(user=user, jobs=jobs, metrics=metrics),
+            self.render(user=user, jobs=jobs, matches=matches, metrics=metrics),
             encoding="utf-8",
         )
         return report_path
@@ -29,8 +30,10 @@ class MarkdownReporter:
         *,
         user: UserProfile,
         jobs: list[JobPosting],
+        matches: list[MatchResult] | None = None,
         metrics: RunMetrics,
     ) -> str:
+        match_by_job_id = {match.job_id: match for match in (matches or [])}
         lines = [
             "# AI 实习岗位搜索报告",
             "",
@@ -78,5 +81,23 @@ class MarkdownReporter:
                     "",
                 ]
             )
+            match = match_by_job_id.get(job.url)
+            if match:
+                lines.extend(
+                    [
+                        "## 匹配分析",
+                        "",
+                        f"- 匹配分数: {match.score:.2f}",
+                        f"- 优先级: {match.priority}",
+                        f"- 已匹配技能: {', '.join(match.matched_skills) if match.matched_skills else '暂无'}",
+                        f"- 缺失技能: {', '.join(match.missing_skills) if match.missing_skills else '暂无'}",
+                        f"- 匹配理由: {match.reason}",
+                        "",
+                        "**建议动作**",
+                        "",
+                    ]
+                )
+                lines.extend(f"- {action}" for action in match.suggested_actions)
+                lines.append("")
 
         return "\n".join(lines)

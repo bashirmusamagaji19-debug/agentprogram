@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from web_task_agent.browser import BrowserClient
 from web_task_agent.extractor import PageExtractor
+from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import RunMetrics, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
@@ -17,12 +18,14 @@ class WebTaskWorkflow:
         *,
         browser: BrowserClient,
         extractor: PageExtractor,
+        matcher: JobMatcher,
         verifier: JobVerifier,
         repository: JobRepository,
         reporter: MarkdownReporter,
     ) -> None:
         self.browser = browser
         self.extractor = extractor
+        self.matcher = matcher
         self.verifier = verifier
         self.repository = repository
         self.reporter = reporter
@@ -48,6 +51,7 @@ class WebTaskWorkflow:
             job for job in unique_jobs if self.verifier.verify(job).is_valid
         ]
         state.jobs = valid_jobs
+        state.matches = self.matcher.match_many(user=user, jobs=valid_jobs)
 
         metrics = state.metrics
         metrics.pages_visited = len(state.pages)
@@ -67,6 +71,7 @@ class WebTaskWorkflow:
         report_path = self.reporter.write_report(
             user=user,
             jobs=valid_jobs,
+            matches=state.matches,
             metrics=metrics,
         )
         state.report_path = str(report_path)

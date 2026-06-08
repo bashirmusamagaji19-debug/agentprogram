@@ -5,8 +5,9 @@
 ## MVP 能力
 
 - 通过浏览器客户端读取网页内容。
-- 用工作流拆分规划、浏览、抽取、验证、保存和报告生成。
+- 用工作流拆分规划、浏览、抽取、验证、匹配、保存和报告生成。
 - 用 SQLite 保存岗位记录和运行指标。
+- 根据技能标签和简历文本生成岗位匹配分数、缺失技能和建议动作。
 - 用测试中的 fake browser 保证端到端流程可复现。
 
 ## 本地运行
@@ -28,4 +29,4 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo
 ```
 
-该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。当前真实 `browser-use` 网页搜索仍保留在 adapter 边界之后，后续阶段再接入。
+该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。生成的 Markdown 报告会包含岗位列表、运行指标和匹配分析。当前真实 `browser-use` 网页搜索仍保留在 adapter 边界之后，后续阶段再接入。

@@ -1,4 +1,4 @@
-from web_task_agent.models import JobPosting, RunMetrics, UserProfile
+from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
 from web_task_agent.reporter import MarkdownReporter
 
 
@@ -68,3 +68,34 @@ def test_reporter_creates_output_directory(tmp_path):
 
     assert report_path.exists()
     assert report_path.parent == output_dir
+
+
+def test_reporter_renders_match_results(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", skills=["Python", "LangGraph"])
+    jobs = [make_job()]
+    metrics = RunMetrics(run_id="run-match", valid_jobs=1)
+    matches = [
+        MatchResult(
+            job_id="https://example.com/jobs/1",
+            score=0.5,
+            matched_skills=["Python", "LangGraph"],
+            missing_skills=["LLM", "FastAPI"],
+            priority="medium",
+            reason="匹配 2/4 个岗位技能。",
+            suggested_actions=["补强或准备相关经历：LLM"],
+        )
+    ]
+
+    content = reporter.render(
+        user=user,
+        jobs=jobs,
+        metrics=metrics,
+        matches=matches,
+    )
+
+    assert "## 匹配分析" in content
+    assert "匹配分数: 0.50" in content
+    assert "优先级: medium" in content
+    assert "已匹配技能: Python, LangGraph" in content
+    assert "缺失技能: LLM, FastAPI" in content

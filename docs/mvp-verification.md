@@ -20,16 +20,17 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `60 passed`。
-- CLI demo 成功运行，输出 `Report written to: reports\run-7a272a24.md` 和 `Valid jobs: 2`。
-- `reports/` 下生成 Markdown 报告。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `65 passed`。
+- CLI demo 成功运行，输出 `Report written to: reports\run-5c576999.md` 和 `Valid jobs: 2`。
+- `reports/` 下生成 Markdown 报告，报告包含岗位列表和匹配分析。
 - SQLite 数据库 `agent.db` 中能读取到 2 条岗位记录。
 
 ## 当前限制
 
 - 当前可演示路径使用内置 demo 页面，不依赖真实招聘网站。
 - 真实 `browser-use` 网页操作仍在 `BrowserUseClient` adapter 边界之后，尚未接入生产搜索。
-- 简历匹配、Dashboard 和 20 任务评测集属于下一阶段。
+- 当前匹配模块基于技能标签和简历文本进行规则匹配，还不是 LLM 语义匹配。
+- Dashboard 和 20 任务评测集属于下一阶段。
 
 ## 环境备注
 

@@ -6,6 +6,7 @@ import asyncio
 from web_task_agent.browser import BrowserUseClient, FakeBrowserClient
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.extractor import PageExtractor
+from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
@@ -46,6 +47,7 @@ async def _run(args: argparse.Namespace) -> int:
     workflow = WebTaskWorkflow(
         browser=browser,
         extractor=PageExtractor(),
+        matcher=JobMatcher(),
         verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
         repository=repo,
         reporter=MarkdownReporter(args.report_dir),
