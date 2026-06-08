@@ -111,3 +111,43 @@ def test_extract_job_missing_company_and_location_use_unknowns_and_lower_confide
     assert job.company == "Unknown Company"
     assert job.location == "Unknown Location"
     assert job.confidence < complete_job.confidence
+
+
+def test_extract_job_missing_title_uses_unknown_and_lower_confidence():
+    complete_job = PageExtractor().extract(LABELED_JOB_PAGE)
+    page = LABELED_JOB_PAGE.model_copy(
+        update={
+            "title": "",
+            "content": (
+                "Company: Example AI\n"
+                "Location: Remote\n"
+                "Requirements: Python, LangGraph, LLM\n"
+                "Responsibilities: Build AI task agents\n"
+            ),
+        }
+    )
+    extractor = PageExtractor()
+
+    job = extractor.extract(page)
+
+    assert job.title == "Unknown Title"
+    assert job.confidence < complete_job.confidence
+
+
+def test_extract_job_preserves_model_skill_dedupe():
+    page = LABELED_JOB_PAGE.model_copy(
+        update={
+            "content": (
+                "Title: AI Intern\n"
+                "Company: Example AI\n"
+                "Location: Remote\n"
+                "Requirements: Python, python, LLM\n"
+                "Responsibilities: Build AI tools\n"
+            )
+        }
+    )
+    extractor = PageExtractor()
+
+    job = extractor.extract(page)
+
+    assert job.skills == ["Python", "LLM"]

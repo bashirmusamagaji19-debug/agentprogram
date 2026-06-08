@@ -18,7 +18,7 @@ class PageExtractor:
     def extract(self, page: BrowserPage) -> JobPosting:
         fields = self._parse_labeled_lines(page.content)
 
-        title = fields.get("title") or page.title
+        title = fields.get("title") or page.title or "Unknown Title"
         company = fields.get("company") or "Unknown Company"
         location = fields.get("location") or "Unknown Location"
         requirements = fields.get("requirements", "")
@@ -80,7 +80,7 @@ class PageExtractor:
         responsibilities: str,
     ) -> float:
         values = [
-            bool(title.strip()),
+            title.strip() != "Unknown Title",
             company.strip() != "Unknown Company",
             location.strip() != "Unknown Location",
             bool(requirements.strip()),
