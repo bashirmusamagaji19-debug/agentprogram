@@ -117,6 +117,7 @@ class EvaluationRunner:
                 valid_jobs=valid_jobs,
                 failed_pages=metrics.failed_pages if metrics else 0,
             )
+            failure_details = self._format_failed_url_errors(state) or failure_details
             task_results.append(
                 TaskEvaluationResult(
                     keyword=task.keyword,
@@ -176,6 +177,15 @@ class EvaluationRunner:
             "verification_filtered",
             "no valid jobs",
             f"jobs_found={jobs_found}; valid_jobs={valid_jobs}",
+        )
+
+    def _format_failed_url_errors(self, state) -> str:
+        errors = state.metadata.get("failed_url_errors", [])
+        if not errors:
+            return ""
+        return "; ".join(
+            f"{item.get('url', '-')} -> {item.get('error', '-')}"
+            for item in errors
         )
 
     def _render_report(self, result: EvaluationResult) -> str:

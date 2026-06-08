@@ -91,6 +91,45 @@ async def test_workflow_opens_seed_urls_without_searching(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_workflow_records_seed_url_error_details(tmp_path):
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+
+    class FailingSeedBrowser:
+        async def search(self, query: str, target_count: int) -> list[object]:
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str) -> object:
+            raise ValueError("fixture page missing")
+
+    workflow = WebTaskWorkflow(
+        browser=FailingSeedBrowser(),
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run(
+        UserProfile(
+            keyword="AI intern",
+            target_count=1,
+            seed_urls=["https://example.com/jobs/missing"],
+        ),
+        run_id="run-seed-failure",
+    )
+
+    assert state.failed_urls == ["https://example.com/jobs/missing"]
+    assert state.metadata["failed_url_errors"] == [
+        {
+            "url": "https://example.com/jobs/missing",
+            "error": "ValueError: fixture page missing",
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_workflow_records_no_valid_jobs_without_crashing(tmp_path):
     repo = JobRepository(tmp_path / "agent.db")
     repo.initialize()

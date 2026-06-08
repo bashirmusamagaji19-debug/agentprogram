@@ -493,6 +493,42 @@ def test_cli_evaluate_seed_url_fixture_writes_single_task_result(
     assert payload["task_results"][0]["pages_visited"] == 1
 
 
+def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--evaluate",
+                "--fixture-sites",
+                "--seed-url",
+                "https://boards.greenhouse.io/example/jobs/missing",
+                "--json-output",
+                "evaluations/missing-seed-result.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Completed tasks: 0/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "missing-seed-result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    task_result = payload["task_results"][0]
+    assert task_result["failure_category"] == "browser_error"
+    assert "https://boards.greenhouse.io/example/jobs/missing" in task_result[
+        "failure_details"
+    ]
+    assert "ValueError" in task_result["failure_details"]
+
+
 def test_cli_evaluate_dashboard_writes_evaluation_html(
     tmp_path,
     monkeypatch,

@@ -147,6 +147,34 @@ async def test_evaluation_runner_opens_seed_urls_without_searching(tmp_path):
     assert result.task_results[0].pages_visited == 1
 
 
+@pytest.mark.asyncio
+async def test_evaluation_runner_reports_seed_url_error_details(tmp_path):
+    class FailingSeedBrowser:
+        async def search(self, query: str, target_count: int) -> list[BrowserPage]:
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str) -> BrowserPage:
+            raise ValueError("fixture page missing")
+
+    task = EvaluationTask(
+        keyword="AI intern",
+        target_count=1,
+        seed_urls=["https://example.com/jobs/missing"],
+    )
+    runner = EvaluationRunner(
+        output_dir=tmp_path,
+        browser_factory=lambda task: FailingSeedBrowser(),
+    )
+
+    result = await runner.run(tasks=[task])
+
+    task_result = result.task_results[0]
+    assert task_result.failure_category == "browser_error"
+    assert task_result.failure_details == (
+        "https://example.com/jobs/missing -> ValueError: fixture page missing"
+    )
+
+
 def test_build_real_smoke_tasks_returns_small_public_search_set():
     tasks = evaluation_module.build_real_smoke_tasks()
 

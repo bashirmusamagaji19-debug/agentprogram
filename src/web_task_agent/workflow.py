@@ -86,11 +86,18 @@ class WebTaskWorkflow:
 
     async def _browser_node(self, state: WorkflowState) -> WorkflowState:
         if state.candidate_urls:
+            failed_url_errors = state.metadata.setdefault("failed_url_errors", [])
             for url in state.candidate_urls:
                 try:
                     state.pages.append(await self.browser.open_url(url))
-                except Exception:
+                except Exception as exc:
                     state.failed_urls.append(url)
+                    failed_url_errors.append(
+                        {
+                            "url": url,
+                            "error": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
             return state
 
         for query in state.search_queries:
