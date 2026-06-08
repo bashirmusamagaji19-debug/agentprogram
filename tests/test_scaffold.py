@@ -1,9 +1,10 @@
+import json
 from pathlib import Path
 
 from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
-from web_task_agent.cli import load_resume_text, main
-from web_task_agent.models import BrowserPage
+from web_task_agent.cli import load_resume_text, main, write_json_output
+from web_task_agent.models import BrowserPage, UserProfile, WorkflowState
 
 
 def test_package_version_matches_project_version() -> None:
@@ -101,6 +102,38 @@ def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     content = dashboards[0].read_text(encoding="utf-8")
     assert "Web Task Agent Dashboard" in content
     assert "匹配分数" in content
+
+
+def test_cli_demo_mode_writes_json_output(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--target-count",
+                "2",
+                "--skill",
+                "Python",
+                "--resume-text",
+                "Built LangGraph browser agents with LLM evaluation loops.",
+                "--demo",
+                "--json-output",
+                "outputs/result.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "JSON output written to:" in captured.out
+    payload = json.loads((tmp_path / "outputs" / "result.json").read_text(encoding="utf-8"))
+    assert payload["user"]["keyword"] == "AI intern"
+    assert payload["metrics"]["valid_jobs"] == 2
+    assert len(payload["jobs"]) == 2
+    assert payload["matches"][0]["score"] == 1.0
+    assert payload["report_path"].endswith(".md")
 
 
 def test_cli_demo_mode_uses_resume_file_for_matching(
@@ -212,6 +245,17 @@ def test_load_resume_text_combines_inline_text_and_files(tmp_path) -> None:
     assert resume_text == (
         "Python browser agent\n\nLangGraph workflow\n\nLLM evaluation"
     )
+
+
+def test_write_json_output_creates_parent_directory(tmp_path) -> None:
+    state = WorkflowState(user=UserProfile(keyword="AI intern"))
+
+    path = write_json_output(state, str(tmp_path / "nested" / "state.json"))
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert path.name == "state.json"
+    assert payload["user"]["keyword"] == "AI intern"
+    assert payload["jobs"] == []
 
 
 def test_cli_non_demo_mode_exits_with_clear_message(monkeypatch, capsys) -> None:

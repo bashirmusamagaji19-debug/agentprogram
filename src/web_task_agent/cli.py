@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 from pathlib import Path
 
 from web_task_agent.browser import (
@@ -53,6 +54,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--db-path", default="agent.db")
     parser.add_argument("--report-dir", default="reports")
+    parser.add_argument(
+        "--json-output",
+        help="Write the completed workflow state to a machine-readable JSON file.",
+    )
     parser.add_argument(
         "--dashboard",
         action="store_true",
@@ -173,6 +178,9 @@ async def _run(args: argparse.Namespace) -> int:
         print("LangGraph workflow: enabled")
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
+    if args.json_output:
+        json_path = write_json_output(state, args.json_output)
+        print(f"JSON output written to: {json_path}")
     if args.dashboard and state.metrics:
         dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
             user=state.user,
@@ -190,6 +198,16 @@ def load_resume_text(inline_texts: list[str], file_paths: list[str]) -> str:
         path = Path(file_path)
         chunks.append(path.read_text(encoding="utf-8").strip())
     return "\n\n".join(chunk for chunk in chunks if chunk)
+
+
+def write_json_output(state, output_path: str) -> Path:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(state.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return path
 
 
 def build_workflow(

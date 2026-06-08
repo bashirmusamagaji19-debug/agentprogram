@@ -9,5 +9,6 @@ htmlcov/
 reports/
 dashboards/
 evaluations/
+outputs/
 browser-artifacts/
 .env
