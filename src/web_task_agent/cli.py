@@ -125,6 +125,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print built-in public job fixture URLs and exit.",
     )
+    parser.add_argument(
+        "--print-demo-script",
+        action="store_true",
+        help="Print a copyable local interview demo command script and exit.",
+    )
     return parser
 
 
@@ -149,6 +154,10 @@ async def _run(args: argparse.Namespace) -> int:
 
     if args.list_fixture_urls:
         print_fixture_urls()
+        return 0
+
+    if args.print_demo_script:
+        print_demo_script()
         return 0
 
     if args.history:
@@ -338,6 +347,35 @@ def print_fixture_urls() -> None:
     print("Fixture job URLs")
     for page in PUBLIC_JOB_FIXTURE_PAGES:
         print(f"{page.title} | {page.url}")
+
+
+def print_demo_script() -> None:
+    print("Demo script")
+    commands = [
+        r".\.venv\Scripts\web-task-agent.exe --doctor",
+        r".\.venv\Scripts\web-task-agent.exe --list-fixture-urls",
+        (
+            r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
+            r"--target-count 1 --demo --dashboard"
+        ),
+        (
+            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r'"https://example.com/jobs/ai-engineering-intern" --demo '
+            r"--target-count 1 --json-output outputs\seed-demo.json --dashboard"
+        ),
+        (
+            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r'"https://example.com/jobs/unstructured-ai-agent-intern" --demo '
+            r"--target-count 1 --llm-extractor-demo "
+            r"--json-output outputs\unstructured-llm-demo.json --dashboard"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites "
+            r"--json-output evaluations\fixture-result.json"
+        ),
+    ]
+    for index, command in enumerate(commands, start=1):
+        print(f"{index}. {command}")
 
 
 def writable_status(path: Path) -> str:

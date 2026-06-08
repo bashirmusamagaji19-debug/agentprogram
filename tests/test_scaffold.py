@@ -46,6 +46,18 @@ def test_cli_lists_public_fixture_urls(capsys) -> None:
     assert "https://jobs.lever.co/example/llm-application-intern" in captured.out
 
 
+def test_cli_prints_demo_script(capsys) -> None:
+    assert main(["--print-demo-script"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Demo script" in captured.out
+    assert "--doctor" in captured.out
+    assert "--list-fixture-urls" in captured.out
+    assert "--seed-url" in captured.out
+    assert "--llm-extractor-demo" in captured.out
+    assert "--evaluate --fixture-sites" in captured.out
+
+
 def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 

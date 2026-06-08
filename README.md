@@ -25,6 +25,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --version
 .\.venv\Scripts\web-task-agent.exe --doctor
 .\.venv\Scripts\web-task-agent.exe --list-fixture-urls
+.\.venv\Scripts\web-task-agent.exe --print-demo-script
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-file .\resume.md --demo --dashboard
@@ -64,6 +65,8 @@ python -m venv .venv
 使用 `--llm-extractor-demo` 可以启用 deterministic LLM 风格结构化抽取器，用于演示低结构化 JD 页面如何通过可替换的 LLM 抽取边界恢复为 `JobPosting`，不会调用真实外部 API。
 
 使用 `--list-fixture-urls` 可以列出内置 Greenhouse/Lever 风格 fixture URL，便于快速复制到 `--seed-url` 演示或评测命令。
+
+使用 `--print-demo-script` 可以输出一组面试现场可复制的演示命令，覆盖环境自检、fixture URL、Dashboard、seed URL、LLM extractor demo 和 fixture evaluation。
 
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
 
