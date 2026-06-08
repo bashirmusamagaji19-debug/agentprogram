@@ -23,6 +23,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
+.\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 ```
 
@@ -46,4 +47,4 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 ```
 
-该命令会在 `evaluations/` 下生成评测报告。当前内置 demo 评测结果为：20/20 任务完成，任务成功率 1.00，有效岗位总数 40，平均访问页面数 2.00。报告还会输出失败原因分布；真实招聘页风格 fixture 评测可使用 `--evaluate --fixture-sites`，真实浏览器 smoke 评测可使用 `--evaluate --real-smoke`，用于观察 `browser_error`、`no_pages`、`no_extracted_jobs`、`verification_filtered` 等失败类别。
+该命令会在 `evaluations/` 下生成评测报告。当前内置 demo 评测结果为：20/20 任务完成，任务成功率 1.00，有效岗位总数 40，平均访问页面数 2.00。报告还会输出失败原因分布；真实招聘页风格 fixture 评测可使用 `--evaluate --fixture-sites`，并可加 `--dashboard` 生成 `dashboards/evaluation-summary.html`。真实浏览器 smoke 评测可使用 `--evaluate --real-smoke`，用于观察 `browser_error`、`no_pages`、`no_extracted_jobs`、`verification_filtered` 等失败类别。

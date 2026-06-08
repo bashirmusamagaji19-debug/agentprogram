@@ -92,6 +92,15 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"Evaluation report written to: {result.report_path}")
         print(f"Task success rate: {result.success_rate:.2f}")
         print(f"Completed tasks: {result.completed_tasks}/{result.total_tasks}")
+        if args.dashboard:
+            dashboard_dir = HtmlDashboard(args.dashboard_dir).output_dir
+            dashboard_dir.mkdir(parents=True, exist_ok=True)
+            dashboard_path = dashboard_dir / "evaluation-summary.html"
+            dashboard_path.write_text(
+                HtmlDashboard(args.dashboard_dir).render_evaluation_summary(result),
+                encoding="utf-8",
+            )
+            print(f"Evaluation dashboard written to: {dashboard_path}")
         return 0
 
     if not args.keyword:

@@ -153,3 +153,21 @@ def test_cli_fixture_sites_evaluate_writes_success_report(
     assert "AI Agent Engineering Intern" in report
     assert "LLM Application Intern" in report
     assert "| - | 0 |" in report
+
+
+def test_cli_evaluate_dashboard_writes_evaluation_html(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert main(["--evaluate", "--fixture-sites", "--dashboard"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Evaluation dashboard written to:" in captured.out
+    dashboards = list((tmp_path / "dashboards").glob("evaluation-*.html"))
+    assert len(dashboards) == 1
+    html = dashboards[0].read_text(encoding="utf-8")
+    assert "Evaluation Summary" in html
+    assert "任务成功率" in html

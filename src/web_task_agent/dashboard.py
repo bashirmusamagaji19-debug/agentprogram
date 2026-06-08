@@ -3,6 +3,7 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 
+from web_task_agent.evaluation import EvaluationResult, TaskEvaluationResult
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
 
 
@@ -191,3 +192,74 @@ class HtmlDashboard:
         if not skills:
             return "暂无"
         return " ".join(f'<span class="pill">{escape(skill)}</span>' for skill in skills)
+
+    def render_evaluation_summary(self, result: EvaluationResult) -> str:
+        failure_rows = "\n".join(
+            f"<tr><td>{escape(category)}</td><td>{count}</td></tr>"
+            for category, count in sorted(result.failure_counts.items())
+        )
+        if not failure_rows:
+            failure_rows = "<tr><td>-</td><td>0</td></tr>"
+
+        task_rows = "\n".join(
+            self._evaluation_task_row(task_result)
+            for task_result in result.task_results
+        )
+        if not task_rows:
+            task_rows = '<tr><td colspan="8">暂无评测任务</td></tr>'
+
+        return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evaluation Summary</title>
+</head>
+<body>
+  <main>
+    <h1>Evaluation Summary</h1>
+    <section class="metrics">
+      {self._metric("任务总数", result.total_tasks)}
+      {self._metric("完成任务数", result.completed_tasks)}
+      {self._metric("任务成功率", f"{result.success_rate:.2f}")}
+      {self._metric("有效岗位总数", result.total_valid_jobs)}
+      {self._metric("平均访问页面数", f"{result.average_pages_visited:.2f}")}
+    </section>
+    <h2>失败原因分布</h2>
+    <table>
+      <thead><tr><th>类别</th><th>数量</th></tr></thead>
+      <tbody>{failure_rows}</tbody>
+    </table>
+    <h2>任务明细</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>关键词</th>
+          <th>地点</th>
+          <th>访问页面数</th>
+          <th>有效岗位数</th>
+          <th>状态</th>
+          <th>失败类别</th>
+          <th>失败原因</th>
+          <th>失败细节</th>
+        </tr>
+      </thead>
+      <tbody>{task_rows}</tbody>
+    </table>
+  </main>
+</body>
+</html>
+"""
+
+    def _evaluation_task_row(self, task_result: TaskEvaluationResult) -> str:
+        status = "成功" if task_result.success else "失败"
+        return f"""<tr>
+  <td>{escape(task_result.keyword)}</td>
+  <td>{escape(task_result.location)}</td>
+  <td>{task_result.pages_visited}</td>
+  <td>{task_result.valid_jobs}</td>
+  <td>{status}</td>
+  <td>{escape(task_result.failure_category or "-")}</td>
+  <td>{escape(task_result.failure_reason or "-")}</td>
+  <td>{escape(task_result.failure_details or "-")}</td>
+</tr>"""

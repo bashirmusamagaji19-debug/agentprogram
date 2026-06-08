@@ -1,4 +1,5 @@
 from web_task_agent.dashboard import HtmlDashboard
+from web_task_agent.evaluation import EvaluationResult, TaskEvaluationResult
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
 
 
@@ -75,3 +76,36 @@ def test_dashboard_writes_html_file(tmp_path):
     assert path.exists()
     assert path.name == "run-dashboard.html"
     assert "未找到有效岗位" in path.read_text(encoding="utf-8")
+
+
+def test_dashboard_renders_evaluation_summary_with_failure_counts():
+    dashboard = HtmlDashboard()
+    result = EvaluationResult(
+        total_tasks=3,
+        completed_tasks=1,
+        success_rate=0.33,
+        total_valid_jobs=2,
+        average_pages_visited=1.67,
+        failure_counts={"verification_filtered": 2},
+        task_results=[
+            TaskEvaluationResult(
+                keyword="AI intern",
+                location="Remote",
+                pages_visited=1,
+                valid_jobs=0,
+                success=False,
+                failure_reason="no valid jobs",
+                failure_category="verification_filtered",
+                failure_details="jobs_found=1; valid_jobs=0",
+            )
+        ],
+    )
+
+    html = dashboard.render_evaluation_summary(result)
+
+    assert "<!doctype html>" in html
+    assert "Evaluation Summary" in html
+    assert "任务成功率" in html
+    assert "0.33" in html
+    assert "verification_filtered" in html
+    assert "jobs_found=1; valid_jobs=0" in html
