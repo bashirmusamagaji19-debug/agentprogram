@@ -76,7 +76,7 @@ print(jobs[0].title if jobs else "no jobs")
 - 岗位 Dashboard 支持文本搜索、优先级筛选和匹配分数排序。
 - `evaluations/evaluation-report.md` 记录任务总数、完成任务数、任务成功率、有效岗位总数和平均访问页面数。
 - SQLite 数据库 `agent.db` 中能读取到 2 条岗位记录。
-- `outputs/result.json` 能读取到用户输入、岗位、匹配结果、运行指标和报告路径。
+- `outputs/result.json` 能读取到用户输入、岗位、匹配结果、运行指标和报告路径；与 `--action-plan` 同用时包含 `metadata.action_plan_path`。
 
 ## 当前限制
 
