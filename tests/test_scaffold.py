@@ -72,6 +72,72 @@ def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     assert "AI 实习岗位搜索报告" in reports[0].read_text(encoding="utf-8")
 
 
+def test_cli_demo_mode_can_use_llm_extractor_demo(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--llm-extractor-demo",
+                "--json-output",
+                "outputs/llm-extractor-demo.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LLM extractor demo: enabled" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "llm-extractor-demo.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["metadata"]["extractor_mode"] == "llm-demo"
+
+
+def test_cli_llm_extractor_demo_recovers_unstructured_seed_page(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/unstructured-ai-agent-intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--llm-extractor-demo",
+                "--json-output",
+                "outputs/unstructured-llm.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LLM extractor demo: enabled" in captured.out
+    assert "Valid jobs: 1" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "unstructured-llm.json").read_text(encoding="utf-8")
+    )
+    assert payload["jobs"][0]["title"] == "AI Agent Intern"
+    assert payload["jobs"][0]["company"] == "Example Robotics"
+
+
 def test_cli_demo_mode_can_run_with_langgraph(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 

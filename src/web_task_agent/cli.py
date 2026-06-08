@@ -25,6 +25,7 @@ from web_task_agent.evaluation import (
 )
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.graph_export import LangGraphExporter
+from web_task_agent.llm_extractor import DemoLlmFieldExtractor
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
 from web_task_agent.reporter import MarkdownReporter
@@ -83,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--langgraph",
         action="store_true",
         help="Run the main workflow through LangGraph nodes.",
+    )
+    parser.add_argument(
+        "--llm-extractor-demo",
+        action="store_true",
+        help="Use a deterministic LLM-style structured extractor demo.",
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
@@ -156,6 +162,7 @@ async def _run(args: argparse.Namespace) -> int:
             browser=FakeBrowserClient(DEMO_JOB_PAGES),
             db_path=args.db_path,
             report_dir=args.report_dir,
+            llm_extractor_demo=args.llm_extractor_demo,
         )
         graph_path = LangGraphExporter().write_markdown(workflow)
         print(f"Graph written to: {graph_path}")
@@ -232,6 +239,7 @@ async def _run(args: argparse.Namespace) -> int:
         browser=browser,
         db_path=args.db_path,
         report_dir=args.report_dir,
+        llm_extractor_demo=args.llm_extractor_demo,
     )
     try:
         resume_text = load_resume_text(args.resume_text, args.resume_file)
@@ -258,6 +266,9 @@ async def _run(args: argparse.Namespace) -> int:
     valid_jobs = state.metrics.valid_jobs if state.metrics else 0
     if args.langgraph:
         print("LangGraph workflow: enabled")
+    if args.llm_extractor_demo:
+        print("LLM extractor demo: enabled")
+        state.metadata["extractor_mode"] = "llm-demo"
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
     if args.json_output:
@@ -345,12 +356,15 @@ def build_workflow(
     browser,
     db_path: str,
     report_dir: str,
+    llm_extractor_demo: bool = False,
 ) -> WebTaskWorkflow:
     repo = JobRepository(db_path)
     repo.initialize()
     return WebTaskWorkflow(
         browser=browser,
-        extractor=PageExtractor(),
+        extractor=PageExtractor(
+            llm_field_extractor=DemoLlmFieldExtractor() if llm_extractor_demo else None,
+        ),
         matcher=JobMatcher(),
         verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
         repository=repo,

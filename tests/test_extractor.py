@@ -202,3 +202,33 @@ def test_extract_job_from_lever_style_public_job_page():
     assert job.location == "Shanghai"
     assert "Prototype RAG" in job.responsibilities
     assert job.skills == ["Python", "FastAPI", "RAG", "evaluation"]
+
+
+def test_extract_job_uses_llm_field_extractor_when_rule_confidence_is_low():
+    page = BrowserPage(
+        url="https://example.com/jobs/unstructured",
+        title="Careers",
+        content=(
+            "We are hiring an AI Agent Intern at Example Robotics. "
+            "This remote role builds LangGraph browser agents. "
+            "Candidates need Python, LangGraph, and LLM evaluation."
+        ),
+        source="unstructured-fixture",
+    )
+
+    def fake_llm_extract(page: BrowserPage) -> dict[str, str]:
+        return {
+            "title": "AI Agent Intern",
+            "company": "Example Robotics",
+            "location": "Remote",
+            "requirements": "Python, LangGraph, LLM evaluation",
+            "responsibilities": "Build LangGraph browser agents",
+        }
+
+    job = PageExtractor(llm_field_extractor=fake_llm_extract).extract(page)
+
+    assert job.title == "AI Agent Intern"
+    assert job.company == "Example Robotics"
+    assert job.location == "Remote"
+    assert job.skills == ["Python", "LangGraph", "LLM evaluation"]
+    assert job.confidence >= 0.8

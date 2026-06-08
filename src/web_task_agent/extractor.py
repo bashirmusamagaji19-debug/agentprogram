@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from web_task_agent.models import BrowserPage, JobPosting
+
+
+LlmFieldExtractor = Callable[[BrowserPage], dict[str, str]]
 
 
 class PageExtractor:
@@ -15,6 +19,15 @@ class PageExtractor:
         "posted_at": {"posted", "posted at", "date"},
     }
 
+    def __init__(
+        self,
+        *,
+        llm_field_extractor: LlmFieldExtractor | None = None,
+        llm_min_rule_confidence: float = 0.6,
+    ) -> None:
+        self.llm_field_extractor = llm_field_extractor
+        self.llm_min_rule_confidence = llm_min_rule_confidence
+
     def extract(self, page: BrowserPage) -> JobPosting:
         fields = self._parse_labeled_lines(page.content)
         inferred_fields = self._infer_public_job_fields(page)
@@ -25,6 +38,48 @@ class PageExtractor:
         requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
         responsibilities = fields.get("responsibilities") or inferred_fields.get("responsibilities", "")
 
+        job = JobPosting(
+            title=title,
+            company=company,
+            location=location,
+            source=page.source,
+            url=page.url,
+            requirements=requirements,
+            responsibilities=responsibilities,
+            skills=self._extract_skills(requirements),
+            posted_at=fields.get("posted_at", ""),
+            confidence=self._confidence(
+                title=title,
+                company=company,
+                location=location,
+                requirements=requirements,
+                responsibilities=responsibilities,
+            ),
+        )
+        if self.llm_field_extractor and job.confidence < self.llm_min_rule_confidence:
+            llm_fields = self.llm_field_extractor(page)
+            return self._job_from_fields(
+                page=page,
+                fields={
+                    "title": llm_fields.get("title", job.title),
+                    "company": llm_fields.get("company", job.company),
+                    "location": llm_fields.get("location", job.location),
+                    "requirements": llm_fields.get("requirements", job.requirements),
+                    "responsibilities": llm_fields.get(
+                        "responsibilities",
+                        job.responsibilities,
+                    ),
+                    "posted_at": llm_fields.get("posted_at", job.posted_at),
+                },
+            )
+        return job
+
+    def _job_from_fields(self, *, page: BrowserPage, fields: dict[str, str]) -> JobPosting:
+        title = fields.get("title") or page.title or "Unknown Title"
+        company = fields.get("company") or "Unknown Company"
+        location = fields.get("location") or "Unknown Location"
+        requirements = fields.get("requirements", "")
+        responsibilities = fields.get("responsibilities", "")
         return JobPosting(
             title=title,
             company=company,

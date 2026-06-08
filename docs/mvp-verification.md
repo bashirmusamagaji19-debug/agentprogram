@@ -15,6 +15,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-text "Built LangGraph browser agents with LLM evaluation loops." --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --demo --json-output outputs\result.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-demo --json-output outputs\unstructured-llm-demo.json --dashboard
 .\.venv\Scripts\web-task-agent.exe --history
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 1
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
@@ -39,7 +40,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `125 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `128 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
@@ -48,6 +49,7 @@ print(jobs[0].title if jobs else "no jobs")
 - 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。
 - JSON 导出 demo 成功运行，输出 `JSON output written to: outputs\result.json`。
 - seed URL demo 成功运行，输出 `Valid jobs: 1` 和 `JSON output written to: outputs\seed-demo.json`，说明可跳过搜索并直接打开指定 JD。
+- deterministic LLM extractor demo 成功运行，输出 `LLM extractor demo: enabled`、`Valid jobs: 1` 和 `JSON output written to: outputs\unstructured-llm-demo.json`；JSON 中 `metadata.extractor_mode` 为 `llm-demo`，岗位为 `AI Agent Intern / Example Robotics`。
 - seed URL Dashboard 成功运行，生成的 HTML 包含 `Input Trace`、`Seed URL mode` 和指定 JD 链接。
 - 搜索模式 Dashboard 成功运行，生成的 HTML 包含 `Input Trace`、`Search query mode` 和 `AI intern Remote`。
 - 缺失 seed URL Dashboard 成功运行，生成的 HTML 包含 `URL Errors`、缺失 URL 和 `ValueError`。

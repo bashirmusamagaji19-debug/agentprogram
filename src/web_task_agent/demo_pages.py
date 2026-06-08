@@ -31,4 +31,14 @@ DEMO_JOB_PAGES = [
         ),
         source="demo",
     ),
+    BrowserPage(
+        url="https://example.com/jobs/unstructured-ai-agent-intern",
+        title="Careers",
+        content=(
+            "We are hiring an AI Agent Intern at Example Robotics. "
+            "This remote role builds LangGraph browser agents. "
+            "Candidates need Python, LangGraph, and LLM evaluation."
+        ),
+        source="demo-unstructured",
+    ),
 ]
