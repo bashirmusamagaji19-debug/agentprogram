@@ -160,6 +160,7 @@ async def _run(args: argparse.Namespace) -> int:
         print_doctor_report(
             report_dir=args.report_dir,
             dashboard_dir=args.dashboard_dir,
+            action_plan_dir=args.action_plan_dir,
             db_path=args.db_path,
         )
         return 0
@@ -420,7 +421,13 @@ def print_run_history(runs) -> None:
         )
 
 
-def print_doctor_report(*, report_dir: str, dashboard_dir: str, db_path: str) -> None:
+def print_doctor_report(
+    *,
+    report_dir: str,
+    dashboard_dir: str,
+    action_plan_dir: str,
+    db_path: str,
+) -> None:
     print("Environment doctor")
     print(f"python: {sys.executable}")
     for module_name in ["langgraph", "browser_use", "pydantic"]:
@@ -429,6 +436,7 @@ def print_doctor_report(*, report_dir: str, dashboard_dir: str, db_path: str) ->
     print(f"database_parent: {writable_status(Path(db_path).parent)}")
     print(f"reports: {writable_status(Path(report_dir))}")
     print(f"dashboards: {writable_status(Path(dashboard_dir))}")
+    print(f"action_plans: {writable_status(Path(action_plan_dir))}")
 
 
 def print_fixture_urls() -> None:

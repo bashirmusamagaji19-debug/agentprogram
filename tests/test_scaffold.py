@@ -35,6 +35,7 @@ def test_cli_doctor_prints_environment_checks(tmp_path, monkeypatch, capsys) -> 
     assert "browser_use:" in captured.out
     assert "reports: writable" in captured.out
     assert "dashboards: writable" in captured.out
+    assert "action_plans: writable" in captured.out
 
 
 def test_cli_lists_public_fixture_urls(capsys) -> None:
