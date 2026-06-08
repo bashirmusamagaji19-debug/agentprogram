@@ -340,6 +340,15 @@ async def _run(args: argparse.Namespace) -> int:
             jobs=state.jobs,
             matches=state.matches,
         )
+        state.report_path = str(
+            MarkdownReporter(args.report_dir).write_report(
+                user=state.user,
+                jobs=state.jobs,
+                matches=state.matches,
+                metrics=state.metrics,
+                artifact_links={"行动计划": plan_path},
+            )
+        )
         print(f"Action plan written to: {plan_path}")
     return 0
 

@@ -17,11 +17,18 @@ class MarkdownReporter:
         jobs: list[JobPosting],
         matches: list[MatchResult] | None = None,
         metrics: RunMetrics,
+        artifact_links: dict[str, str | Path] | None = None,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.output_dir / f"{metrics.run_id}.md"
         report_path.write_text(
-            self.render(user=user, jobs=jobs, matches=matches, metrics=metrics),
+            self.render(
+                user=user,
+                jobs=jobs,
+                matches=matches,
+                metrics=metrics,
+                artifact_links=artifact_links,
+            ),
             encoding="utf-8",
         )
         return report_path
@@ -33,6 +40,7 @@ class MarkdownReporter:
         jobs: list[JobPosting],
         matches: list[MatchResult] | None = None,
         metrics: RunMetrics,
+        artifact_links: dict[str, str | Path] | None = None,
     ) -> str:
         match_by_job_id = {match.job_id: match for match in (matches or [])}
         lines = [
@@ -59,6 +67,7 @@ class MarkdownReporter:
 
         if not jobs:
             lines.extend(["未找到有效岗位。", ""])
+            self._append_artifact_links(lines, artifact_links)
             return "\n".join(lines)
 
         skill_gaps = summarize_skill_gaps(matches or [])
@@ -109,4 +118,17 @@ class MarkdownReporter:
                 lines.extend(f"- {action}" for action in match.suggested_actions)
                 lines.append("")
 
+        self._append_artifact_links(lines, artifact_links)
         return "\n".join(lines)
+
+    def _append_artifact_links(
+        self,
+        lines: list[str],
+        artifact_links: dict[str, str | Path] | None,
+    ) -> None:
+        if not artifact_links:
+            return
+        lines.extend(["## 相关产物", ""])
+        for label, path in artifact_links.items():
+            lines.append(f"- {label}: {Path(path).as_posix()}")
+        lines.append("")

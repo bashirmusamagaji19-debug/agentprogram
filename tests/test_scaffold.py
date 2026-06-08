@@ -246,9 +246,14 @@ def test_cli_demo_mode_writes_action_plan(
     assert "Action plan written to:" in captured.out
     plans = list(Path("action-plans").glob("*.md"))
     assert len(plans) == 1
+    reports = list(Path("reports").glob("*.md"))
+    assert len(reports) == 1
     content = plans[0].read_text(encoding="utf-8")
     assert "# AI 实习行动计划" in content
     assert "技能补强顺序" in content
+    report = reports[0].read_text(encoding="utf-8")
+    assert "## 相关产物" in report
+    assert f"- 行动计划: {plans[0].as_posix()}" in report
 
 
 def test_cli_demo_dashboard_includes_search_query_trace(

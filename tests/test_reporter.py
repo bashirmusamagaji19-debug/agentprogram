@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
 from web_task_agent.reporter import MarkdownReporter
 
@@ -132,3 +134,20 @@ def test_reporter_renders_skill_gap_summary(tmp_path):
     assert "## 技能缺口汇总" in content
     assert "- LLM: 2 个岗位缺失" in content
     assert "- FastAPI: 1 个岗位缺失" in content
+
+
+def test_reporter_renders_related_artifact_links(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    jobs = [make_job()]
+    metrics = RunMetrics(run_id="run-artifacts", valid_jobs=1)
+
+    content = reporter.render(
+        user=user,
+        jobs=jobs,
+        metrics=metrics,
+        artifact_links={"行动计划": Path("action-plans/run-artifacts.md")},
+    )
+
+    assert "## 相关产物" in content
+    assert "- 行动计划: action-plans/run-artifacts.md" in content
