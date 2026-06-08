@@ -6,6 +6,7 @@ import asyncio
 from web_task_agent.browser import BrowserUseClient, FakeBrowserClient
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
+from web_task_agent.evaluation import EvaluationRunner, build_default_tasks
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
@@ -17,7 +18,7 @@ from web_task_agent.workflow import WebTaskWorkflow
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the Web Task Agent MVP.")
-    parser.add_argument("--keyword", required=True)
+    parser.add_argument("--keyword")
     parser.add_argument("--location", default="Remote")
     parser.add_argument("--target-count", type=int, default=10)
     parser.add_argument("--skill", action="append", default=[])
@@ -34,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write a local HTML dashboard.",
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
+    parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
+    parser.add_argument("--evaluation-count", type=int, default=20)
+    parser.add_argument("--evaluation-dir", default="evaluations")
     return parser
 
 
@@ -44,6 +48,18 @@ def main(argv: list[str] | None = None) -> int:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.evaluate:
+        tasks = build_default_tasks()[: args.evaluation_count]
+        result = await EvaluationRunner(args.evaluation_dir).run(tasks=tasks)
+        print(f"Evaluation report written to: {result.report_path}")
+        print(f"Task success rate: {result.success_rate:.2f}")
+        print(f"Completed tasks: {result.completed_tasks}/{result.total_tasks}")
+        return 0
+
+    if not args.keyword:
+        print("--keyword is required unless --evaluate is used.")
+        return 2
+
     if not args.demo:
         print("Real browser-use mode is not implemented yet. Re-run with --demo.")
         return 2

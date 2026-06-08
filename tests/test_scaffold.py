@@ -70,3 +70,17 @@ def test_cli_non_demo_mode_exits_with_clear_message(capsys) -> None:
     captured = capsys.readouterr()
     assert "not implemented yet" in captured.out
     assert "--demo" in captured.out
+
+
+def test_cli_evaluate_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert main(["--evaluate", "--evaluation-count", "3"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Evaluation report written to:" in captured.out
+    report = Path("evaluations") / "evaluation-report.md"
+    assert report.exists()
+    content = report.read_text(encoding="utf-8")
+    assert "任务成功率" in content
+    assert "任务总数: 3" in content
