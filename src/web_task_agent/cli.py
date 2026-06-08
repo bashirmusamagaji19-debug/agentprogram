@@ -18,6 +18,7 @@ from web_task_agent.evaluation import (
     build_real_smoke_tasks,
 )
 from web_task_agent.extractor import PageExtractor
+from web_task_agent.graph_export import LangGraphExporter
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
 from web_task_agent.reporter import MarkdownReporter
@@ -63,6 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use public job-board style fixture pages when --evaluate is enabled.",
     )
+    parser.add_argument(
+        "--export-graph",
+        action="store_true",
+        help="Write the LangGraph workflow as a Mermaid Markdown document.",
+    )
     return parser
 
 
@@ -77,6 +83,16 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.export_graph:
+        workflow = build_workflow(
+            browser=FakeBrowserClient(DEMO_JOB_PAGES),
+            db_path=args.db_path,
+            report_dir=args.report_dir,
+        )
+        graph_path = LangGraphExporter().write_markdown(workflow)
+        print(f"Graph written to: {graph_path}")
+        return 0
+
     if args.evaluate:
         if args.fixture_sites:
             tasks = build_public_job_fixture_tasks()[: args.evaluation_count]
@@ -112,16 +128,11 @@ async def _run(args: argparse.Namespace) -> int:
         print("--keyword is required unless --evaluate is used.")
         return 2
 
-    repo = JobRepository(args.db_path)
-    repo.initialize()
     browser = build_browser(demo=args.demo)
-    workflow = WebTaskWorkflow(
+    workflow = build_workflow(
         browser=browser,
-        extractor=PageExtractor(),
-        matcher=JobMatcher(),
-        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
-        repository=repo,
-        reporter=MarkdownReporter(args.report_dir),
+        db_path=args.db_path,
+        report_dir=args.report_dir,
     )
     try:
         user = UserProfile(
@@ -152,6 +163,24 @@ async def _run(args: argparse.Namespace) -> int:
         )
         print(f"Dashboard written to: {dashboard_path}")
     return 0
+
+
+def build_workflow(
+    *,
+    browser,
+    db_path: str,
+    report_dir: str,
+) -> WebTaskWorkflow:
+    repo = JobRepository(db_path)
+    repo.initialize()
+    return WebTaskWorkflow(
+        browser=browser,
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(report_dir),
+    )
 
 
 if __name__ == "__main__":

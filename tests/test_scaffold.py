@@ -61,6 +61,18 @@ def test_cli_demo_mode_can_run_with_langgraph(tmp_path, monkeypatch, capsys) -> 
     assert list(Path("reports").glob("*.md"))
 
 
+def test_cli_can_export_langgraph_markdown(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert main(["--export-graph"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Graph written to:" in captured.out
+    graph_path = tmp_path / "docs" / "agent-workflow-graph.md"
+    assert graph_path.exists()
+    assert "```mermaid" in graph_path.read_text(encoding="utf-8")
+
+
 def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 
