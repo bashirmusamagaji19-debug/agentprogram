@@ -44,7 +44,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `136 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `137 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
@@ -72,7 +72,7 @@ print(jobs[0].title if jobs else "no jobs")
 - 非 demo 的 `BrowserUseClient` 本地 session adapter 成功运行，输出 `Report written to: reports\run-*.md` 和 `Valid jobs: 0`；该结果说明真实浏览器入口可执行，但搜索页尚未转化为招聘站点 JD 抽取。`--evaluate --real-smoke` 可批量运行真实浏览器 smoke task，并把失败归类为 `browser_error`、`no_pages`、`no_extracted_jobs` 或 `verification_filtered`。
 - `reports/` 下生成 Markdown 报告，报告包含岗位列表和匹配分析。
 - `action-plans/` 下生成 Markdown 行动计划，报告投递优先级、技能缺口、项目补强任务和 7 天执行节奏。
-- `dashboards/` 下生成 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能、技能缺口汇总和输入轨迹。
+- `dashboards/` 下生成 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能、技能缺口汇总、输入轨迹和行动计划等相关产物链接。
 - 岗位 Dashboard 支持文本搜索、优先级筛选和匹配分数排序。
 - `evaluations/evaluation-report.md` 记录任务总数、完成任务数、任务成功率、有效岗位总数和平均访问页面数。
 - SQLite 数据库 `agent.db` 中能读取到 2 条岗位记录。

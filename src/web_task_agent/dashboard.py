@@ -21,6 +21,7 @@ class HtmlDashboard:
         metrics: RunMetrics,
         search_queries: list[str] | None = None,
         failed_url_errors: list[dict[str, str]] | None = None,
+        artifact_links: dict[str, str | Path] | None = None,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / f"{metrics.run_id}.html"
@@ -32,6 +33,7 @@ class HtmlDashboard:
                 metrics=metrics,
                 search_queries=search_queries,
                 failed_url_errors=failed_url_errors,
+                artifact_links=artifact_links,
             ),
             encoding="utf-8",
         )
@@ -46,6 +48,7 @@ class HtmlDashboard:
         metrics: RunMetrics,
         search_queries: list[str] | None = None,
         failed_url_errors: list[dict[str, str]] | None = None,
+        artifact_links: dict[str, str | Path] | None = None,
     ) -> str:
         match_by_job_id = {match.job_id: match for match in matches}
         job_rows = "\n".join(
@@ -59,6 +62,7 @@ class HtmlDashboard:
             failed_url_errors=failed_url_errors or [],
         )
         gap_summary = self._skill_gap_summary(matches)
+        artifacts = self._artifact_links(artifact_links)
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -230,6 +234,7 @@ class HtmlDashboard:
       {self._metric("失败页面数", metrics.failed_pages)}
     </section>
     {input_trace}
+    {artifacts}
     {gap_summary}
     <section class="controls" aria-label="Dashboard controls">
       <div class="control">
@@ -397,6 +402,18 @@ class HtmlDashboard:
         return f"""<section class="gap-summary">
       <h2>Input Trace</h2>
       {''.join(trace_parts)}
+    </section>"""
+
+    def _artifact_links(self, artifact_links: dict[str, str | Path] | None) -> str:
+        if not artifact_links:
+            return ""
+        items = "\n".join(
+            f'<li><a href="{escape(Path(path).as_posix())}">{escape(label)}</a></li>'
+            for label, path in artifact_links.items()
+        )
+        return f"""<section class="gap-summary">
+      <h2>相关产物</h2>
+      <ul>{items}</ul>
     </section>"""
 
     def render_evaluation_summary(self, result: EvaluationResult) -> str:

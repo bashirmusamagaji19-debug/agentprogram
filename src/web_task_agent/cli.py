@@ -321,16 +321,7 @@ async def _run(args: argparse.Namespace) -> int:
         state.metadata["extractor_mode"] = "llm-demo"
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
-    if args.dashboard and state.metrics:
-        dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
-            user=state.user,
-            jobs=state.jobs,
-            matches=state.matches,
-            metrics=state.metrics,
-            search_queries=state.search_queries,
-            failed_url_errors=state.metadata.get("failed_url_errors", []),
-        )
-        print(f"Dashboard written to: {dashboard_path}")
+    artifact_links = {}
     if args.action_plan and state.metrics:
         plan_path = ActionPlanWriter(args.action_plan_dir).write_plan(
             run_id=state.metrics.run_id,
@@ -339,16 +330,28 @@ async def _run(args: argparse.Namespace) -> int:
             matches=state.matches,
         )
         state.metadata["action_plan_path"] = plan_path.as_posix()
+        artifact_links["行动计划"] = plan_path
         state.report_path = str(
             MarkdownReporter(args.report_dir).write_report(
                 user=state.user,
                 jobs=state.jobs,
                 matches=state.matches,
                 metrics=state.metrics,
-                artifact_links={"行动计划": plan_path},
+                artifact_links=artifact_links,
             )
         )
         print(f"Action plan written to: {plan_path}")
+    if args.dashboard and state.metrics:
+        dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
+            user=state.user,
+            jobs=state.jobs,
+            matches=state.matches,
+            metrics=state.metrics,
+            search_queries=state.search_queries,
+            failed_url_errors=state.metadata.get("failed_url_errors", []),
+            artifact_links=artifact_links,
+        )
+        print(f"Dashboard written to: {dashboard_path}")
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
         print(f"JSON output written to: {json_path}")

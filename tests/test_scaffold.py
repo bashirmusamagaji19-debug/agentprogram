@@ -238,6 +238,7 @@ def test_cli_demo_mode_writes_action_plan(
                 "Python",
                 "--demo",
                 "--action-plan",
+                "--dashboard",
                 "--json-output",
                 "outputs/result.json",
             ]
@@ -252,12 +253,17 @@ def test_cli_demo_mode_writes_action_plan(
     assert len(plans) == 1
     reports = list(Path("reports").glob("*.md"))
     assert len(reports) == 1
+    dashboards = list(Path("dashboards").glob("*.html"))
+    assert len(dashboards) == 1
     content = plans[0].read_text(encoding="utf-8")
     assert "# AI 实习行动计划" in content
     assert "技能补强顺序" in content
     report = reports[0].read_text(encoding="utf-8")
     assert "## 相关产物" in report
     assert f"- 行动计划: {plans[0].as_posix()}" in report
+    dashboard = dashboards[0].read_text(encoding="utf-8")
+    assert "相关产物" in dashboard
+    assert plans[0].as_posix() in dashboard
     payload = json.loads((tmp_path / "outputs" / "result.json").read_text(encoding="utf-8"))
     assert payload["metadata"]["action_plan_path"] == plans[0].as_posix()
 

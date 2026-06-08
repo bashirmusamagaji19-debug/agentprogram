@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.evaluation import EvaluationResult, TaskEvaluationResult
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
@@ -181,6 +183,24 @@ def test_dashboard_renders_failed_url_error_trace():
     assert "URL Errors" in html
     assert "https://example.com/jobs/missing" in html
     assert "ValueError: Browser page not found" in html
+
+
+def test_dashboard_renders_related_artifact_links():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-dashboard")
+
+    html = dashboard.render(
+        user=user,
+        jobs=[],
+        matches=[],
+        metrics=metrics,
+        artifact_links={"行动计划": Path("action-plans/run-dashboard.md")},
+    )
+
+    assert "相关产物" in html
+    assert "行动计划" in html
+    assert "action-plans/run-dashboard.md" in html
 
 
 def test_dashboard_escapes_html_content():
