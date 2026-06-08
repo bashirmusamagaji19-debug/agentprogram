@@ -14,9 +14,18 @@
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-pytest
-web-task-agent --keyword "AI engineering intern" --location "Remote" --target-count 3
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo
 ```
 
 如果 Windows PowerShell 显示中文乱码，请使用 UTF-8 终端或执行 chcp 65001 后再查看。
+
+## 已验证的 MVP 命令
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo
+```
+
+该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。当前真实 `browser-use` 网页搜索仍保留在 adapter 边界之后，后续阶段再接入。
