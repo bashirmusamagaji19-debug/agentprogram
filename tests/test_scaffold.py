@@ -54,8 +54,10 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--doctor" in captured.out
     assert "--list-fixture-urls" in captured.out
     assert "--seed-url" in captured.out
+    assert "--action-plan" in captured.out
     assert "--llm-extractor-demo" in captured.out
     assert "--evaluate --fixture-sites" in captured.out
+    assert "7. " in captured.out
 
 
 def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:

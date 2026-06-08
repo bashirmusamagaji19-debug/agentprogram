@@ -437,6 +437,10 @@ def print_demo_script() -> None:
             r"--target-count 1 --demo --dashboard"
         ),
         (
+            r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
+            r"--target-count 2 --demo --action-plan"
+        ),
+        (
             r'.\.venv\Scripts\web-task-agent.exe --seed-url '
             r'"https://example.com/jobs/ai-engineering-intern" --demo '
             r"--target-count 1 --json-output outputs\seed-demo.json --dashboard"
