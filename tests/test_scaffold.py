@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent.cli import load_resume_text, main, write_json_output
@@ -9,6 +11,15 @@ from web_task_agent.models import BrowserPage, UserProfile, WorkflowState
 
 def test_package_version_matches_project_version() -> None:
     assert __version__ == "0.1.0"
+
+
+def test_cli_prints_version(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+
+    assert exc.value.code == 0
+    captured = capsys.readouterr()
+    assert "web-task-agent 0.1.0" in captured.out
 
 
 def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:

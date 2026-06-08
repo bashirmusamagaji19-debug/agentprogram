@@ -5,6 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 
+from web_task_agent import __version__
 from web_task_agent.browser import (
     BrowserConfigurationError,
     BrowserUseClient,
@@ -31,6 +32,11 @@ from web_task_agent.workflow import WebTaskWorkflow
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the Web Task Agent MVP.")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"web-task-agent {__version__}",
+    )
     parser.add_argument("--keyword")
     parser.add_argument("--location", default="Remote")
     parser.add_argument("--target-count", type=int, default=10)
