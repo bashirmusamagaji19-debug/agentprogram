@@ -28,6 +28,7 @@ from web_task_agent.graph_export import LangGraphExporter
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
@@ -113,6 +114,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run local environment checks and exit.",
     )
+    parser.add_argument(
+        "--list-fixture-urls",
+        action="store_true",
+        help="Print built-in public job fixture URLs and exit.",
+    )
     return parser
 
 
@@ -133,6 +139,10 @@ async def _run(args: argparse.Namespace) -> int:
             dashboard_dir=args.dashboard_dir,
             db_path=args.db_path,
         )
+        return 0
+
+    if args.list_fixture_urls:
+        print_fixture_urls()
         return 0
 
     if args.history:
@@ -309,6 +319,12 @@ def print_doctor_report(*, report_dir: str, dashboard_dir: str, db_path: str) ->
     print(f"database_parent: {writable_status(Path(db_path).parent)}")
     print(f"reports: {writable_status(Path(report_dir))}")
     print(f"dashboards: {writable_status(Path(dashboard_dir))}")
+
+
+def print_fixture_urls() -> None:
+    print("Fixture job URLs")
+    for page in PUBLIC_JOB_FIXTURE_PAGES:
+        print(f"{page.title} | {page.url}")
 
 
 def writable_status(path: Path) -> str:

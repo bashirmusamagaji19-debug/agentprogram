@@ -37,6 +37,15 @@ def test_cli_doctor_prints_environment_checks(tmp_path, monkeypatch, capsys) -> 
     assert "dashboards: writable" in captured.out
 
 
+def test_cli_lists_public_fixture_urls(capsys) -> None:
+    assert main(["--list-fixture-urls"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Fixture job URLs" in captured.out
+    assert "https://boards.greenhouse.io/example/jobs/ai-agent-intern" in captured.out
+    assert "https://jobs.lever.co/example/llm-application-intern" in captured.out
+
+
 def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 

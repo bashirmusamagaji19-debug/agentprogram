@@ -24,6 +24,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\web-task-agent.exe --version
 .\.venv\Scripts\web-task-agent.exe --doctor
+.\.venv\Scripts\web-task-agent.exe --list-fixture-urls
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-file .\resume.md --demo --dashboard
@@ -58,6 +59,8 @@ python -m venv .venv
 使用 `--json-output outputs\result.json` 可以导出完整工作流状态，包含用户输入、岗位、匹配结果、运行指标和报告路径，方便后续接前端或自动投递流程。
 
 使用 `--seed-url <job-url>` 可以跳过搜索规划，直接打开指定招聘链接；该参数可重复，用于白名单真实站点 smoke 或面试现场稳定演示 exact JD 抽取。
+
+使用 `--list-fixture-urls` 可以列出内置 Greenhouse/Lever 风格 fixture URL，便于快速复制到 `--seed-url` 演示或评测命令。
 
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
 
