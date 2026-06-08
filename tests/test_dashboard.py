@@ -234,6 +234,25 @@ def test_dashboard_writes_html_file(tmp_path):
     assert "未找到有效岗位" in path.read_text(encoding="utf-8")
 
 
+def test_dashboard_write_uses_relative_artifact_links(tmp_path):
+    dashboard = HtmlDashboard(output_dir=tmp_path / "dashboards")
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-dashboard")
+    action_plan_path = tmp_path / "action-plans" / "run-dashboard.md"
+
+    path = dashboard.write_dashboard(
+        user=user,
+        jobs=[],
+        matches=[],
+        metrics=metrics,
+        artifact_links={"行动计划": action_plan_path},
+    )
+
+    html = path.read_text(encoding="utf-8")
+    assert "../action-plans/run-dashboard.md" in html
+    assert str(action_plan_path) not in html
+
+
 def test_dashboard_renders_evaluation_summary_with_failure_counts():
     dashboard = HtmlDashboard()
     result = EvaluationResult(

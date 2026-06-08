@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+from os.path import relpath
 from pathlib import Path
 
 from web_task_agent.evaluation import EvaluationResult, TaskEvaluationResult
@@ -25,6 +26,7 @@ class HtmlDashboard:
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / f"{metrics.run_id}.html"
+        dashboard_links = self._relative_artifact_links(path.parent, artifact_links)
         path.write_text(
             self.render(
                 user=user,
@@ -33,7 +35,7 @@ class HtmlDashboard:
                 metrics=metrics,
                 search_queries=search_queries,
                 failed_url_errors=failed_url_errors,
-                artifact_links=artifact_links,
+                artifact_links=dashboard_links,
             ),
             encoding="utf-8",
         )
@@ -415,6 +417,19 @@ class HtmlDashboard:
       <h2>相关产物</h2>
       <ul>{items}</ul>
     </section>"""
+
+    def _relative_artifact_links(
+        self,
+        base_dir: Path,
+        artifact_links: dict[str, str | Path] | None,
+    ) -> dict[str, str] | None:
+        if not artifact_links:
+            return None
+        base = base_dir.resolve()
+        return {
+            label: relpath(Path(path).resolve(), start=base).replace("\\", "/")
+            for label, path in artifact_links.items()
+        }
 
     def render_evaluation_summary(self, result: EvaluationResult) -> str:
         failure_rows = "\n".join(

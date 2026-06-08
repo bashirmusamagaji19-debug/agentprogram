@@ -263,7 +263,7 @@ def test_cli_demo_mode_writes_action_plan(
     assert f"- 行动计划: {plans[0].as_posix()}" in report
     dashboard = dashboards[0].read_text(encoding="utf-8")
     assert "相关产物" in dashboard
-    assert plans[0].as_posix() in dashboard
+    assert f"../{plans[0].as_posix()}" in dashboard
     payload = json.loads((tmp_path / "outputs" / "result.json").read_text(encoding="utf-8"))
     assert payload["metadata"]["action_plan_path"] == plans[0].as_posix()
 
