@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from web_task_agent import __version__
 from web_task_agent.cli import main
 
@@ -6,30 +8,35 @@ def test_package_version_matches_project_version() -> None:
     assert __version__ == "0.1.0"
 
 
-def test_scaffold_cli_returns_success(capsys) -> None:
-    assert main([]) == 0
+def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
 
-    captured = capsys.readouterr()
-    assert "Web task agent scaffold" in captured.out
-
-
-def test_scaffold_cli_accepts_documented_arguments(capsys) -> None:
     assert (
         main(
             [
                 "--keyword",
-                "AI engineering intern",
+                "AI intern",
                 "--location",
                 "Remote",
                 "--target-count",
-                "3",
+                "2",
+                "--demo",
             ]
         )
         == 0
     )
 
     captured = capsys.readouterr()
+    assert "Report written to:" in captured.out
+    assert "Valid jobs:" in captured.out
+    reports = list(Path("reports").glob("*.md"))
+    assert len(reports) == 1
+    assert "AI 实习岗位搜索报告" in reports[0].read_text(encoding="utf-8")
+
+
+def test_cli_non_demo_mode_exits_with_clear_message(capsys) -> None:
+    assert main(["--keyword", "AI intern"]) == 2
+
+    captured = capsys.readouterr()
     assert "not implemented yet" in captured.out
-    assert "AI engineering intern" in captured.out
-    assert "Remote" in captured.out
-    assert "3" in captured.out
+    assert "--demo" in captured.out
