@@ -107,3 +107,20 @@ def test_build_real_smoke_tasks_returns_small_public_search_set():
     assert 1 <= len(tasks) <= 5
     assert all(task.target_count == 1 for task in tasks)
     assert any("AI" in task.keyword for task in tasks)
+
+
+@pytest.mark.asyncio
+async def test_public_job_fixture_evaluation_completes_with_valid_jobs(tmp_path):
+    tasks = evaluation_module.build_public_job_fixture_tasks()
+    runner = EvaluationRunner(
+        output_dir=tmp_path,
+        browser_factory=evaluation_module.build_public_job_fixture_browser,
+    )
+
+    result = await runner.run(tasks=tasks)
+
+    assert result.total_tasks == 2
+    assert result.completed_tasks == 2
+    assert result.success_rate == 1.0
+    assert result.total_valid_jobs == 2
+    assert result.failure_counts == {}

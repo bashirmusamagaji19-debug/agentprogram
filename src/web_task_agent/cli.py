@@ -12,6 +12,8 @@ from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.evaluation import (
     EvaluationRunner,
+    build_public_job_fixture_browser,
+    build_public_job_fixture_tasks,
     build_default_tasks,
     build_real_smoke_tasks,
 )
@@ -51,6 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use real browser-use smoke tasks when --evaluate is enabled.",
     )
+    parser.add_argument(
+        "--fixture-sites",
+        action="store_true",
+        help="Use public job-board style fixture pages when --evaluate is enabled.",
+    )
     return parser
 
 
@@ -66,7 +73,13 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 async def _run(args: argparse.Namespace) -> int:
     if args.evaluate:
-        if args.real_smoke:
+        if args.fixture_sites:
+            tasks = build_public_job_fixture_tasks()[: args.evaluation_count]
+            runner = EvaluationRunner(
+                args.evaluation_dir,
+                browser_factory=build_public_job_fixture_browser,
+            )
+        elif args.real_smoke:
             tasks = build_real_smoke_tasks()[: args.evaluation_count]
             runner = EvaluationRunner(
                 args.evaluation_dir,

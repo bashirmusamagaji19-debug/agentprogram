@@ -17,12 +17,13 @@ class PageExtractor:
 
     def extract(self, page: BrowserPage) -> JobPosting:
         fields = self._parse_labeled_lines(page.content)
+        inferred_fields = self._infer_public_job_fields(page)
 
-        title = fields.get("title") or page.title or "Unknown Title"
-        company = fields.get("company") or "Unknown Company"
-        location = fields.get("location") or "Unknown Location"
-        requirements = fields.get("requirements", "")
-        responsibilities = fields.get("responsibilities", "")
+        title = fields.get("title") or inferred_fields.get("title") or page.title or "Unknown Title"
+        company = fields.get("company") or inferred_fields.get("company") or "Unknown Company"
+        location = fields.get("location") or inferred_fields.get("location") or "Unknown Location"
+        requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
+        responsibilities = fields.get("responsibilities") or inferred_fields.get("responsibilities", "")
 
         return JobPosting(
             title=title,
@@ -62,6 +63,98 @@ class PageExtractor:
                 parsed[field] = value
 
         return parsed
+
+    def _infer_public_job_fields(self, page: BrowserPage) -> dict[str, str]:
+        lines = [line.strip() for line in page.content.splitlines() if line.strip()]
+        inferred: dict[str, str] = {}
+        if not lines or self._has_labeled_lines(lines):
+            return inferred
+
+        inferred["title"] = self._infer_title(lines, page.title)
+        company, location = self._infer_company_location(lines)
+        if company:
+            inferred["company"] = company
+        if location:
+            inferred["location"] = location
+
+        responsibilities = self._infer_section(
+            lines,
+            start_markers={"about the role", "responsibilities", "what you'll do"},
+            stop_markers={"qualifications", "requirements", "skills", "posted"},
+        )
+        if responsibilities:
+            inferred["responsibilities"] = responsibilities
+
+        requirements = self._infer_section(
+            lines,
+            start_markers={"qualifications", "requirements", "skills"},
+            stop_markers={"posted", "benefits", "about us"},
+        )
+        if requirements:
+            inferred["requirements"] = requirements
+
+        return inferred
+
+    def _infer_title(self, lines: list[str], page_title: str) -> str:
+        first_line = lines[0]
+        if first_line.lower() in {"about the role", "responsibilities", "requirements"}:
+            return page_title
+        if " - " in page_title and page_title.startswith(first_line):
+            return first_line
+        return page_title or first_line
+
+    def _infer_company_location(self, lines: list[str]) -> tuple[str, str]:
+        if len(lines) < 2:
+            return "", ""
+
+        company_line = lines[1]
+        for separator in ("·", "|", " - "):
+            if separator in company_line:
+                company, location = company_line.split(separator, 1)
+                return company.strip(), location.strip()
+        if len(lines) >= 3 and self._looks_like_location(lines[2]):
+            return company_line, lines[2]
+        return company_line, ""
+
+    def _infer_section(
+        self,
+        lines: list[str],
+        *,
+        start_markers: set[str],
+        stop_markers: set[str],
+    ) -> str:
+        collecting = False
+        collected: list[str] = []
+        for line in lines:
+            key = line.strip().lower()
+            if collecting and self._matches_marker(key, stop_markers):
+                break
+            if self._matches_marker(key, start_markers):
+                collecting = True
+                continue
+            if collecting:
+                collected.append(line)
+        return " ".join(collected).strip()
+
+    def _looks_like_location(self, value: str) -> bool:
+        location_tokens = {"remote", "shanghai", "beijing", "us", "china", "singapore"}
+        lower_value = value.lower()
+        return any(token in lower_value for token in location_tokens)
+
+    def _has_labeled_lines(self, lines: list[str]) -> bool:
+        known_labels = {
+            label
+            for labels in self._LABELS.values()
+            for label in labels
+        }
+        for line in lines:
+            label, separator, value = line.partition(":")
+            if separator and value.strip() and label.strip().lower() in known_labels:
+                return True
+        return False
+
+    def _matches_marker(self, value: str, markers: set[str]) -> bool:
+        return any(value == marker or value.startswith(f"{marker} ") for marker in markers)
 
     def _extract_skills(self, requirements: str) -> list[str]:
         return [

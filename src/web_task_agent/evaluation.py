@@ -12,6 +12,7 @@ from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
@@ -269,3 +270,24 @@ def build_real_smoke_tasks() -> list[EvaluationTask]:
             skills=["Python", "browser-use"],
         ),
     ]
+
+
+def build_public_job_fixture_tasks() -> list[EvaluationTask]:
+    return [
+        EvaluationTask(
+            keyword="AI Agent Engineering Intern",
+            location="Remote",
+            target_count=1,
+            skills=["Python", "LangGraph", "browser-use"],
+        ),
+        EvaluationTask(
+            keyword="LLM Application Intern",
+            location="Shanghai",
+            target_count=1,
+            skills=["Python", "FastAPI", "RAG"],
+        ),
+    ]
+
+
+def build_public_job_fixture_browser(task: EvaluationTask) -> BrowserClient:
+    return FakeBrowserClient(PUBLIC_JOB_FIXTURE_PAGES)

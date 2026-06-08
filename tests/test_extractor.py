@@ -151,3 +151,54 @@ def test_extract_job_preserves_model_skill_dedupe():
     job = extractor.extract(page)
 
     assert job.skills == ["Python", "LLM"]
+
+
+def test_extract_job_from_greenhouse_style_public_job_page():
+    page = BrowserPage(
+        url="https://boards.greenhouse.io/example/jobs/123",
+        title="AI Agent Engineering Intern - Example Robotics",
+        content=(
+            "AI Agent Engineering Intern\n"
+            "Example Robotics\n"
+            "Remote - US\n"
+            "About the role\n"
+            "You will build browser automation agents for AI workflows.\n"
+            "Qualifications\n"
+            "Python, LangGraph, browser-use, LLM evaluation\n"
+            "Posted June 8, 2026\n"
+        ),
+        source="greenhouse-fixture",
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.title == "AI Agent Engineering Intern"
+    assert job.company == "Example Robotics"
+    assert job.location == "Remote - US"
+    assert "browser automation agents" in job.responsibilities
+    assert job.skills == ["Python", "LangGraph", "browser-use", "LLM evaluation"]
+    assert job.confidence >= 0.8
+
+
+def test_extract_job_from_lever_style_public_job_page():
+    page = BrowserPage(
+        url="https://jobs.lever.co/example/456",
+        title="LLM Application Intern",
+        content=(
+            "LLM Application Intern\n"
+            "Example AI Lab · Shanghai\n"
+            "Responsibilities\n"
+            "Prototype RAG and agent workflows for internal AI applications.\n"
+            "Requirements\n"
+            "Python, FastAPI, RAG, evaluation\n"
+        ),
+        source="lever-fixture",
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.title == "LLM Application Intern"
+    assert job.company == "Example AI Lab"
+    assert job.location == "Shanghai"
+    assert "Prototype RAG" in job.responsibilities
+    assert job.skills == ["Python", "FastAPI", "RAG", "evaluation"]

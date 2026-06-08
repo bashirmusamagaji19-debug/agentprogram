@@ -134,3 +134,22 @@ def test_cli_real_smoke_evaluate_uses_real_browser_factory(
         encoding="utf-8"
     )
     assert "no_pages" in report
+
+
+def test_cli_fixture_sites_evaluate_writes_success_report(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert main(["--evaluate", "--fixture-sites"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Completed tasks: 2/2" in captured.out
+    report = (tmp_path / "evaluations" / "evaluation-report.md").read_text(
+        encoding="utf-8"
+    )
+    assert "AI Agent Engineering Intern" in report
+    assert "LLM Application Intern" in report
+    assert "| - | 0 |" in report
