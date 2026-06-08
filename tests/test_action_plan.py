@@ -52,6 +52,8 @@ def test_action_plan_renders_priority_jobs_skill_gaps_and_project_tasks():
     assert "- LLM: 2 个岗位缺失" in markdown
     assert "- FastAPI: 1 个岗位缺失" in markdown
     assert "补强项目任务" in markdown
+    assert "## 简历项目改写要点" in markdown
+    assert "把 LLM 补强任务写成项目亮点" in markdown
     assert "## 7 天执行节奏" in markdown
     assert "Day 1" in markdown
     assert "Day 2-4" in markdown
@@ -76,4 +78,6 @@ def test_action_plan_uses_generic_execution_rhythm_without_skill_gaps():
     markdown = ActionPlanWriter().render(user=user, jobs=jobs, matches=matches)
 
     assert "## 7 天执行节奏" in markdown
+    assert "## 简历项目改写要点" in markdown
+    assert "用 STAR 结构重写现有项目" in markdown
     assert "Day 2-4: 用现有项目补充评测、README、截图和面试讲解稿。" in markdown

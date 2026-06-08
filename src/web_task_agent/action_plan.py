@@ -55,6 +55,8 @@ class ActionPlanWriter:
             lines.append("- 暂无明显技能缺口，优先打磨项目描述和投递材料。")
         lines.extend(["", "## 补强项目任务", ""])
         lines.extend(self._project_tasks(gaps))
+        lines.extend(["", "## 简历项目改写要点", ""])
+        lines.extend(self._resume_rewrite_points(gaps))
         lines.extend(["", "## 7 天执行节奏", ""])
         lines.extend(self._execution_rhythm(gaps))
         lines.append("")
@@ -97,6 +99,17 @@ class ActionPlanWriter:
         return [
             f"- 围绕 {skill} 补一个可展示任务：实现、评测、文档和 demo 截图各一份。"
             for skill, _count in gaps[:5]
+        ]
+
+    def _resume_rewrite_points(self, gaps: list[tuple[str, int]]) -> list[str]:
+        if not gaps:
+            return [
+                "- 用 STAR 结构重写现有项目：问题、方案、动作、结果各一句。",
+                "- 给已有 Agent 项目补充可量化指标，例如任务成功率、有效岗位数、测试数量。",
+            ]
+        return [
+            f"- 把 {skill} 补强任务写成项目亮点：说明为什么需要它、如何接入 Agent、用什么指标验证。"
+            for skill, _count in gaps[:3]
         ]
 
     def _execution_rhythm(self, gaps: list[tuple[str, int]]) -> list[str]:
