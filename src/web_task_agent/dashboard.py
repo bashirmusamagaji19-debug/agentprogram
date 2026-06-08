@@ -42,6 +42,7 @@ class HtmlDashboard:
         )
         if not job_rows:
             job_rows = '<tr><td colspan="7">未找到有效岗位</td></tr>'
+        input_trace = self._input_trace(user)
         gap_summary = self._skill_gap_summary(matches)
 
         return f"""<!doctype html>
@@ -213,6 +214,7 @@ class HtmlDashboard:
       {self._metric("重复岗位数", metrics.duplicate_jobs)}
       {self._metric("失败页面数", metrics.failed_pages)}
     </section>
+    {input_trace}
     {gap_summary}
     <section class="controls" aria-label="Dashboard controls">
       <div class="control">
@@ -344,6 +346,19 @@ class HtmlDashboard:
         )
         return f"""<section class="gap-summary">
       <h2>技能缺口汇总</h2>
+      <ul>{items}</ul>
+    </section>"""
+
+    def _input_trace(self, user: UserProfile) -> str:
+        if not user.seed_urls:
+            return ""
+        items = "\n".join(
+            f'<li><a href="{escape(url)}">{escape(url)}</a></li>'
+            for url in user.seed_urls
+        )
+        return f"""<section class="gap-summary">
+      <h2>Input Trace</h2>
+      <p>Seed URL mode</p>
       <ul>{items}</ul>
     </section>"""
 

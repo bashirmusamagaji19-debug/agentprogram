@@ -123,6 +123,21 @@ def test_dashboard_renders_skill_gap_summary():
     assert "FastAPI" in html
 
 
+def test_dashboard_renders_seed_url_input_trace():
+    dashboard = HtmlDashboard()
+    user = UserProfile(
+        keyword="seed URLs",
+        seed_urls=["https://example.com/jobs/ai-engineering-intern"],
+    )
+    metrics = RunMetrics(run_id="run-dashboard")
+
+    html = dashboard.render(user=user, jobs=[], matches=[], metrics=metrics)
+
+    assert "Input Trace" in html
+    assert "Seed URL mode" in html
+    assert "https://example.com/jobs/ai-engineering-intern" in html
+
+
 def test_dashboard_escapes_html_content():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="<script>alert(1)</script>")
