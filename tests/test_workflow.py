@@ -48,6 +48,49 @@ async def test_workflow_runs_end_to_end_with_fake_browser(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_workflow_opens_seed_urls_without_searching(tmp_path):
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+    opened_urls: list[str] = []
+    searched_queries: list[str] = []
+
+    class SeedBrowser:
+        async def search(self, query: str, target_count: int) -> list[object]:
+            searched_queries.append(query)
+            return []
+
+        async def open_url(self, url: str) -> object:
+            opened_urls.append(url)
+            return FAKE_JOB_PAGES[0].model_copy(update={"url": url})
+
+    workflow = WebTaskWorkflow(
+        browser=SeedBrowser(),
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run(
+        UserProfile(
+            keyword="AI intern",
+            location="Remote",
+            target_count=2,
+            skills=["Python"],
+            seed_urls=["https://example.com/jobs/seed"],
+        ),
+        run_id="run-seed",
+    )
+
+    assert searched_queries == []
+    assert opened_urls == ["https://example.com/jobs/seed"]
+    assert state.candidate_urls == ["https://example.com/jobs/seed"]
+    assert state.metrics is not None
+    assert state.metrics.pages_visited == 1
+
+
+@pytest.mark.asyncio
 async def test_workflow_records_no_valid_jobs_without_crashing(tmp_path):
     repo = JobRepository(tmp_path / "agent.db")
     repo.initialize()

@@ -28,10 +28,12 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-file .\resume.md --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --demo --json-output outputs\result.json
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
 .\.venv\Scripts\web-task-agent.exe --history
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --json-output evaluations\fixture-result.json
+.\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --seed-url "https://boards.greenhouse.io/example/jobs/ai-agent-intern" --json-output evaluations\seed-url-result.json
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 .\.venv\Scripts\web-task-agent.exe --export-graph
@@ -55,6 +57,8 @@ python -m venv .venv
 
 使用 `--json-output outputs\result.json` 可以导出完整工作流状态，包含用户输入、岗位、匹配结果、运行指标和报告路径，方便后续接前端或自动投递流程。
 
+使用 `--seed-url <job-url>` 可以跳过搜索规划，直接打开指定招聘链接；该参数可重复，用于白名单真实站点 smoke 或面试现场稳定演示 exact JD 抽取。
+
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
 
 ## 真实 browser-use adapter 状态
@@ -67,4 +71,4 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 ```
 
-该命令会在 `evaluations/` 下生成评测报告。当前内置 demo 评测结果为：20/20 任务完成，任务成功率 1.00，有效岗位总数 40，平均访问页面数 2.00。报告还会输出失败原因分布；真实招聘页风格 fixture 评测可使用 `--evaluate --fixture-sites`，并可加 `--dashboard` 生成 `dashboards/evaluation-summary.html`。真实浏览器 smoke 评测可使用 `--evaluate --real-smoke`，用于观察 `browser_error`、`no_pages`、`no_extracted_jobs`、`verification_filtered` 等失败类别。
+该命令会在 `evaluations/` 下生成评测报告。当前内置 demo 评测结果为：20/20 任务完成，任务成功率 1.00，有效岗位总数 40，平均访问页面数 2.00。报告还会输出失败原因分布；真实招聘页风格 fixture 评测可使用 `--evaluate --fixture-sites`，也可以加 `--seed-url` 对单个 exact JD 做稳定评测，并可加 `--dashboard` 生成 `dashboards/evaluation-summary.html`。真实浏览器 smoke 评测可使用 `--evaluate --real-smoke`，用于观察 `browser_error`、`no_pages`、`no_extracted_jobs`、`verification_filtered` 等失败类别。

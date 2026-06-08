@@ -7,6 +7,7 @@ from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent.cli import load_resume_text, main, write_json_output
 from web_task_agent.models import BrowserPage, UserProfile, WorkflowState
+from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 
 
 def test_package_version_matches_project_version() -> None:
@@ -159,6 +160,43 @@ def test_cli_demo_mode_writes_json_output(tmp_path, monkeypatch, capsys) -> None
     assert len(payload["jobs"]) == 2
     assert payload["matches"][0]["score"] == 1.0
     assert payload["report_path"].endswith(".md")
+
+
+def test_cli_demo_mode_accepts_seed_url_without_keyword(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/ai-engineering-intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--json-output",
+                "outputs/seed-result.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Report written to:" in captured.out
+    assert "Valid jobs: 1" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "seed-result.json").read_text(encoding="utf-8")
+    )
+    assert payload["user"]["keyword"] == "seed URLs"
+    assert payload["user"]["seed_urls"] == [
+        "https://example.com/jobs/ai-engineering-intern"
+    ]
+    assert payload["candidate_urls"] == [
+        "https://example.com/jobs/ai-engineering-intern"
+    ]
 
 
 def test_cli_demo_mode_uses_resume_file_for_matching(
@@ -422,6 +460,37 @@ def test_cli_evaluate_writes_json_output(tmp_path, monkeypatch, capsys) -> None:
     assert payload["total_tasks"] == 2
     assert payload["success_rate"] == 1.0
     assert len(payload["task_results"]) == 2
+
+
+def test_cli_evaluate_seed_url_fixture_writes_single_task_result(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--evaluate",
+                "--fixture-sites",
+                "--seed-url",
+                PUBLIC_JOB_FIXTURE_PAGES[0].url,
+                "--json-output",
+                "evaluations/seed-result.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Completed tasks: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "seed-result.json").read_text(encoding="utf-8")
+    )
+    assert payload["total_tasks"] == 1
+    assert payload["completed_tasks"] == 1
+    assert payload["task_results"][0]["pages_visited"] == 1
 
 
 def test_cli_evaluate_dashboard_writes_evaluation_html(

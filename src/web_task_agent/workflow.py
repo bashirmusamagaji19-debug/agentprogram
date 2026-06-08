@@ -77,10 +77,22 @@ class WebTaskWorkflow:
         return graph.compile()
 
     async def _plan_node(self, state: WorkflowState) -> WorkflowState:
+        if state.user.seed_urls:
+            state.candidate_urls = state.user.seed_urls[: state.user.target_count]
+            state.search_queries = []
+            return state
         state.search_queries = self._plan_queries(state.user)
         return state
 
     async def _browser_node(self, state: WorkflowState) -> WorkflowState:
+        if state.candidate_urls:
+            for url in state.candidate_urls:
+                try:
+                    state.pages.append(await self.browser.open_url(url))
+                except Exception:
+                    state.failed_urls.append(url)
+            return state
+
         for query in state.search_queries:
             pages = await self.browser.search(query, target_count=state.user.target_count)
             state.pages.extend(pages)

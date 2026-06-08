@@ -24,6 +24,7 @@ class EvaluationTask(BaseModel):
     target_count: int = Field(default=2, ge=1)
     skills: list[str] = Field(default_factory=list)
     resume_text: str = ""
+    seed_urls: list[str] = Field(default_factory=list)
     required_keywords: list[str] = Field(default_factory=lambda: ["AI", "LLM", "Agent"])
 
 
@@ -88,6 +89,7 @@ class EvaluationRunner:
                         target_count=task.target_count,
                         skills=task.skills,
                         resume_text=task.resume_text,
+                        seed_urls=task.seed_urls,
                     ),
                     run_id=f"eval-{index:02d}-{uuid4().hex[:6]}",
                 )

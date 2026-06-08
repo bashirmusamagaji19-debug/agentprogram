@@ -25,6 +25,7 @@ class UserProfile(BaseModel):
     target_count: int = Field(default=10, ge=1, le=50)
     skills: list[str] = Field(default_factory=list)
     resume_text: str = ""
+    seed_urls: list[str] = Field(default_factory=list)
 
     @field_validator("keyword", "location")
     @classmethod
@@ -37,6 +38,11 @@ class UserProfile(BaseModel):
     @field_validator("skills")
     @classmethod
     def normalize_skills(cls, values: list[str]) -> list[str]:
+        return _unique_clean_strings(values)
+
+    @field_validator("seed_urls")
+    @classmethod
+    def normalize_seed_urls(cls, values: list[str]) -> list[str]:
         return _unique_clean_strings(values)
 
 

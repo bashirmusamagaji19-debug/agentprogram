@@ -2,7 +2,7 @@ import pytest
 
 from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent import evaluation as evaluation_module
-from web_task_agent.evaluation import EvaluationRunner, build_default_tasks
+from web_task_agent.evaluation import EvaluationRunner, EvaluationTask, build_default_tasks
 from web_task_agent.models import BrowserPage
 
 
@@ -99,6 +99,52 @@ async def test_evaluation_runner_classifies_no_pages(tmp_path):
 
     assert result.task_results[0].failure_category == "no_pages"
     assert result.task_results[0].failure_reason == "no pages returned"
+
+
+@pytest.mark.asyncio
+async def test_evaluation_runner_opens_seed_urls_without_searching(tmp_path):
+    opened_urls: list[str] = []
+    searched_queries: list[str] = []
+
+    class SeedBrowser:
+        async def search(self, query: str, target_count: int) -> list[BrowserPage]:
+            searched_queries.append(query)
+            return []
+
+        async def open_url(self, url: str) -> BrowserPage:
+            opened_urls.append(url)
+            return BrowserPage(
+                url=url,
+                title="AI Agent Engineering Intern",
+                content=(
+                    "AI Agent Engineering Intern\n"
+                    "Example Robotics\n"
+                    "Remote\n"
+                    "About the role\n"
+                    "Build AI Agent workflows with Python and LangGraph."
+                    "\nQualifications\n"
+                    "Python, LangGraph, LLM evaluation"
+                ),
+                source="seed-fixture",
+            )
+
+    task = EvaluationTask(
+        keyword="AI intern",
+        target_count=1,
+        skills=["Python"],
+        seed_urls=["https://example.com/jobs/ai-agent-intern"],
+    )
+    runner = EvaluationRunner(
+        output_dir=tmp_path,
+        browser_factory=lambda task: SeedBrowser(),
+    )
+
+    result = await runner.run(tasks=[task])
+
+    assert searched_queries == []
+    assert opened_urls == ["https://example.com/jobs/ai-agent-intern"]
+    assert result.completed_tasks == 1
+    assert result.task_results[0].pages_visited == 1
 
 
 def test_build_real_smoke_tasks_returns_small_public_search_set():

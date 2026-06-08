@@ -111,6 +111,23 @@ def test_user_profile_rejects_empty_trimmed_keyword():
         UserProfile(keyword="   ", location="Remote")
 
 
+def test_user_profile_normalizes_seed_urls():
+    profile = UserProfile(
+        keyword="AI intern",
+        seed_urls=[
+            " https://example.com/jobs/1 ",
+            "https://example.com/jobs/1",
+            "https://example.com/jobs/2",
+            "",
+        ],
+    )
+
+    assert profile.seed_urls == [
+        "https://example.com/jobs/1",
+        "https://example.com/jobs/2",
+    ]
+
+
 def test_workflow_state_mutable_defaults_are_isolated():
     user = UserProfile(keyword="AI intern", location="Remote")
     first = WorkflowState(user=user)

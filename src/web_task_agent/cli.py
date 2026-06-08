@@ -16,6 +16,7 @@ from web_task_agent.browser import (
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.evaluation import (
+    EvaluationTask,
     EvaluationRunner,
     build_public_job_fixture_browser,
     build_public_job_fixture_tasks,
@@ -43,6 +44,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--location", default="Remote")
     parser.add_argument("--target-count", type=int, default=10)
     parser.add_argument("--skill", action="append", default=[])
+    parser.add_argument(
+        "--seed-url",
+        action="append",
+        default=[],
+        help="Open an exact job URL instead of searching. Can be repeated.",
+    )
     parser.add_argument(
         "--resume-text",
         action="append",
@@ -145,7 +152,35 @@ async def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.evaluate:
-        if args.fixture_sites:
+        try:
+            resume_text = load_resume_text(args.resume_text, args.resume_file)
+        except FileNotFoundError as exc:
+            print(f"Resume file not found: {exc.filename}")
+            return 2
+        if args.seed_url:
+            tasks = [
+                EvaluationTask(
+                    keyword=args.keyword or "seed URLs",
+                    location=args.location,
+                    target_count=min(args.target_count, len(args.seed_url)),
+                    skills=args.skill,
+                    resume_text=resume_text,
+                    seed_urls=args.seed_url,
+                )
+            ]
+            if args.fixture_sites:
+                runner = EvaluationRunner(
+                    args.evaluation_dir,
+                    browser_factory=build_public_job_fixture_browser,
+                )
+            elif args.real_smoke:
+                runner = EvaluationRunner(
+                    args.evaluation_dir,
+                    browser_factory=lambda task: BrowserUseClient(),
+                )
+            else:
+                runner = EvaluationRunner(args.evaluation_dir)
+        elif args.fixture_sites:
             tasks = build_public_job_fixture_tasks()[: args.evaluation_count]
             runner = EvaluationRunner(
                 args.evaluation_dir,
@@ -178,7 +213,7 @@ async def _run(args: argparse.Namespace) -> int:
             print(f"Evaluation dashboard written to: {dashboard_path}")
         return 0
 
-    if not args.keyword:
+    if not args.keyword and not args.seed_url:
         print("--keyword is required unless --evaluate is used.")
         return 2
 
@@ -195,11 +230,12 @@ async def _run(args: argparse.Namespace) -> int:
         return 2
     try:
         user = UserProfile(
-            keyword=args.keyword,
+            keyword=args.keyword or "seed URLs",
             location=args.location,
             target_count=args.target_count,
             skills=args.skill,
             resume_text=resume_text,
+            seed_urls=args.seed_url,
         )
         if args.langgraph:
             state = await workflow.run_with_langgraph(user)
