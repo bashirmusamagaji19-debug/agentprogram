@@ -22,6 +22,20 @@ def test_cli_prints_version(capsys) -> None:
     assert "web-task-agent 0.1.0" in captured.out
 
 
+def test_cli_doctor_prints_environment_checks(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert main(["--doctor"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Environment doctor" in captured.out
+    assert "python:" in captured.out
+    assert "langgraph: ok" in captured.out
+    assert "browser_use:" in captured.out
+    assert "reports: writable" in captured.out
+    assert "dashboards: writable" in captured.out
+
+
 def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 

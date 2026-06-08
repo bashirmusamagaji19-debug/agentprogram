@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util
 import json
+import sys
 from pathlib import Path
 
 from web_task_agent import __version__
@@ -99,6 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print recent workflow runs from SQLite and exit.",
     )
     parser.add_argument("--history-limit", type=int, default=10)
+    parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Run local environment checks and exit.",
+    )
     return parser
 
 
@@ -113,6 +120,14 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.doctor:
+        print_doctor_report(
+            report_dir=args.report_dir,
+            dashboard_dir=args.dashboard_dir,
+            db_path=args.db_path,
+        )
+        return 0
+
     if args.history:
         repo = JobRepository(args.db_path)
         repo.initialize()
@@ -240,6 +255,28 @@ def print_run_history(runs) -> None:
             f"finished={finished} | valid_jobs={run.valid_jobs} | "
             f"pages={run.pages_visited} | failed_pages={run.failed_pages}"
         )
+
+
+def print_doctor_report(*, report_dir: str, dashboard_dir: str, db_path: str) -> None:
+    print("Environment doctor")
+    print(f"python: {sys.executable}")
+    for module_name in ["langgraph", "browser_use", "pydantic"]:
+        status = "ok" if importlib.util.find_spec(module_name) else "missing"
+        print(f"{module_name}: {status}")
+    print(f"database_parent: {writable_status(Path(db_path).parent)}")
+    print(f"reports: {writable_status(Path(report_dir))}")
+    print(f"dashboards: {writable_status(Path(dashboard_dir))}")
+
+
+def writable_status(path: Path) -> str:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        return f"not writable ({exc})"
+    return "writable"
 
 
 def build_workflow(
