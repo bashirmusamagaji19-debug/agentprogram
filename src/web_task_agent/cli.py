@@ -198,30 +198,42 @@ async def _run(args: argparse.Namespace) -> int:
                 runner = EvaluationRunner(
                     args.evaluation_dir,
                     browser_factory=build_public_job_fixture_browser,
+                    extractor_factory=build_extractor_factory(args),
                 )
             elif args.real_smoke:
                 runner = EvaluationRunner(
                     args.evaluation_dir,
                     browser_factory=lambda task: BrowserUseClient(),
+                    extractor_factory=build_extractor_factory(args),
                 )
             else:
-                runner = EvaluationRunner(args.evaluation_dir)
+                runner = EvaluationRunner(
+                    args.evaluation_dir,
+                    extractor_factory=build_extractor_factory(args),
+                )
         elif args.fixture_sites:
             tasks = build_public_job_fixture_tasks()[: args.evaluation_count]
             runner = EvaluationRunner(
                 args.evaluation_dir,
                 browser_factory=build_public_job_fixture_browser,
+                extractor_factory=build_extractor_factory(args),
             )
         elif args.real_smoke:
             tasks = build_real_smoke_tasks()[: args.evaluation_count]
             runner = EvaluationRunner(
                 args.evaluation_dir,
                 browser_factory=lambda task: BrowserUseClient(),
+                extractor_factory=build_extractor_factory(args),
             )
         else:
             tasks = build_default_tasks()[: args.evaluation_count]
-            runner = EvaluationRunner(args.evaluation_dir)
+            runner = EvaluationRunner(
+                args.evaluation_dir,
+                extractor_factory=build_extractor_factory(args),
+            )
         result = await runner.run(tasks=tasks)
+        if args.llm_extractor_demo:
+            print("LLM extractor demo: enabled")
         print(f"Evaluation report written to: {result.report_path}")
         print(f"Task success rate: {result.success_rate:.2f}")
         print(f"Completed tasks: {result.completed_tasks}/{result.total_tasks}")
@@ -408,6 +420,12 @@ def build_workflow(
         repository=repo,
         reporter=MarkdownReporter(report_dir),
     )
+
+
+def build_extractor_factory(args: argparse.Namespace):
+    if not args.llm_extractor_demo:
+        return None
+    return lambda task: PageExtractor(llm_field_extractor=DemoLlmFieldExtractor())
 
 
 if __name__ == "__main__":

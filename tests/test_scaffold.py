@@ -608,6 +608,39 @@ def test_cli_evaluate_seed_url_fixture_writes_single_task_result(
     assert payload["task_results"][0]["pages_visited"] == 1
 
 
+def test_cli_evaluate_can_use_llm_extractor_demo_for_unstructured_seed_url(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--evaluate",
+                "--seed-url",
+                "https://example.com/jobs/unstructured-ai-agent-intern",
+                "--llm-extractor-demo",
+                "--json-output",
+                "evaluations/unstructured-llm-result.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LLM extractor demo: enabled" in captured.out
+    assert "Completed tasks: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "unstructured-llm-result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["completed_tasks"] == 1
+    assert payload["total_valid_jobs"] == 1
+
+
 def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
     tmp_path,
     monkeypatch,

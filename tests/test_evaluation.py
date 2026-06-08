@@ -3,6 +3,8 @@ import pytest
 from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent import evaluation as evaluation_module
 from web_task_agent.evaluation import EvaluationRunner, EvaluationTask, build_default_tasks
+from web_task_agent.extractor import PageExtractor
+from web_task_agent.llm_extractor import DemoLlmFieldExtractor
 from web_task_agent.models import BrowserPage
 
 
@@ -173,6 +175,43 @@ async def test_evaluation_runner_reports_seed_url_error_details(tmp_path):
     assert task_result.failure_details == (
         "https://example.com/jobs/missing -> ValueError: fixture page missing"
     )
+
+
+@pytest.mark.asyncio
+async def test_evaluation_runner_can_use_llm_extractor_factory(tmp_path):
+    class UnstructuredBrowser:
+        async def search(self, query: str, target_count: int) -> list[BrowserPage]:
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str) -> BrowserPage:
+            return BrowserPage(
+                url=url,
+                title="Careers",
+                content=(
+                    "We are hiring an AI Agent Intern at Example Robotics. "
+                    "This remote role builds LangGraph browser agents. "
+                    "Candidates need Python, LangGraph, and LLM evaluation."
+                ),
+                source="unstructured-fixture",
+            )
+
+    task = EvaluationTask(
+        keyword="AI intern",
+        target_count=1,
+        seed_urls=["https://example.com/jobs/unstructured-ai-agent-intern"],
+    )
+    runner = EvaluationRunner(
+        output_dir=tmp_path,
+        browser_factory=lambda task: UnstructuredBrowser(),
+        extractor_factory=lambda task: PageExtractor(
+            llm_field_extractor=DemoLlmFieldExtractor(),
+        ),
+    )
+
+    result = await runner.run(tasks=[task])
+
+    assert result.completed_tasks == 1
+    assert result.total_valid_jobs == 1
 
 
 def test_build_real_smoke_tasks_returns_small_public_search_set():
