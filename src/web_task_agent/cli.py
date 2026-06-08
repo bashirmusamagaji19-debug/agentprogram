@@ -4,6 +4,7 @@ import argparse
 import asyncio
 
 from web_task_agent.browser import BrowserUseClient, FakeBrowserClient
+from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
@@ -27,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--db-path", default="agent.db")
     parser.add_argument("--report-dir", default="reports")
+    parser.add_argument(
+        "--dashboard",
+        action="store_true",
+        help="Write a local HTML dashboard.",
+    )
+    parser.add_argument("--dashboard-dir", default="dashboards")
     return parser
 
 
@@ -63,6 +70,14 @@ async def _run(args: argparse.Namespace) -> int:
     valid_jobs = state.metrics.valid_jobs if state.metrics else 0
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
+    if args.dashboard and state.metrics:
+        dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
+            user=state.user,
+            jobs=state.jobs,
+            matches=state.matches,
+            metrics=state.metrics,
+        )
+        print(f"Dashboard written to: {dashboard_path}")
     return 0
 
 

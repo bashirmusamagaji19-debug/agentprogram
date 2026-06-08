@@ -34,6 +34,36 @@ def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     assert "AI 实习岗位搜索报告" in reports[0].read_text(encoding="utf-8")
 
 
+def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--location",
+                "Remote",
+                "--target-count",
+                "2",
+                "--skill",
+                "Python",
+                "--demo",
+                "--dashboard",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Dashboard written to:" in captured.out
+    dashboards = list(Path("dashboards").glob("*.html"))
+    assert len(dashboards) == 1
+    content = dashboards[0].read_text(encoding="utf-8")
+    assert "Web Task Agent Dashboard" in content
+    assert "匹配分数" in content
+
+
 def test_cli_non_demo_mode_exits_with_clear_message(capsys) -> None:
     assert main(["--keyword", "AI intern"]) == 2
 
