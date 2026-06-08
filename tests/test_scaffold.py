@@ -3,6 +3,7 @@ from pathlib import Path
 from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent.cli import main
+from web_task_agent.models import BrowserPage
 
 
 def test_package_version_matches_project_version() -> None:
@@ -97,3 +98,39 @@ def test_cli_evaluate_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     content = report.read_text(encoding="utf-8")
     assert "任务成功率" in content
     assert "任务总数: 3" in content
+
+
+def test_cli_real_smoke_evaluate_uses_real_browser_factory(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    opened_queries: list[str] = []
+
+    class SmokeBrowser:
+        async def search(self, query: str, target_count: int) -> list[BrowserPage]:
+            opened_queries.append(query)
+            return []
+
+        async def open_url(self, url: str) -> BrowserPage:
+            raise AssertionError("open_url should not be called")
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.BrowserUseClient",
+        lambda: SmokeBrowser(),
+    )
+
+    assert main(["--evaluate", "--real-smoke"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Evaluation report written to:" in captured.out
+    assert "Completed tasks: 0/3" in captured.out
+    assert len(opened_queries) == 9
+    assert any(query.startswith("AI intern") for query in opened_queries)
+    assert any(query.startswith("LLM agent intern") for query in opened_queries)
+    assert any(query.startswith("AI engineering intern") for query in opened_queries)
+    report = (tmp_path / "evaluations" / "evaluation-report.md").read_text(
+        encoding="utf-8"
+    )
+    assert "no_pages" in report

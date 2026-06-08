@@ -9,7 +9,7 @@
 - 用 SQLite 保存岗位记录和运行指标。
 - 根据技能标签和简历文本生成岗位匹配分数、缺失技能和建议动作。
 - 生成本地 HTML Dashboard，展示岗位、匹配分数、优先级和缺失技能。
-- 运行内置 20 任务评测集，统计任务成功率、有效岗位数和平均访问页面数。
+- 运行内置 20 任务评测集，统计任务成功率、有效岗位数、平均访问页面数和失败原因分布。
 - 用测试中的 fake browser 保证端到端流程可复现。
 
 ## 本地运行
@@ -22,6 +22,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
+.\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 ```
 
 如果 Windows PowerShell 显示中文乱码，请使用 UTF-8 终端或执行 chcp 65001 后再查看。
@@ -44,4 +45,4 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 ```
 
-该命令会在 `evaluations/` 下生成评测报告。当前内置 demo 评测结果为：20/20 任务完成，任务成功率 1.00，有效岗位总数 40，平均访问页面数 2.00。
+该命令会在 `evaluations/` 下生成评测报告。当前内置 demo 评测结果为：20/20 任务完成，任务成功率 1.00，有效岗位总数 40，平均访问页面数 2.00。报告还会输出失败原因分布；真实浏览器 smoke 评测可使用 `--evaluate --real-smoke`，用于观察 `browser_error`、`no_pages`、`no_extracted_jobs`、`verification_filtered` 等失败类别。

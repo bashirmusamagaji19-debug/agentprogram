@@ -10,7 +10,11 @@ from web_task_agent.browser import (
 )
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
-from web_task_agent.evaluation import EvaluationRunner, build_default_tasks
+from web_task_agent.evaluation import (
+    EvaluationRunner,
+    build_default_tasks,
+    build_real_smoke_tasks,
+)
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import UserProfile
@@ -42,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
     parser.add_argument("--evaluation-count", type=int, default=20)
     parser.add_argument("--evaluation-dir", default="evaluations")
+    parser.add_argument(
+        "--real-smoke",
+        action="store_true",
+        help="Use real browser-use smoke tasks when --evaluate is enabled.",
+    )
     return parser
 
 
@@ -57,8 +66,16 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 async def _run(args: argparse.Namespace) -> int:
     if args.evaluate:
-        tasks = build_default_tasks()[: args.evaluation_count]
-        result = await EvaluationRunner(args.evaluation_dir).run(tasks=tasks)
+        if args.real_smoke:
+            tasks = build_real_smoke_tasks()[: args.evaluation_count]
+            runner = EvaluationRunner(
+                args.evaluation_dir,
+                browser_factory=lambda task: BrowserUseClient(),
+            )
+        else:
+            tasks = build_default_tasks()[: args.evaluation_count]
+            runner = EvaluationRunner(args.evaluation_dir)
+        result = await runner.run(tasks=tasks)
         print(f"Evaluation report written to: {result.report_path}")
         print(f"Task success rate: {result.success_rate:.2f}")
         print(f"Completed tasks: {result.completed_tasks}/{result.total_tasks}")
