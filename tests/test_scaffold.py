@@ -237,6 +237,8 @@ def test_cli_demo_mode_writes_action_plan(
                 "Python",
                 "--demo",
                 "--action-plan",
+                "--json-output",
+                "outputs/result.json",
             ]
         )
         == 0
@@ -244,6 +246,7 @@ def test_cli_demo_mode_writes_action_plan(
 
     captured = capsys.readouterr()
     assert "Action plan written to:" in captured.out
+    assert "JSON output written to:" in captured.out
     plans = list(Path("action-plans").glob("*.md"))
     assert len(plans) == 1
     reports = list(Path("reports").glob("*.md"))
@@ -254,6 +257,8 @@ def test_cli_demo_mode_writes_action_plan(
     report = reports[0].read_text(encoding="utf-8")
     assert "## 相关产物" in report
     assert f"- 行动计划: {plans[0].as_posix()}" in report
+    payload = json.loads((tmp_path / "outputs" / "result.json").read_text(encoding="utf-8"))
+    assert payload["metadata"]["action_plan_path"] == plans[0].as_posix()
 
 
 def test_cli_demo_dashboard_includes_search_query_trace(

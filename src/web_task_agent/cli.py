@@ -320,9 +320,6 @@ async def _run(args: argparse.Namespace) -> int:
         state.metadata["extractor_mode"] = "llm-demo"
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
-    if args.json_output:
-        json_path = write_json_output(state, args.json_output)
-        print(f"JSON output written to: {json_path}")
     if args.dashboard and state.metrics:
         dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
             user=state.user,
@@ -340,6 +337,7 @@ async def _run(args: argparse.Namespace) -> int:
             jobs=state.jobs,
             matches=state.matches,
         )
+        state.metadata["action_plan_path"] = plan_path.as_posix()
         state.report_path = str(
             MarkdownReporter(args.report_dir).write_report(
                 user=state.user,
@@ -350,6 +348,9 @@ async def _run(args: argparse.Namespace) -> int:
             )
         )
         print(f"Action plan written to: {plan_path}")
+    if args.json_output:
+        json_path = write_json_output(state, args.json_output)
+        print(f"JSON output written to: {json_path}")
     return 0
 
 
