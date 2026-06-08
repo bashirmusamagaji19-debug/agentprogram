@@ -47,6 +47,53 @@ def test_dashboard_renders_jobs_metrics_and_matches():
     assert "访问页面数" in html
 
 
+def test_dashboard_renders_interactive_job_controls():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    jobs = [
+        make_job(url="https://example.com/jobs/1"),
+        make_job(
+            title="ML Platform Intern",
+            company="DataWorks",
+            url="https://example.com/jobs/2",
+            skills=["SQL"],
+        ),
+    ]
+    matches = [
+        MatchResult(
+            job_id="https://example.com/jobs/1",
+            score=0.75,
+            matched_skills=["Python"],
+            missing_skills=["LLM"],
+            priority="high",
+        ),
+        MatchResult(
+            job_id="https://example.com/jobs/2",
+            score=0.25,
+            missing_skills=["SQL"],
+            priority="low",
+        ),
+    ]
+    metrics = RunMetrics(
+        run_id="run-dashboard",
+        pages_visited=2,
+        jobs_found=2,
+        valid_jobs=2,
+    )
+
+    html = dashboard.render(user=user, jobs=jobs, matches=matches, metrics=metrics)
+
+    assert 'id="job-search"' in html
+    assert 'id="priority-filter"' in html
+    assert 'id="sort-by"' in html
+    assert 'id="visible-count"' in html
+    assert 'id="job-rows"' in html
+    assert 'data-score="0.75"' in html
+    assert 'data-priority="high"' in html
+    assert 'data-search="ai engineering intern example ai remote python llm"' in html
+    assert "function applyDashboardFilters()" in html
+
+
 def test_dashboard_escapes_html_content():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="<script>alert(1)</script>")

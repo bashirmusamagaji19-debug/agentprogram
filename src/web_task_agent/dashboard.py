@@ -137,6 +137,41 @@ class HtmlDashboard:
     .priority-high {{ color: var(--good); font-weight: 700; }}
     .priority-medium {{ color: var(--warn); font-weight: 700; }}
     .priority-low {{ color: var(--low); font-weight: 700; }}
+    .controls {{
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(160px, 220px));
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 14px;
+    }}
+    .control label {{
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .control input,
+    .control select {{
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+    }}
+    .result-count {{
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    @media (max-width: 760px) {{
+      .controls {{
+        grid-template-columns: 1fr;
+      }}
+    }}
   </style>
 </head>
 <body>
@@ -150,6 +185,30 @@ class HtmlDashboard:
       {self._metric("重复岗位数", metrics.duplicate_jobs)}
       {self._metric("失败页面数", metrics.failed_pages)}
     </section>
+    <section class="controls" aria-label="Dashboard controls">
+      <div class="control">
+        <label for="job-search">搜索岗位</label>
+        <input id="job-search" type="search" placeholder="岗位、公司、地点或技能">
+      </div>
+      <div class="control">
+        <label for="priority-filter">优先级</label>
+        <select id="priority-filter">
+          <option value="all">全部</option>
+          <option value="high">high</option>
+          <option value="medium">medium</option>
+          <option value="low">low</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="sort-by">排序</label>
+        <select id="sort-by">
+          <option value="score-desc">匹配分数从高到低</option>
+          <option value="score-asc">匹配分数从低到高</option>
+          <option value="title-asc">岗位标题 A-Z</option>
+        </select>
+      </div>
+    </section>
+    <p class="result-count">当前显示 <span id="visible-count">{len(jobs)}</span> 个岗位</p>
     <table>
       <thead>
         <tr>
@@ -162,20 +221,74 @@ class HtmlDashboard:
           <th>链接</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="job-rows">
         {job_rows}
       </tbody>
     </table>
   </main>
+  <script>
+    function applyDashboardFilters() {{
+      const query = document.getElementById("job-search").value.toLowerCase().trim();
+      const priority = document.getElementById("priority-filter").value;
+      const sortBy = document.getElementById("sort-by").value;
+      const body = document.getElementById("job-rows");
+      const rows = Array.from(body.querySelectorAll("tr[data-search]"));
+
+      rows.sort((left, right) => {{
+        if (sortBy === "score-asc") {{
+          return Number(left.dataset.score) - Number(right.dataset.score);
+        }}
+        if (sortBy === "title-asc") {{
+          return left.dataset.title.localeCompare(right.dataset.title);
+        }}
+        return Number(right.dataset.score) - Number(left.dataset.score);
+      }});
+
+      let visible = 0;
+      for (const row of rows) {{
+        const matchesQuery = !query || row.dataset.search.includes(query);
+        const matchesPriority = priority === "all" || row.dataset.priority === priority;
+        const show = matchesQuery && matchesPriority;
+        row.hidden = !show;
+        if (show) {{
+          visible += 1;
+        }}
+        body.appendChild(row);
+      }}
+      document.getElementById("visible-count").textContent = String(visible);
+    }}
+
+    for (const control of ["job-search", "priority-filter", "sort-by"]) {{
+      document.getElementById(control).addEventListener("input", applyDashboardFilters);
+    }}
+    applyDashboardFilters();
+  </script>
 </body>
 </html>
 """
 
     def _job_row(self, job: JobPosting, match: MatchResult | None) -> str:
         score = f"{match.score:.2f}" if match else "暂无"
+        score_value = f"{match.score:.2f}" if match else "0.00"
         priority = match.priority if match else "low"
         missing = self._skills(match.missing_skills) if match else "暂无"
-        return f"""<tr>
+        search_terms = [
+            job.title,
+            job.company,
+            job.location,
+            *job.skills,
+            *(match.matched_skills if match else []),
+            *(match.missing_skills if match else []),
+        ]
+        seen_terms: set[str] = set()
+        search_text_parts: list[str] = []
+        for term in search_terms:
+            key = term.casefold()
+            if key not in seen_terms:
+                seen_terms.add(key)
+                search_text_parts.append(key)
+        search_text = " ".join(search_text_parts)
+        return f"""<tr data-score="{score_value}" data-priority="{escape(priority)}" data-title="{escape(job.title.casefold())}" data-search="{escape(search_text)}">
   <td>{escape(job.title)}</td>
   <td>{escape(job.company)}<br><span>{escape(job.location)}</span></td>
   <td>{self._skills(job.skills)}</td>
