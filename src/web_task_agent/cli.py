@@ -130,6 +130,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print a copyable local interview demo command script and exit.",
     )
+    parser.add_argument(
+        "--compare-llm-extractor",
+        action="store_true",
+        help="Compare rule extraction with the deterministic LLM extractor demo.",
+    )
     return parser
 
 
@@ -158,6 +163,22 @@ async def _run(args: argparse.Namespace) -> int:
 
     if args.print_demo_script:
         print_demo_script()
+        return 0
+
+    if args.compare_llm_extractor:
+        result = await run_llm_extractor_comparison(args)
+        print("LLM extractor comparison")
+        print(
+            "baseline: "
+            f"{result['baseline']['completed_tasks']}/{result['baseline']['total_tasks']}"
+        )
+        print(
+            "llm-demo: "
+            f"{result['llm_demo']['completed_tasks']}/{result['llm_demo']['total_tasks']}"
+        )
+        if args.json_output:
+            json_path = write_mapping_json_output(result, args.json_output)
+            print(f"Comparison JSON written to: {json_path}")
         return 0
 
     if args.history:
@@ -328,6 +349,36 @@ def write_model_json_output(model, output_path: str) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def write_mapping_json_output(payload: dict, output_path: str) -> Path:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return path
+
+
+async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
+    task = EvaluationTask(
+        keyword="AI intern",
+        target_count=1,
+        seed_urls=["https://example.com/jobs/unstructured-ai-agent-intern"],
+    )
+    baseline = await EvaluationRunner(args.evaluation_dir).run(tasks=[task])
+    llm_demo = await EvaluationRunner(
+        args.evaluation_dir,
+        extractor_factory=lambda task: PageExtractor(
+            llm_field_extractor=DemoLlmFieldExtractor(),
+        ),
+    ).run(tasks=[task])
+    return {
+        "seed_url": task.seed_urls[0],
+        "baseline": baseline.model_dump(mode="json"),
+        "llm_demo": llm_demo.model_dump(mode="json"),
+    }
 
 
 def print_run_history(runs) -> None:

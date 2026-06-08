@@ -641,6 +641,35 @@ def test_cli_evaluate_can_use_llm_extractor_demo_for_unstructured_seed_url(
     assert payload["total_valid_jobs"] == 1
 
 
+def test_cli_compare_llm_extractor_writes_comparison_json(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--json-output",
+                "evaluations/llm-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LLM extractor comparison" in captured.out
+    assert "baseline: 0/1" in captured.out
+    assert "llm-demo: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "llm-comparison.json").read_text(encoding="utf-8")
+    )
+    assert payload["baseline"]["completed_tasks"] == 0
+    assert payload["llm_demo"]["completed_tasks"] == 1
+
+
 def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
     tmp_path,
     monkeypatch,
