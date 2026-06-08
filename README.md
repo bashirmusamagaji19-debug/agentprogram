@@ -22,6 +22,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-file .\resume.md --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
@@ -42,6 +43,8 @@ python -m venv .venv
 加上 `--langgraph` 后，主流程会通过 LangGraph 节点执行，节点包括 planner、browser、extractor、verifier、matcher 和 reporter，适合在面试中展示 Agent 工作流编排。
 
 使用 `--export-graph` 可以生成 `docs/agent-workflow-graph.md`，其中包含 LangGraph 的 Mermaid 工作流图。
+
+使用 `--resume-file .\resume.md` 或 `--resume-text "..."` 可以把简历内容作为岗位匹配信号；两者可同时使用，CLI 会合并后传入 `UserProfile.resume_text`。
 
 ## 真实 browser-use adapter 状态
 

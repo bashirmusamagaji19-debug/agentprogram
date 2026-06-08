@@ -9,6 +9,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-text "Built LangGraph browser agents with LLM evaluation loops." --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 1
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
@@ -29,9 +30,10 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `95 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `99 passed`。
 - CLI demo 成功运行，输出 `Report written to: reports\run-*.md`、`Valid jobs: 2` 和 `Dashboard written to: dashboards\run-*.html`。
 - LangGraph demo 成功运行，输出 `LangGraph workflow: enabled`、`Valid jobs: 2` 和 dashboard 路径。
+- 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。
 - 20 任务评测成功运行，输出 `Task success rate: 1.00` 和 `Completed tasks: 20/20`，并在报告中生成失败原因分布表。
 - 公开招聘页 fixture 评测成功运行，输出 `Completed tasks: 2/2`，覆盖 Greenhouse/Lever 风格自然语言招聘页抽取。
 - 评测摘要 Dashboard 成功生成，输出 `Evaluation dashboard written to: dashboards\evaluation-summary.html`。

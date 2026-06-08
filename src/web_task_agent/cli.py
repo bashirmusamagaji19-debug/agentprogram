@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from pathlib import Path
 
 from web_task_agent.browser import (
     BrowserConfigurationError,
@@ -33,6 +34,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--location", default="Remote")
     parser.add_argument("--target-count", type=int, default=10)
     parser.add_argument("--skill", action="append", default=[])
+    parser.add_argument(
+        "--resume-text",
+        action="append",
+        default=[],
+        help="Inline resume text to use as matching signal. Can be repeated.",
+    )
+    parser.add_argument(
+        "--resume-file",
+        action="append",
+        default=[],
+        help="UTF-8 resume Markdown/text file to use as matching signal. Can be repeated.",
+    )
     parser.add_argument(
         "--demo",
         action="store_true",
@@ -135,11 +148,17 @@ async def _run(args: argparse.Namespace) -> int:
         report_dir=args.report_dir,
     )
     try:
+        resume_text = load_resume_text(args.resume_text, args.resume_file)
+    except FileNotFoundError as exc:
+        print(f"Resume file not found: {exc.filename}")
+        return 2
+    try:
         user = UserProfile(
             keyword=args.keyword,
             location=args.location,
             target_count=args.target_count,
             skills=args.skill,
+            resume_text=resume_text,
         )
         if args.langgraph:
             state = await workflow.run_with_langgraph(user)
@@ -163,6 +182,14 @@ async def _run(args: argparse.Namespace) -> int:
         )
         print(f"Dashboard written to: {dashboard_path}")
     return 0
+
+
+def load_resume_text(inline_texts: list[str], file_paths: list[str]) -> str:
+    chunks = [text.strip() for text in inline_texts if text.strip()]
+    for file_path in file_paths:
+        path = Path(file_path)
+        chunks.append(path.read_text(encoding="utf-8").strip())
+    return "\n\n".join(chunk for chunk in chunks if chunk)
 
 
 def build_workflow(

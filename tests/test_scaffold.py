@@ -2,7 +2,7 @@ from pathlib import Path
 
 from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
-from web_task_agent.cli import main
+from web_task_agent.cli import load_resume_text, main
 from web_task_agent.models import BrowserPage
 
 
@@ -101,6 +101,117 @@ def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     content = dashboards[0].read_text(encoding="utf-8")
     assert "Web Task Agent Dashboard" in content
     assert "匹配分数" in content
+
+
+def test_cli_demo_mode_uses_resume_file_for_matching(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    resume_path = tmp_path / "resume.md"
+    resume_path.write_text(
+        "Built LangGraph browser agents with LLM evaluation loops.",
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--location",
+                "Remote",
+                "--target-count",
+                "2",
+                "--skill",
+                "Python",
+                "--resume-file",
+                str(resume_path),
+                "--demo",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Report written to:" in captured.out
+    report = next(Path("reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "- 匹配分数: 1.00" in report
+
+
+def test_cli_demo_mode_combines_resume_text_and_resume_file(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    resume_path = tmp_path / "resume.md"
+    resume_path.write_text("Shipped LangGraph workflows.", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--target-count",
+                "2",
+                "--skill",
+                "Python",
+                "--resume-text",
+                "Worked on LLM application evaluation.",
+                "--resume-file",
+                str(resume_path),
+                "--demo",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Report written to:" in captured.out
+    report = next(Path("reports").glob("*.md")).read_text(encoding="utf-8")
+    assert "- 匹配分数: 1.00" in report
+
+
+def test_cli_missing_resume_file_exits_with_clear_message(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--resume-file",
+                str(tmp_path / "missing.md"),
+                "--demo",
+            ]
+        )
+        == 2
+    )
+
+    captured = capsys.readouterr()
+    assert "Resume file not found:" in captured.out
+
+
+def test_load_resume_text_combines_inline_text_and_files(tmp_path) -> None:
+    first_file = tmp_path / "first.md"
+    second_file = tmp_path / "second.md"
+    first_file.write_text("LangGraph workflow", encoding="utf-8")
+    second_file.write_text("LLM evaluation", encoding="utf-8")
+
+    resume_text = load_resume_text(
+        ["  Python browser agent  ", ""],
+        [str(first_file), str(second_file)],
+    )
+
+    assert resume_text == (
+        "Python browser agent\n\nLangGraph workflow\n\nLLM evaluation"
+    )
 
 
 def test_cli_non_demo_mode_exits_with_clear_message(monkeypatch, capsys) -> None:
