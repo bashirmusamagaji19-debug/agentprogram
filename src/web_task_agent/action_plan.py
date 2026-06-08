@@ -55,6 +55,8 @@ class ActionPlanWriter:
             lines.append("- 暂无明显技能缺口，优先打磨项目描述和投递材料。")
         lines.extend(["", "## 补强项目任务", ""])
         lines.extend(self._project_tasks(gaps))
+        lines.extend(["", "## 7 天执行节奏", ""])
+        lines.extend(self._execution_rhythm(gaps))
         lines.append("")
         return "\n".join(lines)
 
@@ -95,4 +97,20 @@ class ActionPlanWriter:
         return [
             f"- 围绕 {skill} 补一个可展示任务：实现、评测、文档和 demo 截图各一份。"
             for skill, _count in gaps[:5]
+        ]
+
+    def _execution_rhythm(self, gaps: list[tuple[str, int]]) -> list[str]:
+        if gaps:
+            focus = "、".join(skill for skill, _count in gaps[:3])
+            day_two_to_four = (
+                f"Day 2-4: 围绕 {focus} 补一个最小可展示功能，留下测试、README 和截图。"
+            )
+        else:
+            day_two_to_four = "Day 2-4: 用现有项目补充评测、README、截图和面试讲解稿。"
+        return [
+            "Day 1: 按优先级筛选 3 个岗位，提炼共同 JD 关键词。",
+            day_two_to_four,
+            "Day 5: 录制 1 分钟 demo 或整理 3 张关键截图。",
+            "Day 6: 更新简历项目描述，写清问题、方案、指标和结果。",
+            "Day 7: 投递并复盘反馈，把新增要求回填到下一轮行动计划。",
         ]
