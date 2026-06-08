@@ -138,6 +138,51 @@ def test_dashboard_renders_seed_url_input_trace():
     assert "https://example.com/jobs/ai-engineering-intern" in html
 
 
+def test_dashboard_renders_search_query_input_trace():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-dashboard")
+
+    html = dashboard.render(
+        user=user,
+        jobs=[],
+        matches=[],
+        metrics=metrics,
+        search_queries=["AI intern Remote", "AI intern LangGraph browser agent internship"],
+    )
+
+    assert "Input Trace" in html
+    assert "Search query mode" in html
+    assert "AI intern Remote" in html
+    assert "AI intern LangGraph browser agent internship" in html
+
+
+def test_dashboard_renders_failed_url_error_trace():
+    dashboard = HtmlDashboard()
+    user = UserProfile(
+        keyword="seed URLs",
+        seed_urls=["https://example.com/jobs/missing"],
+    )
+    metrics = RunMetrics(run_id="run-dashboard", failed_pages=1)
+
+    html = dashboard.render(
+        user=user,
+        jobs=[],
+        matches=[],
+        metrics=metrics,
+        failed_url_errors=[
+            {
+                "url": "https://example.com/jobs/missing",
+                "error": "ValueError: Browser page not found",
+            }
+        ],
+    )
+
+    assert "URL Errors" in html
+    assert "https://example.com/jobs/missing" in html
+    assert "ValueError: Browser page not found" in html
+
+
 def test_dashboard_escapes_html_content():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="<script>alert(1)</script>")

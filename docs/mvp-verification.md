@@ -39,7 +39,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `121 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `125 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
@@ -49,6 +49,8 @@ print(jobs[0].title if jobs else "no jobs")
 - JSON 导出 demo 成功运行，输出 `JSON output written to: outputs\result.json`。
 - seed URL demo 成功运行，输出 `Valid jobs: 1` 和 `JSON output written to: outputs\seed-demo.json`，说明可跳过搜索并直接打开指定 JD。
 - seed URL Dashboard 成功运行，生成的 HTML 包含 `Input Trace`、`Seed URL mode` 和指定 JD 链接。
+- 搜索模式 Dashboard 成功运行，生成的 HTML 包含 `Input Trace`、`Search query mode` 和 `AI intern Remote`。
+- 缺失 seed URL Dashboard 成功运行，生成的 HTML 包含 `URL Errors`、缺失 URL 和 `ValueError`。
 - 运行历史查询成功运行，输出 `Recent runs` 和最近 run 的 `valid_jobs` 等指标。
 - 20 任务评测成功运行，输出 `Task success rate: 1.00` 和 `Completed tasks: 20/20`，并在报告中生成失败原因分布表。
 - 公开招聘页 fixture 评测成功运行，输出 `Completed tasks: 2/2`，覆盖 Greenhouse/Lever 风格自然语言招聘页抽取。
@@ -59,7 +61,7 @@ print(jobs[0].title if jobs else "no jobs")
 - LangGraph 工作流图成功导出，输出 `Graph written to: docs\agent-workflow-graph.md`。
 - 非 demo 的 `BrowserUseClient` 本地 session adapter 成功运行，输出 `Report written to: reports\run-*.md` 和 `Valid jobs: 0`；该结果说明真实浏览器入口可执行，但搜索页尚未转化为招聘站点 JD 抽取。`--evaluate --real-smoke` 可批量运行真实浏览器 smoke task，并把失败归类为 `browser_error`、`no_pages`、`no_extracted_jobs` 或 `verification_filtered`。
 - `reports/` 下生成 Markdown 报告，报告包含岗位列表和匹配分析。
-- `dashboards/` 下生成 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能和技能缺口汇总。
+- `dashboards/` 下生成 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能、技能缺口汇总和输入轨迹。
 - 岗位 Dashboard 支持文本搜索、优先级筛选和匹配分数排序。
 - `evaluations/evaluation-report.md` 记录任务总数、完成任务数、任务成功率、有效岗位总数和平均访问页面数。
 - SQLite 数据库 `agent.db` 中能读取到 2 条岗位记录。

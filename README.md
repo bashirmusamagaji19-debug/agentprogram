@@ -9,8 +9,8 @@
 - 用 SQLite 保存岗位记录和运行指标。
 - 根据技能标签和简历文本生成岗位匹配分数、缺失技能和建议动作。
 - 汇总所有匹配结果中的技能缺口，帮助判断下一步该补强哪些项目经历。
-- 生成本地 HTML Dashboard，展示岗位、匹配分数、优先级和缺失技能。
-- Dashboard 支持按岗位文本搜索、优先级筛选和匹配分数排序，适合现场演示筛选过程。
+- 生成本地 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能和 Agent 输入轨迹。
+- Dashboard 支持按岗位文本搜索、优先级筛选、匹配分数排序，并展示搜索 query、seed URL 和 URL 级错误，适合现场演示筛选与调试过程。
 - 运行内置 20 任务评测集，统计任务成功率、有效岗位数、平均访问页面数和失败原因分布。
 - 用测试中的 fake browser 保证端到端流程可复现。
 
@@ -48,7 +48,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
 ```
 
-该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。生成的 Markdown 报告会包含岗位列表、运行指标和匹配分析；`dashboards/` 下会生成可直接打开的 HTML Dashboard。当前真实 `browser-use` 路径已具备 session adapter 入口，但真实招聘网站表现仍需要单独站点评测和失败原因统计。
+该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合快速展示工作流闭环。生成的 Markdown 报告会包含岗位列表、运行指标和匹配分析；`dashboards/` 下会生成可直接打开的 HTML Dashboard，并展示搜索 query、seed URL 或 URL 级错误等输入轨迹。当前真实 `browser-use` 路径已具备 session adapter 入口，但真实招聘网站表现仍需要单独站点评测和失败原因统计。
 
 加上 `--langgraph` 后，主流程会通过 LangGraph 节点执行，节点包括 planner、browser、extractor、verifier、matcher 和 reporter，适合在面试中展示 Agent 工作流编排。
 

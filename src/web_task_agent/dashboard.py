@@ -19,11 +19,20 @@ class HtmlDashboard:
         jobs: list[JobPosting],
         matches: list[MatchResult],
         metrics: RunMetrics,
+        search_queries: list[str] | None = None,
+        failed_url_errors: list[dict[str, str]] | None = None,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / f"{metrics.run_id}.html"
         path.write_text(
-            self.render(user=user, jobs=jobs, matches=matches, metrics=metrics),
+            self.render(
+                user=user,
+                jobs=jobs,
+                matches=matches,
+                metrics=metrics,
+                search_queries=search_queries,
+                failed_url_errors=failed_url_errors,
+            ),
             encoding="utf-8",
         )
         return path
@@ -35,6 +44,8 @@ class HtmlDashboard:
         jobs: list[JobPosting],
         matches: list[MatchResult],
         metrics: RunMetrics,
+        search_queries: list[str] | None = None,
+        failed_url_errors: list[dict[str, str]] | None = None,
     ) -> str:
         match_by_job_id = {match.job_id: match for match in matches}
         job_rows = "\n".join(
@@ -42,7 +53,11 @@ class HtmlDashboard:
         )
         if not job_rows:
             job_rows = '<tr><td colspan="7">未找到有效岗位</td></tr>'
-        input_trace = self._input_trace(user)
+        input_trace = self._input_trace(
+            user=user,
+            search_queries=search_queries or [],
+            failed_url_errors=failed_url_errors or [],
+        )
         gap_summary = self._skill_gap_summary(matches)
 
         return f"""<!doctype html>
@@ -349,17 +364,39 @@ class HtmlDashboard:
       <ul>{items}</ul>
     </section>"""
 
-    def _input_trace(self, user: UserProfile) -> str:
-        if not user.seed_urls:
+    def _input_trace(
+        self,
+        *,
+        user: UserProfile,
+        search_queries: list[str],
+        failed_url_errors: list[dict[str, str]],
+    ) -> str:
+        trace_parts: list[str] = []
+        if user.seed_urls:
+            items = "\n".join(
+                f'<li><a href="{escape(url)}">{escape(url)}</a></li>'
+                for url in user.seed_urls
+            )
+            trace_parts.append(f"<p>Seed URL mode</p><ul>{items}</ul>")
+        if search_queries:
+            items = "\n".join(
+                f"<li>{escape(query)}</li>" for query in search_queries
+            )
+            trace_parts.append(f"<p>Search query mode</p><ul>{items}</ul>")
+        if failed_url_errors:
+            items = "\n".join(
+                "<li>"
+                f'<a href="{escape(item.get("url", ""))}">{escape(item.get("url", "-"))}</a>'
+                f" -> {escape(item.get('error', '-'))}"
+                "</li>"
+                for item in failed_url_errors
+            )
+            trace_parts.append(f"<p>URL Errors</p><ul>{items}</ul>")
+        if not trace_parts:
             return ""
-        items = "\n".join(
-            f'<li><a href="{escape(url)}">{escape(url)}</a></li>'
-            for url in user.seed_urls
-        )
         return f"""<section class="gap-summary">
       <h2>Input Trace</h2>
-      <p>Seed URL mode</p>
-      <ul>{items}</ul>
+      {''.join(trace_parts)}
     </section>"""
 
     def render_evaluation_summary(self, result: EvaluationResult) -> str:

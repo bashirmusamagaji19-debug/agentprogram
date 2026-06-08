@@ -269,6 +269,8 @@ async def _run(args: argparse.Namespace) -> int:
             jobs=state.jobs,
             matches=state.matches,
             metrics=state.metrics,
+            search_queries=state.search_queries,
+            failed_url_errors=state.metadata.get("failed_url_errors", []),
         )
         print(f"Dashboard written to: {dashboard_path}")
     return 0

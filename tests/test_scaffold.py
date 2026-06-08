@@ -139,6 +139,34 @@ def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     assert "匹配分数" in content
 
 
+def test_cli_demo_dashboard_includes_search_query_trace(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--dashboard",
+            ]
+        )
+        == 0
+    )
+
+    capsys.readouterr()
+    html = next(Path("dashboards").glob("*.html")).read_text(encoding="utf-8")
+    assert "Input Trace" in html
+    assert "Search query mode" in html
+    assert "AI intern Remote" in html
+
+
 def test_cli_demo_mode_writes_json_output(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -536,6 +564,35 @@ def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
         "failure_details"
     ]
     assert "ValueError" in task_result["failure_details"]
+
+
+def test_cli_seed_url_dashboard_includes_failed_url_error_trace(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/missing",
+                "--target-count",
+                "1",
+                "--demo",
+                "--dashboard",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Valid jobs: 0" in captured.out
+    html = next(Path("dashboards").glob("*.html")).read_text(encoding="utf-8")
+    assert "URL Errors" in html
+    assert "https://example.com/jobs/missing" in html
+    assert "ValueError" in html
 
 
 def test_cli_evaluate_dashboard_writes_evaluation_html(
