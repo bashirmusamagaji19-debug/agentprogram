@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from web_task_agent import __version__
+from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.browser import (
     BrowserConfigurationError,
     BrowserUseClient,
@@ -81,6 +82,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write a local HTML dashboard.",
     )
     parser.add_argument(
+        "--action-plan",
+        action="store_true",
+        help="Write a Markdown action plan from matched jobs and skill gaps.",
+    )
+    parser.add_argument(
         "--langgraph",
         action="store_true",
         help="Run the main workflow through LangGraph nodes.",
@@ -91,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use a deterministic LLM-style structured extractor demo.",
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
+    parser.add_argument("--action-plan-dir", default="action-plans")
     parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
     parser.add_argument("--evaluation-count", type=int, default=20)
     parser.add_argument("--evaluation-dir", default="evaluations")
@@ -326,6 +333,14 @@ async def _run(args: argparse.Namespace) -> int:
             failed_url_errors=state.metadata.get("failed_url_errors", []),
         )
         print(f"Dashboard written to: {dashboard_path}")
+    if args.action_plan and state.metrics:
+        plan_path = ActionPlanWriter(args.action_plan_dir).write_plan(
+            run_id=state.metrics.run_id,
+            user=state.user,
+            jobs=state.jobs,
+            matches=state.matches,
+        )
+        print(f"Action plan written to: {plan_path}")
     return 0
 
 

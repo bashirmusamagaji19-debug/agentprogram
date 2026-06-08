@@ -16,6 +16,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-text "Built LangGraph browser agents with LLM evaluation loops." --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --demo --json-output outputs\result.json
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --demo --action-plan
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-demo --json-output outputs\unstructured-llm-demo.json --dashboard
 .\.venv\Scripts\web-task-agent.exe --history
@@ -43,7 +44,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `132 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `134 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
@@ -53,6 +54,7 @@ print(jobs[0].title if jobs else "no jobs")
 - LangGraph demo 成功运行，输出 `LangGraph workflow: enabled`、`Valid jobs: 2` 和 dashboard 路径。
 - 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。
 - JSON 导出 demo 成功运行，输出 `JSON output written to: outputs\result.json`。
+- 行动计划 demo 成功运行，输出 `Action plan written to: action-plans\...`；Markdown 包含优先投递岗位、技能补强顺序和补强项目任务。
 - seed URL demo 成功运行，输出 `Valid jobs: 1` 和 `JSON output written to: outputs\seed-demo.json`，说明可跳过搜索并直接打开指定 JD。
 - deterministic LLM extractor demo 成功运行，输出 `LLM extractor demo: enabled`、`Valid jobs: 1` 和 `JSON output written to: outputs\unstructured-llm-demo.json`；JSON 中 `metadata.extractor_mode` 为 `llm-demo`，岗位为 `AI Agent Intern / Example Robotics`。
 - deterministic LLM extractor evaluation 成功运行，输出 `LLM extractor demo: enabled`、`Completed tasks: 1/1` 和 `Evaluation JSON written to: evaluations\unstructured-llm-result.json`。
@@ -69,6 +71,7 @@ print(jobs[0].title if jobs else "no jobs")
 - LangGraph 工作流图成功导出，输出 `Graph written to: docs\agent-workflow-graph.md`。
 - 非 demo 的 `BrowserUseClient` 本地 session adapter 成功运行，输出 `Report written to: reports\run-*.md` 和 `Valid jobs: 0`；该结果说明真实浏览器入口可执行，但搜索页尚未转化为招聘站点 JD 抽取。`--evaluate --real-smoke` 可批量运行真实浏览器 smoke task，并把失败归类为 `browser_error`、`no_pages`、`no_extracted_jobs` 或 `verification_filtered`。
 - `reports/` 下生成 Markdown 报告，报告包含岗位列表和匹配分析。
+- `action-plans/` 下生成 Markdown 行动计划，报告投递优先级、技能缺口和项目补强任务。
 - `dashboards/` 下生成 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能、技能缺口汇总和输入轨迹。
 - 岗位 Dashboard 支持文本搜索、优先级筛选和匹配分数排序。
 - `evaluations/evaluation-report.md` 记录任务总数、完成任务数、任务成功率、有效岗位总数和平均访问页面数。

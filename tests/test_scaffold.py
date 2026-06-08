@@ -217,6 +217,38 @@ def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     assert "匹配分数" in content
 
 
+def test_cli_demo_mode_writes_action_plan(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--target-count",
+                "2",
+                "--skill",
+                "Python",
+                "--demo",
+                "--action-plan",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Action plan written to:" in captured.out
+    plans = list(Path("action-plans").glob("*.md"))
+    assert len(plans) == 1
+    content = plans[0].read_text(encoding="utf-8")
+    assert "# AI 实习行动计划" in content
+    assert "技能补强顺序" in content
+
+
 def test_cli_demo_dashboard_includes_search_query_trace(
     tmp_path,
     monkeypatch,

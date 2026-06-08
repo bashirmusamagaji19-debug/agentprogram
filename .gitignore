@@ -8,6 +8,7 @@ htmlcov/
 *.db
 reports/
 dashboards/
+action-plans/
 evaluations/
 outputs/
 browser-artifacts/
