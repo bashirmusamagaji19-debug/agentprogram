@@ -5,6 +5,7 @@ from pathlib import Path
 
 from web_task_agent.evaluation import EvaluationResult, TaskEvaluationResult
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
+from web_task_agent.skill_gap import summarize_skill_gaps
 
 
 class HtmlDashboard:
@@ -41,6 +42,7 @@ class HtmlDashboard:
         )
         if not job_rows:
             job_rows = '<tr><td colspan="7">未找到有效岗位</td></tr>'
+        gap_summary = self._skill_gap_summary(matches)
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -167,6 +169,32 @@ class HtmlDashboard:
       color: var(--muted);
       font-size: 13px;
     }}
+    .gap-summary {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 18px;
+    }}
+    .gap-summary h2 {{
+      margin: 0 0 10px;
+      font-size: 16px;
+    }}
+    .gap-summary ul {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }}
+    .gap-summary li {{
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: #f9fafb;
+      font-size: 13px;
+    }}
     @media (max-width: 760px) {{
       .controls {{
         grid-template-columns: 1fr;
@@ -185,6 +213,7 @@ class HtmlDashboard:
       {self._metric("重复岗位数", metrics.duplicate_jobs)}
       {self._metric("失败页面数", metrics.failed_pages)}
     </section>
+    {gap_summary}
     <section class="controls" aria-label="Dashboard controls">
       <div class="control">
         <label for="job-search">搜索岗位</label>
@@ -305,6 +334,18 @@ class HtmlDashboard:
         if not skills:
             return "暂无"
         return " ".join(f'<span class="pill">{escape(skill)}</span>' for skill in skills)
+
+    def _skill_gap_summary(self, matches: list[MatchResult]) -> str:
+        gaps = summarize_skill_gaps(matches)
+        if not gaps:
+            return ""
+        items = "\n".join(
+            f"<li>{escape(skill)}: {count} 个岗位</li>" for skill, count in gaps
+        )
+        return f"""<section class="gap-summary">
+      <h2>技能缺口汇总</h2>
+      <ul>{items}</ul>
+    </section>"""
 
     def render_evaluation_summary(self, result: EvaluationResult) -> str:
         failure_rows = "\n".join(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
+from web_task_agent.skill_gap import summarize_skill_gaps
 
 
 class MarkdownReporter:
@@ -59,6 +60,14 @@ class MarkdownReporter:
         if not jobs:
             lines.extend(["未找到有效岗位。", ""])
             return "\n".join(lines)
+
+        skill_gaps = summarize_skill_gaps(matches or [])
+        if skill_gaps:
+            lines.extend(["## 技能缺口汇总", ""])
+            lines.extend(
+                f"- {skill}: {count} 个岗位缺失" for skill, count in skill_gaps
+            )
+            lines.append("")
 
         for index, job in enumerate(jobs, start=1):
             lines.extend(

@@ -94,6 +94,35 @@ def test_dashboard_renders_interactive_job_controls():
     assert "function applyDashboardFilters()" in html
 
 
+def test_dashboard_renders_skill_gap_summary():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    jobs = [
+        make_job(url="https://example.com/jobs/1"),
+        make_job(url="https://example.com/jobs/2"),
+    ]
+    matches = [
+        MatchResult(
+            job_id="https://example.com/jobs/1",
+            score=0.5,
+            missing_skills=["LLM", "FastAPI"],
+        ),
+        MatchResult(
+            job_id="https://example.com/jobs/2",
+            score=0.4,
+            missing_skills=["LLM"],
+        ),
+    ]
+    metrics = RunMetrics(run_id="run-dashboard", valid_jobs=2)
+
+    html = dashboard.render(user=user, jobs=jobs, matches=matches, metrics=metrics)
+
+    assert "技能缺口汇总" in html
+    assert "LLM" in html
+    assert "2 个岗位" in html
+    assert "FastAPI" in html
+
+
 def test_dashboard_escapes_html_content():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="<script>alert(1)</script>")

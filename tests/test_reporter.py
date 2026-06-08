@@ -99,3 +99,36 @@ def test_reporter_renders_match_results(tmp_path):
     assert "优先级: medium" in content
     assert "已匹配技能: Python, LangGraph" in content
     assert "缺失技能: LLM, FastAPI" in content
+
+
+def test_reporter_renders_skill_gap_summary(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    jobs = [
+        make_job(url="https://example.com/jobs/1"),
+        make_job(url="https://example.com/jobs/2"),
+    ]
+    metrics = RunMetrics(run_id="run-gap", valid_jobs=2)
+    matches = [
+        MatchResult(
+            job_id="https://example.com/jobs/1",
+            score=0.5,
+            missing_skills=["LLM", "FastAPI"],
+        ),
+        MatchResult(
+            job_id="https://example.com/jobs/2",
+            score=0.4,
+            missing_skills=["LLM"],
+        ),
+    ]
+
+    content = reporter.render(
+        user=user,
+        jobs=jobs,
+        metrics=metrics,
+        matches=matches,
+    )
+
+    assert "## 技能缺口汇总" in content
+    assert "- LLM: 2 个岗位缺失" in content
+    assert "- FastAPI: 1 个岗位缺失" in content
