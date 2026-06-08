@@ -44,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write a local HTML dashboard.",
     )
+    parser.add_argument(
+        "--langgraph",
+        action="store_true",
+        help="Run the main workflow through LangGraph nodes.",
+    )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
     parser.add_argument("--evaluation-count", type=int, default=20)
@@ -119,19 +124,23 @@ async def _run(args: argparse.Namespace) -> int:
         reporter=MarkdownReporter(args.report_dir),
     )
     try:
-        state = await workflow.run(
-            UserProfile(
-                keyword=args.keyword,
-                location=args.location,
-                target_count=args.target_count,
-                skills=args.skill,
-            )
+        user = UserProfile(
+            keyword=args.keyword,
+            location=args.location,
+            target_count=args.target_count,
+            skills=args.skill,
         )
+        if args.langgraph:
+            state = await workflow.run_with_langgraph(user)
+        else:
+            state = await workflow.run(user)
     except BrowserConfigurationError as exc:
         print(f"Real browser-use mode is not configured: {exc}")
         print("Use --demo for the deterministic local demo path.")
         return 2
     valid_jobs = state.metrics.valid_jobs if state.metrics else 0
+    if args.langgraph:
+        print("LangGraph workflow: enabled")
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
     if args.dashboard and state.metrics:

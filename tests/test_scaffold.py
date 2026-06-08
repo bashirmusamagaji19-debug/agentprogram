@@ -36,6 +36,31 @@ def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
     assert "AI 实习岗位搜索报告" in reports[0].read_text(encoding="utf-8")
 
 
+def test_cli_demo_mode_can_run_with_langgraph(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--keyword",
+                "AI intern",
+                "--location",
+                "Remote",
+                "--target-count",
+                "2",
+                "--demo",
+                "--langgraph",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LangGraph workflow: enabled" in captured.out
+    assert "Report written to:" in captured.out
+    assert list(Path("reports").glob("*.md"))
+
+
 def test_cli_demo_mode_writes_dashboard(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 

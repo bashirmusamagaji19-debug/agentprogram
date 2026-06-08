@@ -71,3 +71,59 @@ async def test_workflow_records_no_valid_jobs_without_crashing(tmp_path):
     assert state.metrics.avg_steps_per_job == 0.0
     assert repo.list_jobs() == []
     assert state.report_path is not None
+
+
+def test_workflow_builds_langgraph_with_named_agent_nodes(tmp_path):
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+    workflow = WebTaskWorkflow(
+        browser=FakeBrowserClient(FAKE_JOB_PAGES),
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    graph = workflow.build_langgraph()
+    graph_dict = graph.get_graph().to_json()
+    node_ids = {node["id"] for node in graph_dict["nodes"]}
+
+    assert {
+        "planner",
+        "browser",
+        "extractor",
+        "verifier",
+        "matcher",
+        "reporter",
+    }.issubset(node_ids)
+
+
+@pytest.mark.asyncio
+async def test_workflow_runs_end_to_end_with_langgraph(tmp_path):
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+    workflow = WebTaskWorkflow(
+        browser=FakeBrowserClient(FAKE_JOB_PAGES),
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run_with_langgraph(
+        UserProfile(
+            keyword="AI intern",
+            location="Remote",
+            target_count=2,
+            skills=["Python", "LangGraph"],
+        ),
+        run_id="run-langgraph",
+    )
+
+    assert state.metrics is not None
+    assert state.metrics.valid_jobs >= 1
+    assert state.matches
+    assert state.report_path is not None
+    assert "run-langgraph.md" in state.report_path

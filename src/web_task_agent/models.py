@@ -130,5 +130,6 @@ class WorkflowState(BaseModel):
     jobs: list[JobPosting] = Field(default_factory=list)
     matches: list[MatchResult] = Field(default_factory=list)
     failed_urls: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     metrics: RunMetrics | None = None
     report_path: str | None = None
