@@ -164,6 +164,9 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"Evaluation report written to: {result.report_path}")
         print(f"Task success rate: {result.success_rate:.2f}")
         print(f"Completed tasks: {result.completed_tasks}/{result.total_tasks}")
+        if args.json_output:
+            json_path = write_model_json_output(result, args.json_output)
+            print(f"Evaluation JSON written to: {json_path}")
         if args.dashboard:
             dashboard_dir = HtmlDashboard(args.dashboard_dir).output_dir
             dashboard_dir.mkdir(parents=True, exist_ok=True)
@@ -234,10 +237,14 @@ def load_resume_text(inline_texts: list[str], file_paths: list[str]) -> str:
 
 
 def write_json_output(state, output_path: str) -> Path:
+    return write_model_json_output(state, output_path)
+
+
+def write_model_json_output(model, output_path: str) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps(state.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        json.dumps(model.model_dump(mode="json"), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     return path

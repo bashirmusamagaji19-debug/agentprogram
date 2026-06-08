@@ -399,6 +399,31 @@ def test_cli_fixture_sites_evaluate_writes_success_report(
     assert "| - | 0 |" in report
 
 
+def test_cli_evaluate_writes_json_output(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--evaluate",
+                "--fixture-sites",
+                "--json-output",
+                "evaluations/result.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Evaluation JSON written to:" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "result.json").read_text(encoding="utf-8")
+    )
+    assert payload["total_tasks"] == 2
+    assert payload["success_rate"] == 1.0
+    assert len(payload["task_results"]) == 2
+
+
 def test_cli_evaluate_dashboard_writes_evaluation_html(
     tmp_path,
     monkeypatch,

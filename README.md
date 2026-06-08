@@ -31,6 +31,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --history
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
+.\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --json-output evaluations\fixture-result.json
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 .\.venv\Scripts\web-task-agent.exe --export-graph

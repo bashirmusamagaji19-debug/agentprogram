@@ -17,6 +17,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 1
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
+.\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --json-output evaluations\fixture-result.json
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 .\.venv\Scripts\web-task-agent.exe --export-graph
@@ -34,7 +35,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `110 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `111 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - CLI demo 成功运行，输出 `Report written to: reports\run-*.md`、`Valid jobs: 2` 和 `Dashboard written to: dashboards\run-*.html`。
@@ -44,6 +45,7 @@ print(jobs[0].title if jobs else "no jobs")
 - 运行历史查询成功运行，输出 `Recent runs` 和最近 run 的 `valid_jobs` 等指标。
 - 20 任务评测成功运行，输出 `Task success rate: 1.00` 和 `Completed tasks: 20/20`，并在报告中生成失败原因分布表。
 - 公开招聘页 fixture 评测成功运行，输出 `Completed tasks: 2/2`，覆盖 Greenhouse/Lever 风格自然语言招聘页抽取。
+- 评测 JSON 导出成功运行，输出 `Evaluation JSON written to: evaluations\fixture-result.json`。
 - 评测摘要 Dashboard 成功生成，输出 `Evaluation dashboard written to: dashboards\evaluation-summary.html`。
 - LangGraph 工作流图成功导出，输出 `Graph written to: docs\agent-workflow-graph.md`。
 - 非 demo 的 `BrowserUseClient` 本地 session adapter 成功运行，输出 `Report written to: reports\run-*.md` 和 `Valid jobs: 0`；该结果说明真实浏览器入口可执行，但搜索页尚未转化为招聘站点 JD 抽取。`--evaluate --real-smoke` 可批量运行真实浏览器 smoke task，并把失败归类为 `browser_error`、`no_pages`、`no_extracted_jobs` 或 `verification_filtered`。
