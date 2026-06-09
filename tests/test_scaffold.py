@@ -284,6 +284,7 @@ def test_cli_demo_mode_writes_action_plan(
     assert f"../{plans[0].as_posix()}" in dashboard
     payload = json.loads((tmp_path / "outputs" / "result.json").read_text(encoding="utf-8"))
     assert payload["metadata"]["action_plan_path"] == plans[0].as_posix()
+    assert payload["metadata"]["dashboard_path"] == dashboards[0].as_posix()
 
 
 def test_cli_demo_dashboard_includes_search_query_trace(

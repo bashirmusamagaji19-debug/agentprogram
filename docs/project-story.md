@@ -95,7 +95,7 @@ flowchart LR
 - `reports/*.md`：岗位报告和匹配分析。
 - `action-plans/*.md`：优先投递岗位、技能补强顺序、项目任务、简历项目改写要点和 7 天执行节奏。
 - `dashboards/*.html`：本地 HTML Dashboard，会展示搜索 query、seed URL、URL 级错误和行动计划等相关产物链接。
-- `outputs/result.json`：一键闭环 demo 的机器可读完整 workflow state，包含报告路径；与行动计划同用时包含 `metadata.action_plan_path`。
+- `outputs/result.json`：一键闭环 demo 的机器可读完整 workflow state，包含报告路径；与行动计划和 Dashboard 同用时包含 `metadata.action_plan_path` 和 `metadata.dashboard_path`。
 - `outputs/seed-demo.json`：跳过搜索、直接打开指定 JD 的机器可读 workflow state。
 - `outputs/unstructured-llm-demo.json`：deterministic LLM demo 抽取低结构化 JD 后的 workflow state。
 - `evaluations/llm-comparison.json`：规则抽取和 LLM demo 抽取在同一低结构化 JD 上的对比结果。

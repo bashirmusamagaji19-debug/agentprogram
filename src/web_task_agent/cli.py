@@ -353,6 +353,7 @@ async def _run(args: argparse.Namespace) -> int:
             failed_url_errors=state.metadata.get("failed_url_errors", []),
             artifact_links=artifact_links,
         )
+        state.metadata["dashboard_path"] = dashboard_path.as_posix()
         print(f"Dashboard written to: {dashboard_path}")
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
