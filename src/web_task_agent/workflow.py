@@ -80,11 +80,23 @@ class WebTaskWorkflow:
         if state.user.seed_urls:
             state.candidate_urls = state.user.seed_urls[: state.user.target_count]
             state.search_queries = []
+            self._record_trace(
+                state,
+                "planner",
+                f"selected {len(state.candidate_urls)} seed URLs",
+            )
             return state
         state.search_queries = self._plan_queries(state.user)
+        self._record_trace(
+            state,
+            "planner",
+            f"planned {len(state.search_queries)} search queries",
+        )
         return state
 
     async def _browser_node(self, state: WorkflowState) -> WorkflowState:
+        pages_before = len(state.pages)
+        failures_before = len(state.failed_urls)
         if state.candidate_urls:
             failed_url_errors = state.metadata.setdefault("failed_url_errors", [])
             for url in state.candidate_urls:
@@ -98,6 +110,14 @@ class WebTaskWorkflow:
                             "error": f"{type(exc).__name__}: {exc}",
                         }
                     )
+            self._record_trace(
+                state,
+                "browser",
+                (
+                    f"opened {len(state.pages) - pages_before} pages; "
+                    f"failed {len(state.failed_urls) - failures_before} URLs"
+                ),
+            )
             return state
 
         for query in state.search_queries:
@@ -105,6 +125,11 @@ class WebTaskWorkflow:
             state.pages.extend(pages)
             if len(state.pages) >= state.user.target_count:
                 break
+        self._record_trace(
+            state,
+            "browser",
+            f"visited {len(state.pages) - pages_before} pages",
+        )
         return state
 
     def _extractor_node(self, state: WorkflowState) -> WorkflowState:
@@ -112,6 +137,11 @@ class WebTaskWorkflow:
         state.metadata["extracted_jobs"] = [
             self.extractor.extract(page) for page in state.pages
         ]
+        self._record_trace(
+            state,
+            "extractor",
+            f"extracted {len(state.metadata['extracted_jobs'])} job candidates",
+        )
         return state
 
     def _verifier_node(self, state: WorkflowState) -> WorkflowState:
@@ -122,6 +152,11 @@ class WebTaskWorkflow:
         ]
         state.metadata["jobs_found"] = len(extracted_jobs)
         state.metadata["duplicate_jobs"] = len(duplicate_jobs)
+        self._record_trace(
+            state,
+            "verifier",
+            f"kept {len(state.jobs)} valid jobs; removed {len(duplicate_jobs)} duplicates",
+        )
         return state
 
     def _matcher_node(self, state: WorkflowState) -> WorkflowState:
@@ -139,6 +174,11 @@ class WebTaskWorkflow:
                 else 0.0
             )
             metrics.finished_at = datetime.now(timezone.utc)
+        self._record_trace(
+            state,
+            "matcher",
+            f"scored {len(state.matches)} job matches",
+        )
         return state
 
     def _reporter_node(self, state: WorkflowState) -> WorkflowState:
@@ -146,11 +186,17 @@ class WebTaskWorkflow:
             return state
         self.repository.save_jobs(state.jobs)
         self.repository.save_run_metrics(state.metrics)
+        self._record_trace(
+            state,
+            "reporter",
+            f"persisted {len(state.jobs)} jobs and wrote Markdown report",
+        )
         report_path = self.reporter.write_report(
             user=state.user,
             jobs=state.jobs,
             matches=state.matches,
             metrics=state.metrics,
+            execution_trace=state.metadata.get("execution_trace", []),
         )
         state.report_path = str(report_path)
         return state
@@ -161,3 +207,7 @@ class WebTaskWorkflow:
             f"{user.keyword} LangGraph browser agent internship",
             f"{user.keyword} LLM agent internship",
         ]
+
+    def _record_trace(self, state: WorkflowState, node: str, summary: str) -> None:
+        trace = state.metadata.setdefault("execution_trace", [])
+        trace.append({"node": node, "summary": summary})

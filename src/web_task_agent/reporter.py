@@ -19,6 +19,7 @@ class MarkdownReporter:
         matches: list[MatchResult] | None = None,
         metrics: RunMetrics,
         artifact_links: dict[str, str | Path] | None = None,
+        execution_trace: list[dict[str, str]] | None = None,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.output_dir / f"{metrics.run_id}.md"
@@ -30,6 +31,7 @@ class MarkdownReporter:
                 matches=matches,
                 metrics=metrics,
                 artifact_links=report_links,
+                execution_trace=execution_trace,
             ),
             encoding="utf-8",
         )
@@ -43,6 +45,7 @@ class MarkdownReporter:
         matches: list[MatchResult] | None = None,
         metrics: RunMetrics,
         artifact_links: dict[str, str | Path] | None = None,
+        execution_trace: list[dict[str, str]] | None = None,
     ) -> str:
         match_by_job_id = {match.job_id: match for match in (matches or [])}
         lines = [
@@ -79,6 +82,8 @@ class MarkdownReporter:
                 f"- {skill}: {count} 个岗位缺失" for skill, count in skill_gaps
             )
             lines.append("")
+
+        self._append_execution_trace(lines, execution_trace)
 
         for index, job in enumerate(jobs, start=1):
             lines.extend(
@@ -134,6 +139,18 @@ class MarkdownReporter:
         for label, path in artifact_links.items():
             href = Path(path).as_posix()
             lines.append(f"- {label}: [{href}]({href})")
+        lines.append("")
+
+    def _append_execution_trace(
+        self,
+        lines: list[str],
+        execution_trace: list[dict[str, str]] | None,
+    ) -> None:
+        if not execution_trace:
+            return
+        lines.extend(["## Agent 执行轨迹", ""])
+        for item in execution_trace:
+            lines.append(f"- {item.get('node', '-')}: {item.get('summary', '-')}")
         lines.append("")
 
     def _relative_artifact_links(

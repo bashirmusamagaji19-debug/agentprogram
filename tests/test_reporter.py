@@ -169,3 +169,23 @@ def test_reporter_writes_relative_artifact_links(tmp_path):
 
     content = report_path.read_text(encoding="utf-8")
     assert "- 行动计划: [../action-plans/run-artifacts.md](../action-plans/run-artifacts.md)" in content
+
+
+def test_reporter_renders_agent_execution_trace(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    metrics = RunMetrics(run_id="run-trace", valid_jobs=1)
+
+    content = reporter.render(
+        user=user,
+        jobs=[make_job()],
+        metrics=metrics,
+        execution_trace=[
+            {"node": "planner", "summary": "planned 3 search queries"},
+            {"node": "browser", "summary": "visited 2 pages"},
+        ],
+    )
+
+    assert "## Agent 执行轨迹" in content
+    assert "- planner: planned 3 search queries" in content
+    assert "- browser: visited 2 pages" in content

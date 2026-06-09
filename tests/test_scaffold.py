@@ -279,6 +279,7 @@ def test_cli_demo_mode_writes_action_plan(
     assert "技能补强顺序" in content
     report = reports[0].read_text(encoding="utf-8")
     assert "## 相关产物" in report
+    assert "## Agent 执行轨迹" in report
     assert f"- 行动计划: [../{plans[0].as_posix()}](../{plans[0].as_posix()})" in report
     assert f"- Dashboard: [../{dashboards[0].as_posix()}](../{dashboards[0].as_posix()})" in report
     dashboard = dashboards[0].read_text(encoding="utf-8")
@@ -291,6 +292,14 @@ def test_cli_demo_mode_writes_action_plan(
         {"skill": "FastAPI", "count": 1},
         {"skill": "LangGraph", "count": 1},
         {"skill": "LLM", "count": 1},
+    ]
+    assert [item["node"] for item in payload["metadata"]["execution_trace"]] == [
+        "planner",
+        "browser",
+        "extractor",
+        "verifier",
+        "matcher",
+        "reporter",
     ]
 
 

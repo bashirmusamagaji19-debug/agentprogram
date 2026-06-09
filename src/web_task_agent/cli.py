@@ -340,6 +340,7 @@ async def _run(args: argparse.Namespace) -> int:
                 matches=state.matches,
                 metrics=state.metrics,
                 artifact_links=artifact_links,
+                execution_trace=state.metadata.get("execution_trace", []),
             )
         )
         print(f"Action plan written to: {plan_path}")
@@ -363,6 +364,7 @@ async def _run(args: argparse.Namespace) -> int:
                 matches=state.matches,
                 metrics=state.metrics,
                 artifact_links=artifact_links,
+                execution_trace=state.metadata.get("execution_trace", []),
             )
         )
         print(f"Dashboard written to: {dashboard_path}")
