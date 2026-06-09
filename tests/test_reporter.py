@@ -189,3 +189,26 @@ def test_reporter_renders_agent_execution_trace(tmp_path):
     assert "## Agent 执行轨迹" in content
     assert "- planner: planned 3 search queries" in content
     assert "- browser: visited 2 pages" in content
+
+
+def test_reporter_renders_interview_talking_points(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    metrics = RunMetrics(run_id="run-story", valid_jobs=1)
+
+    content = reporter.render(
+        user=user,
+        jobs=[make_job()],
+        metrics=metrics,
+        execution_trace=[
+            {"node": "planner", "summary": "planned 3 search queries"},
+            {"node": "browser", "summary": "visited 2 pages"},
+        ],
+        orchestration_mode="langgraph",
+    )
+
+    assert "## 面试讲述要点" in content
+    assert "BrowserClient" in content
+    assert "LangGraph" in content
+    assert "Agent 执行轨迹" in content
+    assert "评测" in content
