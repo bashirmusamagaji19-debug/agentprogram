@@ -92,7 +92,7 @@ flowchart LR
 
 输出：
 
-- `reports/*.md`：岗位报告和匹配分析。
+- `reports/*.md`：岗位报告和匹配分析，并列出行动计划、Dashboard 等相关产物。
 - `action-plans/*.md`：优先投递岗位、技能补强顺序、项目任务、简历项目改写要点和 7 天执行节奏。
 - `dashboards/*.html`：本地 HTML Dashboard，会展示搜索 query、seed URL、URL 级错误和行动计划等相关产物链接。
 - `outputs/result.json`：一键闭环 demo 的机器可读完整 workflow state，包含报告路径；与行动计划和 Dashboard 同用时包含 `metadata.action_plan_path`、`metadata.dashboard_path` 和结构化 `metadata.top_action_gaps`。

@@ -51,7 +51,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard --action-plan --json-output outputs\result.json
 ```
 
-该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合一条命令展示工作流闭环。它会生成 Markdown 报告、本地 HTML Dashboard、Markdown 行动计划和机器可读 JSON；Dashboard 会展示搜索 query、seed URL、URL 级错误和行动计划等相关产物链接。当前真实 `browser-use` 路径已具备 session adapter 入口，但真实招聘网站表现仍需要单独站点评测和失败原因统计。
+该命令使用内置 demo 页面运行，不依赖真实招聘网站，适合一条命令展示工作流闭环。它会生成 Markdown 报告、本地 HTML Dashboard、Markdown 行动计划和机器可读 JSON；报告会列出 Dashboard 和行动计划等相关产物，Dashboard 也会展示搜索 query、seed URL、URL 级错误和行动计划等相关产物链接。当前真实 `browser-use` 路径已具备 session adapter 入口，但真实招聘网站表现仍需要单独站点评测和失败原因统计。
 
 加上 `--langgraph` 后，主流程会通过 LangGraph 节点执行，节点包括 planner、browser、extractor、verifier、matcher 和 reporter，适合在面试中展示 Agent 工作流编排。
 

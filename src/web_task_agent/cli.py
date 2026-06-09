@@ -355,6 +355,16 @@ async def _run(args: argparse.Namespace) -> int:
             artifact_links=artifact_links,
         )
         state.metadata["dashboard_path"] = dashboard_path.as_posix()
+        artifact_links["Dashboard"] = dashboard_path
+        state.report_path = str(
+            MarkdownReporter(args.report_dir).write_report(
+                user=state.user,
+                jobs=state.jobs,
+                matches=state.matches,
+                metrics=state.metrics,
+                artifact_links=artifact_links,
+            )
+        )
         print(f"Dashboard written to: {dashboard_path}")
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
