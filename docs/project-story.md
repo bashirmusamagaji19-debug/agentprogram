@@ -85,6 +85,7 @@ flowchart LR
 ```powershell
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard --action-plan --json-output outputs\result.json
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard --json-output outputs\langgraph-result.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-demo --json-output outputs\unstructured-llm-demo.json --dashboard
 .\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --json-output evaluations\llm-comparison.json
@@ -96,6 +97,7 @@ flowchart LR
 - `action-plans/*.md`：优先投递岗位、技能补强顺序、项目任务、简历项目改写要点和 7 天执行节奏。
 - `dashboards/*.html`：本地 HTML Dashboard，会展示搜索 query、seed URL、URL 级错误、Agent 执行轨迹和行动计划等相关产物链接。
 - `outputs/result.json`：一键闭环 demo 的机器可读完整 workflow state，包含报告路径、`metadata.orchestration_mode` 和 `metadata.execution_trace`；与行动计划和 Dashboard 同用时包含 `metadata.action_plan_path`、`metadata.dashboard_path` 和结构化 `metadata.top_action_gaps`。
+- `outputs/langgraph-result.json`：LangGraph 编排路径的 workflow state，用于和默认 sequential 编排结果对比。
 - `outputs/seed-demo.json`：跳过搜索、直接打开指定 JD 的机器可读 workflow state。
 - `outputs/unstructured-llm-demo.json`：deterministic LLM demo 抽取低结构化 JD 后的 workflow state。
 - `evaluations/llm-comparison.json`：规则抽取和 LLM demo 抽取在同一低结构化 JD 上的对比结果。

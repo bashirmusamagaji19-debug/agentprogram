@@ -59,10 +59,11 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--skill Python --skill LangGraph" in captured.out
     assert "--action-plan" in captured.out
     assert "--dashboard --action-plan --json-output outputs\\result.json" in captured.out
+    assert "--langgraph" in captured.out
     assert "--llm-extractor-demo" in captured.out
     assert "--history" in captured.out
     assert "--evaluate --fixture-sites" in captured.out
-    assert "7. " in captured.out
+    assert "8. " in captured.out
 
 
 def test_format_top_action_gaps_handles_empty_and_ranked_gaps() -> None:

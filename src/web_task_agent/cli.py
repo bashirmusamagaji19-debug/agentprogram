@@ -498,6 +498,11 @@ def print_demo_script() -> None:
             r"--dashboard --action-plan --json-output outputs\result.json"
         ),
         (
+            r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
+            r"--target-count 2 --skill Python --skill LangGraph --demo "
+            r"--langgraph --dashboard --json-output outputs\langgraph-result.json"
+        ),
+        (
             r'.\.venv\Scripts\web-task-agent.exe --seed-url '
             r'"https://example.com/jobs/ai-engineering-intern" --demo '
             r"--target-count 1 --json-output outputs\seed-demo.json --dashboard"
