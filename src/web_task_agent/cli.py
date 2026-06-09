@@ -341,6 +341,7 @@ async def _run(args: argparse.Namespace) -> int:
                 metrics=state.metrics,
                 artifact_links=artifact_links,
                 execution_trace=state.metadata.get("execution_trace", []),
+                orchestration_mode=state.metadata.get("orchestration_mode", "sequential"),
             )
         )
         print(f"Action plan written to: {plan_path}")
@@ -355,6 +356,7 @@ async def _run(args: argparse.Namespace) -> int:
             failed_url_errors=state.metadata.get("failed_url_errors", []),
             artifact_links=artifact_links,
             execution_trace=state.metadata.get("execution_trace", []),
+            orchestration_mode=state.metadata.get("orchestration_mode", "sequential"),
         )
         state.metadata["dashboard_path"] = dashboard_path.as_posix()
         artifact_links["Dashboard"] = dashboard_path
@@ -366,6 +368,7 @@ async def _run(args: argparse.Namespace) -> int:
                 metrics=state.metrics,
                 artifact_links=artifact_links,
                 execution_trace=state.metadata.get("execution_trace", []),
+                orchestration_mode=state.metadata.get("orchestration_mode", "sequential"),
             )
         )
         print(f"Dashboard written to: {dashboard_path}")

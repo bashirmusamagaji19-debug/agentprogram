@@ -20,6 +20,7 @@ class MarkdownReporter:
         metrics: RunMetrics,
         artifact_links: dict[str, str | Path] | None = None,
         execution_trace: list[dict[str, str]] | None = None,
+        orchestration_mode: str = "sequential",
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.output_dir / f"{metrics.run_id}.md"
@@ -32,6 +33,7 @@ class MarkdownReporter:
                 metrics=metrics,
                 artifact_links=report_links,
                 execution_trace=execution_trace,
+                orchestration_mode=orchestration_mode,
             ),
             encoding="utf-8",
         )
@@ -46,6 +48,7 @@ class MarkdownReporter:
         metrics: RunMetrics,
         artifact_links: dict[str, str | Path] | None = None,
         execution_trace: list[dict[str, str]] | None = None,
+        orchestration_mode: str = "sequential",
     ) -> str:
         match_by_job_id = {match.job_id: match for match in (matches or [])}
         lines = [
@@ -65,6 +68,7 @@ class MarkdownReporter:
             f"- 有效岗位数: {metrics.valid_jobs}",
             f"- 重复岗位数: {metrics.duplicate_jobs}",
             f"- 失败页面数: {metrics.failed_pages}",
+            f"- 编排模式: {orchestration_mode}",
             "",
             "## 岗位列表",
             "",

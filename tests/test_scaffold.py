@@ -279,14 +279,18 @@ def test_cli_demo_mode_writes_action_plan(
     assert "技能补强顺序" in content
     report = reports[0].read_text(encoding="utf-8")
     assert "## 相关产物" in report
+    assert "编排模式: sequential" in report
     assert "## Agent 执行轨迹" in report
     assert f"- 行动计划: [../{plans[0].as_posix()}](../{plans[0].as_posix()})" in report
     assert f"- Dashboard: [../{dashboards[0].as_posix()}](../{dashboards[0].as_posix()})" in report
     dashboard = dashboards[0].read_text(encoding="utf-8")
     assert "相关产物" in dashboard
+    assert "编排模式" in dashboard
+    assert "sequential" in dashboard
     assert "Agent 执行轨迹" in dashboard
     assert f"../{plans[0].as_posix()}" in dashboard
     payload = json.loads((tmp_path / "outputs" / "result.json").read_text(encoding="utf-8"))
+    assert payload["metadata"]["orchestration_mode"] == "sequential"
     assert payload["metadata"]["action_plan_path"] == plans[0].as_posix()
     assert payload["metadata"]["dashboard_path"] == dashboards[0].as_posix()
     assert payload["metadata"]["top_action_gaps"] == [

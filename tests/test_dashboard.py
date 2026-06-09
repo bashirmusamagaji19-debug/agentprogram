@@ -49,6 +49,23 @@ def test_dashboard_renders_jobs_metrics_and_matches():
     assert "访问页面数" in html
 
 
+def test_dashboard_renders_orchestration_mode():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-dashboard")
+
+    html = dashboard.render(
+        user=user,
+        jobs=[],
+        matches=[],
+        metrics=metrics,
+        orchestration_mode="langgraph",
+    )
+
+    assert "编排模式" in html
+    assert "langgraph" in html
+
+
 def test_dashboard_renders_interactive_job_controls():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="AI intern", skills=["Python"])

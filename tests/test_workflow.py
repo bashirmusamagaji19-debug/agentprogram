@@ -46,7 +46,9 @@ async def test_workflow_runs_end_to_end_with_fake_browser(tmp_path):
     assert "run-test.md" in state.report_path
     report = Path(state.report_path).read_text(encoding="utf-8")
     assert "匹配分析" in report
+    assert "编排模式: sequential" in report
     assert "## Agent 执行轨迹" in report
+    assert state.metadata["orchestration_mode"] == "sequential"
     assert [item["node"] for item in state.metadata["execution_trace"]] == [
         "planner",
         "browser",
@@ -219,6 +221,7 @@ async def test_workflow_runs_end_to_end_with_langgraph(tmp_path):
     assert state.matches
     assert state.report_path is not None
     assert "run-langgraph.md" in state.report_path
+    assert state.metadata["orchestration_mode"] == "langgraph"
     assert [item["node"] for item in state.metadata["execution_trace"]] == [
         "planner",
         "browser",

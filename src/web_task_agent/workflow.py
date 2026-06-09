@@ -38,6 +38,7 @@ class WebTaskWorkflow:
         run_id: str | None = None,
     ) -> WorkflowState:
         state = WorkflowState(user=user)
+        state.metadata["orchestration_mode"] = "sequential"
         state.metrics = RunMetrics(run_id=run_id or f"run-{uuid4().hex[:8]}")
         state = await self._plan_node(state)
         state = await self._browser_node(state)
@@ -53,6 +54,7 @@ class WebTaskWorkflow:
         run_id: str | None = None,
     ) -> WorkflowState:
         state = WorkflowState(user=user)
+        state.metadata["orchestration_mode"] = "langgraph"
         state.metrics = RunMetrics(run_id=run_id or f"run-{uuid4().hex[:8]}")
         result = await self.build_langgraph().ainvoke(state)
         if isinstance(result, WorkflowState):
@@ -197,6 +199,7 @@ class WebTaskWorkflow:
             matches=state.matches,
             metrics=state.metrics,
             execution_trace=state.metadata.get("execution_trace", []),
+            orchestration_mode=state.metadata.get("orchestration_mode", "sequential"),
         )
         state.report_path = str(report_path)
         return state

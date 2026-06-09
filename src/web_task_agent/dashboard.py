@@ -24,6 +24,7 @@ class HtmlDashboard:
         failed_url_errors: list[dict[str, str]] | None = None,
         artifact_links: dict[str, str | Path] | None = None,
         execution_trace: list[dict[str, str]] | None = None,
+        orchestration_mode: str = "sequential",
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / f"{metrics.run_id}.html"
@@ -38,6 +39,7 @@ class HtmlDashboard:
                 failed_url_errors=failed_url_errors,
                 artifact_links=dashboard_links,
                 execution_trace=execution_trace,
+                orchestration_mode=orchestration_mode,
             ),
             encoding="utf-8",
         )
@@ -54,6 +56,7 @@ class HtmlDashboard:
         failed_url_errors: list[dict[str, str]] | None = None,
         artifact_links: dict[str, str | Path] | None = None,
         execution_trace: list[dict[str, str]] | None = None,
+        orchestration_mode: str = "sequential",
     ) -> str:
         match_by_job_id = {match.job_id: match for match in matches}
         job_rows = "\n".join(
@@ -238,6 +241,7 @@ class HtmlDashboard:
       {self._metric("有效岗位数", metrics.valid_jobs)}
       {self._metric("重复岗位数", metrics.duplicate_jobs)}
       {self._metric("失败页面数", metrics.failed_pages)}
+      {self._metric("编排模式", escape(orchestration_mode))}
     </section>
     {input_trace}
     {artifacts}
@@ -356,7 +360,7 @@ class HtmlDashboard:
   <td><a href="{escape(job.url)}">打开</a></td>
 </tr>"""
 
-    def _metric(self, label: str, value: int | float) -> str:
+    def _metric(self, label: str, value: int | float | str) -> str:
         return f'<div class="metric"><span>{escape(label)}</span><strong>{value}</strong></div>'
 
     def _skills(self, skills: list[str]) -> str:
