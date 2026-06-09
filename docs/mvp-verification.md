@@ -12,11 +12,9 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --list-fixture-urls
 .\.venv\Scripts\web-task-agent.exe --print-demo-script
 .\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --json-output evaluations\llm-comparison.json
-.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard --action-plan --json-output outputs\result.json
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-text "Built LangGraph browser agents with LLM evaluation loops." --demo --dashboard
-.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --demo --json-output outputs\result.json
-.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --demo --action-plan
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-demo --json-output outputs\unstructured-llm-demo.json --dashboard
 .\.venv\Scripts\web-task-agent.exe --history
@@ -48,9 +46,9 @@ print(jobs[0].title if jobs else "no jobs")
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
-- demo script 命令成功运行，输出 7 条面试现场可复制命令，包含行动计划生成路径。
+- demo script 命令成功运行，输出 7 条面试现场可复制命令，包含一键生成 Dashboard、行动计划和 JSON 的闭环命令，以及运行历史查询命令。
 - LLM extractor 对比命令成功运行，输出 `baseline: 0/1` 和 `llm-demo: 1/1`，并生成 `evaluations\llm-comparison.json`。
-- CLI demo 成功运行，输出 `Report written to: reports\run-*.md`、`Valid jobs: 2` 和 `Dashboard written to: dashboards\run-*.html`。
+- CLI demo 成功运行，输出 `Report written to: reports\run-*.md`、`Valid jobs: 2`、`Action plan written to: action-plans\...`、`Top action gaps: ...`、`JSON output written to: outputs\result.json` 和 `Dashboard written to: dashboards\run-*.html`。
 - LangGraph demo 成功运行，输出 `LangGraph workflow: enabled`、`Valid jobs: 2` 和 dashboard 路径。
 - 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。
 - JSON 导出 demo 成功运行，输出 `JSON output written to: outputs\result.json`。

@@ -464,11 +464,8 @@ def print_demo_script() -> None:
         r".\.venv\Scripts\web-task-agent.exe --list-fixture-urls",
         (
             r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
-            r"--target-count 1 --demo --dashboard"
-        ),
-        (
-            r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
-            r"--target-count 2 --demo --action-plan"
+            r"--target-count 2 --skill Python --skill LangGraph --demo "
+            r"--dashboard --action-plan --json-output outputs\result.json"
         ),
         (
             r'.\.venv\Scripts\web-task-agent.exe --seed-url '
@@ -481,6 +478,7 @@ def print_demo_script() -> None:
             r"--target-count 1 --llm-extractor-demo "
             r"--json-output outputs\unstructured-llm-demo.json --dashboard"
         ),
+        r".\.venv\Scripts\web-task-agent.exe --history",
         (
             r".\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites "
             r"--json-output evaluations\fixture-result.json"
