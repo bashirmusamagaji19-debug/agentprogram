@@ -23,6 +23,7 @@ class HtmlDashboard:
         search_queries: list[str] | None = None,
         failed_url_errors: list[dict[str, str]] | None = None,
         artifact_links: dict[str, str | Path] | None = None,
+        execution_trace: list[dict[str, str]] | None = None,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / f"{metrics.run_id}.html"
@@ -36,6 +37,7 @@ class HtmlDashboard:
                 search_queries=search_queries,
                 failed_url_errors=failed_url_errors,
                 artifact_links=dashboard_links,
+                execution_trace=execution_trace,
             ),
             encoding="utf-8",
         )
@@ -51,6 +53,7 @@ class HtmlDashboard:
         search_queries: list[str] | None = None,
         failed_url_errors: list[dict[str, str]] | None = None,
         artifact_links: dict[str, str | Path] | None = None,
+        execution_trace: list[dict[str, str]] | None = None,
     ) -> str:
         match_by_job_id = {match.job_id: match for match in matches}
         job_rows = "\n".join(
@@ -65,6 +68,7 @@ class HtmlDashboard:
         )
         gap_summary = self._skill_gap_summary(matches)
         artifacts = self._artifact_links(artifact_links)
+        agent_trace = self._agent_execution_trace(execution_trace)
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -237,6 +241,7 @@ class HtmlDashboard:
     </section>
     {input_trace}
     {artifacts}
+    {agent_trace}
     {gap_summary}
     <section class="controls" aria-label="Dashboard controls">
       <div class="control">
@@ -415,6 +420,24 @@ class HtmlDashboard:
         )
         return f"""<section class="gap-summary">
       <h2>相关产物</h2>
+      <ul>{items}</ul>
+    </section>"""
+
+    def _agent_execution_trace(
+        self,
+        execution_trace: list[dict[str, str]] | None,
+    ) -> str:
+        if not execution_trace:
+            return ""
+        items = "\n".join(
+            (
+                f"<li><strong>{escape(item.get('node', '-'))}</strong>: "
+                f"{escape(item.get('summary', '-'))}</li>"
+            )
+            for item in execution_trace
+        )
+        return f"""<section class="gap-summary">
+      <h2>Agent 执行轨迹</h2>
       <ul>{items}</ul>
     </section>"""
 

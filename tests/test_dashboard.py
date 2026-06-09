@@ -203,6 +203,29 @@ def test_dashboard_renders_related_artifact_links():
     assert "action-plans/run-dashboard.md" in html
 
 
+def test_dashboard_renders_agent_execution_trace():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-dashboard")
+
+    html = dashboard.render(
+        user=user,
+        jobs=[],
+        matches=[],
+        metrics=metrics,
+        execution_trace=[
+            {"node": "planner", "summary": "planned 3 search queries"},
+            {"node": "browser", "summary": "visited 2 pages"},
+        ],
+    )
+
+    assert "Agent 执行轨迹" in html
+    assert "planner" in html
+    assert "planned 3 search queries" in html
+    assert "browser" in html
+    assert "visited 2 pages" in html
+
+
 def test_dashboard_escapes_html_content():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="<script>alert(1)</script>")

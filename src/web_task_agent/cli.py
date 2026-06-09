@@ -354,6 +354,7 @@ async def _run(args: argparse.Namespace) -> int:
             search_queries=state.search_queries,
             failed_url_errors=state.metadata.get("failed_url_errors", []),
             artifact_links=artifact_links,
+            execution_trace=state.metadata.get("execution_trace", []),
         )
         state.metadata["dashboard_path"] = dashboard_path.as_posix()
         artifact_links["Dashboard"] = dashboard_path
