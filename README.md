@@ -59,7 +59,7 @@ python -m venv .venv
 
 使用 `--resume-file .\resume.md` 或 `--resume-text "..."` 可以把简历内容作为岗位匹配信号；两者可同时使用，CLI 会合并后传入 `UserProfile.resume_text`。
 
-使用 `--json-output outputs\result.json` 可以导出完整工作流状态，包含用户输入、岗位、匹配结果、运行指标、报告路径；与 `--action-plan` / `--dashboard` 同用时还会在 metadata 中记录行动计划路径和 Dashboard 路径，方便后续接前端或自动投递流程。
+使用 `--json-output outputs\result.json` 可以导出完整工作流状态，包含用户输入、岗位、匹配结果、运行指标、报告路径；与 `--action-plan` / `--dashboard` 同用时还会在 metadata 中记录行动计划路径、Dashboard 路径和结构化 Top action gaps，方便后续接前端或自动投递流程。
 
 使用 `--action-plan` 可以根据岗位匹配结果生成 Markdown 行动计划，包含优先投递岗位、技能补强顺序、可展示项目任务、简历项目改写要点和 7 天执行节奏；CLI 也会打印 `Top action gaps`，方便现场直接讲补强重点。
 

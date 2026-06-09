@@ -331,6 +331,7 @@ async def _run(args: argparse.Namespace) -> int:
             matches=state.matches,
         )
         state.metadata["action_plan_path"] = plan_path.as_posix()
+        state.metadata["top_action_gaps"] = top_action_gap_items(state.matches)
         artifact_links["行动计划"] = plan_path
         state.report_path = str(
             MarkdownReporter(args.report_dir).write_report(
@@ -374,10 +375,17 @@ def write_json_output(state, output_path: str) -> Path:
 
 
 def format_top_action_gaps(matches: list[MatchResult]) -> str:
-    gaps = summarize_skill_gaps(matches)
+    gaps = top_action_gap_items(matches)
     if not gaps:
         return "none"
-    return ", ".join(f"{skill} ({count})" for skill, count in gaps[:3])
+    return ", ".join(f"{gap['skill']} ({gap['count']})" for gap in gaps)
+
+
+def top_action_gap_items(matches: list[MatchResult]) -> list[dict[str, int | str]]:
+    return [
+        {"skill": skill, "count": count}
+        for skill, count in summarize_skill_gaps(matches)[:3]
+    ]
 
 
 def write_model_json_output(model, output_path: str) -> Path:
