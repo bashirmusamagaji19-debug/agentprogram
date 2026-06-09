@@ -5,8 +5,8 @@ import pytest
 
 from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
-from web_task_agent.cli import load_resume_text, main, write_json_output
-from web_task_agent.models import BrowserPage, UserProfile, WorkflowState
+from web_task_agent.cli import format_top_action_gaps, load_resume_text, main, write_json_output
+from web_task_agent.models import BrowserPage, MatchResult, UserProfile, WorkflowState
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 
 
@@ -59,6 +59,19 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--llm-extractor-demo" in captured.out
     assert "--evaluate --fixture-sites" in captured.out
     assert "7. " in captured.out
+
+
+def test_format_top_action_gaps_handles_empty_and_ranked_gaps() -> None:
+    assert format_top_action_gaps([]) == "none"
+    assert (
+        format_top_action_gaps(
+            [
+                MatchResult(job_id="1", score=0.5, missing_skills=["LLM"]),
+                MatchResult(job_id="2", score=0.4, missing_skills=["FastAPI", "LLM"]),
+            ]
+        )
+        == "LLM (2), FastAPI (1)"
+    )
 
 
 def test_cli_demo_mode_writes_report(tmp_path, monkeypatch, capsys) -> None:
@@ -248,6 +261,8 @@ def test_cli_demo_mode_writes_action_plan(
 
     captured = capsys.readouterr()
     assert "Action plan written to:" in captured.out
+    assert "Top action gaps:" in captured.out
+    assert "FastAPI" in captured.out
     assert "JSON output written to:" in captured.out
     plans = list(Path("action-plans").glob("*.md"))
     assert len(plans) == 1

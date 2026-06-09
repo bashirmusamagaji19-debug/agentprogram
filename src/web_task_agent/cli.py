@@ -28,8 +28,9 @@ from web_task_agent.extractor import PageExtractor
 from web_task_agent.graph_export import LangGraphExporter
 from web_task_agent.llm_extractor import DemoLlmFieldExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import UserProfile
+from web_task_agent.models import MatchResult, UserProfile
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.skill_gap import summarize_skill_gaps
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
@@ -341,6 +342,7 @@ async def _run(args: argparse.Namespace) -> int:
             )
         )
         print(f"Action plan written to: {plan_path}")
+        print(f"Top action gaps: {format_top_action_gaps(state.matches)}")
     if args.dashboard and state.metrics:
         dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
             user=state.user,
@@ -368,6 +370,13 @@ def load_resume_text(inline_texts: list[str], file_paths: list[str]) -> str:
 
 def write_json_output(state, output_path: str) -> Path:
     return write_model_json_output(state, output_path)
+
+
+def format_top_action_gaps(matches: list[MatchResult]) -> str:
+    gaps = summarize_skill_gaps(matches)
+    if not gaps:
+        return "none"
+    return ", ".join(f"{skill} ({count})" for skill, count in gaps[:3])
 
 
 def write_model_json_output(model, output_path: str) -> Path:

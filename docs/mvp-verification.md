@@ -44,7 +44,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `138 passed`。
+- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `139 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
@@ -54,7 +54,7 @@ print(jobs[0].title if jobs else "no jobs")
 - LangGraph demo 成功运行，输出 `LangGraph workflow: enabled`、`Valid jobs: 2` 和 dashboard 路径。
 - 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。
 - JSON 导出 demo 成功运行，输出 `JSON output written to: outputs\result.json`。
-- 行动计划 demo 成功运行，输出 `Action plan written to: action-plans\...`；Markdown 包含优先投递岗位、技能补强顺序、补强项目任务、简历项目改写要点和 7 天执行节奏。
+- 行动计划 demo 成功运行，输出 `Action plan written to: action-plans\...` 和 `Top action gaps: ...`；Markdown 包含优先投递岗位、技能补强顺序、补强项目任务、简历项目改写要点和 7 天执行节奏。
 - seed URL demo 成功运行，输出 `Valid jobs: 1` 和 `JSON output written to: outputs\seed-demo.json`，说明可跳过搜索并直接打开指定 JD。
 - deterministic LLM extractor demo 成功运行，输出 `LLM extractor demo: enabled`、`Valid jobs: 1` 和 `JSON output written to: outputs\unstructured-llm-demo.json`；JSON 中 `metadata.extractor_mode` 为 `llm-demo`，岗位为 `AI Agent Intern / Example Robotics`。
 - deterministic LLM extractor evaluation 成功运行，输出 `LLM extractor demo: enabled`、`Completed tasks: 1/1` 和 `Evaluation JSON written to: evaluations\unstructured-llm-result.json`。

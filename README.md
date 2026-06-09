@@ -63,7 +63,7 @@ python -m venv .venv
 
 使用 `--json-output outputs\result.json` 可以导出完整工作流状态，包含用户输入、岗位、匹配结果、运行指标、报告路径；与 `--action-plan` 同用时还会在 `metadata.action_plan_path` 中记录行动计划路径，方便后续接前端或自动投递流程。
 
-使用 `--action-plan` 可以根据岗位匹配结果生成 Markdown 行动计划，包含优先投递岗位、技能补强顺序、可展示项目任务、简历项目改写要点和 7 天执行节奏。
+使用 `--action-plan` 可以根据岗位匹配结果生成 Markdown 行动计划，包含优先投递岗位、技能补强顺序、可展示项目任务、简历项目改写要点和 7 天执行节奏；CLI 也会打印 `Top action gaps`，方便现场直接讲补强重点。
 
 使用 `--seed-url <job-url>` 可以跳过搜索规划，直接打开指定招聘链接；该参数可重复，用于白名单真实站点 smoke 或面试现场稳定演示 exact JD 抽取。
 
