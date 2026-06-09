@@ -150,4 +150,22 @@ def test_reporter_renders_related_artifact_links(tmp_path):
     )
 
     assert "## 相关产物" in content
-    assert "- 行动计划: action-plans/run-artifacts.md" in content
+    assert "- 行动计划: [action-plans/run-artifacts.md](action-plans/run-artifacts.md)" in content
+
+
+def test_reporter_writes_relative_artifact_links(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path / "reports")
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    jobs = [make_job()]
+    metrics = RunMetrics(run_id="run-artifacts", valid_jobs=1)
+    action_plan_path = tmp_path / "action-plans" / "run-artifacts.md"
+
+    report_path = reporter.write_report(
+        user=user,
+        jobs=jobs,
+        metrics=metrics,
+        artifact_links={"行动计划": action_plan_path},
+    )
+
+    content = report_path.read_text(encoding="utf-8")
+    assert "- 行动计划: [../action-plans/run-artifacts.md](../action-plans/run-artifacts.md)" in content

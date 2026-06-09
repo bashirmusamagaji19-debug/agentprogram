@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from os.path import relpath
 from pathlib import Path
 
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
@@ -21,13 +22,14 @@ class MarkdownReporter:
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         report_path = self.output_dir / f"{metrics.run_id}.md"
+        report_links = self._relative_artifact_links(report_path.parent, artifact_links)
         report_path.write_text(
             self.render(
                 user=user,
                 jobs=jobs,
                 matches=matches,
                 metrics=metrics,
-                artifact_links=artifact_links,
+                artifact_links=report_links,
             ),
             encoding="utf-8",
         )
@@ -130,5 +132,19 @@ class MarkdownReporter:
             return
         lines.extend(["## 相关产物", ""])
         for label, path in artifact_links.items():
-            lines.append(f"- {label}: {Path(path).as_posix()}")
+            href = Path(path).as_posix()
+            lines.append(f"- {label}: [{href}]({href})")
         lines.append("")
+
+    def _relative_artifact_links(
+        self,
+        base_dir: Path,
+        artifact_links: dict[str, str | Path] | None,
+    ) -> dict[str, str] | None:
+        if not artifact_links:
+            return None
+        base = base_dir.resolve()
+        return {
+            label: relpath(Path(path).resolve(), start=base).replace("\\", "/")
+            for label, path in artifact_links.items()
+        }
