@@ -69,6 +69,8 @@ python -m venv .venv
 
 使用 `--list-fixture-urls` 可以列出内置 Greenhouse/Lever 风格 fixture URL，便于快速复制到 `--seed-url` 演示或评测命令。
 
+使用 `--doctor` 可以检查当前 Python 路径、虚拟环境状态、关键依赖和输出目录可写性。
+
 使用 `--print-demo-script` 可以输出一组面试现场可复制的演示命令，覆盖环境自检、fixture URL、一键闭环 demo、seed URL、LLM extractor demo、运行历史和 fixture evaluation。
 
 使用 `--compare-llm-extractor` 可以对比同一个低结构化 JD 在规则抽取和 deterministic LLM demo 抽取下的评测表现，当前 baseline 为 `0/1`，LLM demo 为 `1/1`。

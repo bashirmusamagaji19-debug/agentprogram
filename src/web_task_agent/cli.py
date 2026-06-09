@@ -461,6 +461,7 @@ def print_doctor_report(
 ) -> None:
     print("Environment doctor")
     print(f"python: {sys.executable}")
+    print(f"virtualenv: {virtualenv_status()}")
     for module_name in ["langgraph", "browser_use", "pydantic"]:
         status = "ok" if importlib.util.find_spec(module_name) else "missing"
         print(f"{module_name}: {status}")
@@ -468,6 +469,10 @@ def print_doctor_report(
     print(f"reports: {writable_status(Path(report_dir))}")
     print(f"dashboards: {writable_status(Path(dashboard_dir))}")
     print(f"action_plans: {writable_status(Path(action_plan_dir))}")
+
+
+def virtualenv_status() -> str:
+    return "active" if sys.prefix != getattr(sys, "base_prefix", sys.prefix) else "inactive"
 
 
 def print_fixture_urls() -> None:

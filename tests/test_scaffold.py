@@ -31,6 +31,7 @@ def test_cli_doctor_prints_environment_checks(tmp_path, monkeypatch, capsys) -> 
     captured = capsys.readouterr()
     assert "Environment doctor" in captured.out
     assert "python:" in captured.out
+    assert "virtualenv:" in captured.out
     assert "langgraph: ok" in captured.out
     assert "browser_use:" in captured.out
     assert "reports: writable" in captured.out

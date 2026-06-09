@@ -44,7 +44,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 - `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `140 passed`。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
-- CLI 环境自检成功运行，输出 Python 路径、依赖 import 状态和输出目录可写性。
+- CLI 环境自检成功运行，输出 Python 路径、虚拟环境状态、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
 - demo script 命令成功运行，输出 7 条面试现场可复制命令，包含一键生成 Dashboard、行动计划和 JSON 的闭环命令，以及运行历史查询命令。
 - LLM extractor 对比命令成功运行，输出 `baseline: 0/1` 和 `llm-demo: 1/1`，并生成 `evaluations\llm-comparison.json`。
