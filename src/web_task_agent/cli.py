@@ -188,7 +188,11 @@ async def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.compare_llm_extractor:
-        result = await run_llm_extractor_comparison(args)
+        try:
+            result = await run_llm_extractor_comparison(args)
+        except LlmExtractorConfigurationError as exc:
+            print(f"LLM extractor is not configured: {exc}")
+            return 2
         print("LLM extractor comparison")
         print(
             "baseline: "
@@ -198,6 +202,13 @@ async def _run(args: argparse.Namespace) -> int:
             "llm-demo: "
             f"{result['llm_demo']['completed_tasks']}/{result['llm_demo']['total_tasks']}"
         )
+        if args.llm_extractor_provider:
+            provider_result = result[args.llm_extractor_provider]
+            print(
+                f"{args.llm_extractor_provider}: "
+                f"{provider_result['completed_tasks']}/{provider_result['total_tasks']}"
+            )
+        print(f"Comparison report written to: {result['report_path']}")
         if args.json_output:
             json_path = write_mapping_json_output(result, args.json_output)
             print(f"Comparison JSON written to: {json_path}")
@@ -459,23 +470,96 @@ def write_mapping_json_output(payload: dict, output_path: str) -> Path:
 
 
 async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
-    task = EvaluationTask(
-        keyword="AI intern",
-        target_count=1,
-        seed_urls=["https://example.com/jobs/unstructured-ai-agent-intern"],
-    )
-    baseline = await EvaluationRunner(args.evaluation_dir).run(tasks=[task])
+    seed_urls = args.seed_url or ["https://example.com/jobs/unstructured-ai-agent-intern"]
+    tasks = [
+        EvaluationTask(
+            keyword=args.keyword or "AI intern",
+            location=args.location,
+            target_count=1,
+            skills=args.skill,
+            seed_urls=[seed_url],
+        )
+        for seed_url in seed_urls
+    ]
+    baseline = await EvaluationRunner(args.evaluation_dir).run(tasks=tasks)
     llm_demo = await EvaluationRunner(
         args.evaluation_dir,
         extractor_factory=lambda task: PageExtractor(
             llm_field_extractor=DemoLlmFieldExtractor(),
         ),
-    ).run(tasks=[task])
-    return {
-        "seed_url": task.seed_urls[0],
+    ).run(tasks=tasks)
+    extractors = {
         "baseline": baseline.model_dump(mode="json"),
         "llm_demo": llm_demo.model_dump(mode="json"),
     }
+    if args.llm_extractor_provider:
+        provider_result = await EvaluationRunner(
+            args.evaluation_dir,
+            extractor_factory=lambda task: PageExtractor(
+                llm_field_extractor=build_cli_llm_field_extractor(args),
+            ),
+        ).run(tasks=tasks)
+        extractors[args.llm_extractor_provider] = provider_result.model_dump(mode="json")
+
+    report_path = write_llm_comparison_report(
+        output_dir=args.evaluation_dir,
+        seed_urls=seed_urls,
+        extractors=extractors,
+    )
+    result = {
+        "seed_urls": seed_urls,
+        "report_path": report_path.as_posix(),
+        "extractors": extractors,
+        "baseline": baseline.model_dump(mode="json"),
+        "llm_demo": llm_demo.model_dump(mode="json"),
+    }
+    if args.llm_extractor_provider:
+        result[args.llm_extractor_provider] = extractors[args.llm_extractor_provider]
+    return result
+
+
+def write_llm_comparison_report(
+    *,
+    output_dir: str | Path,
+    seed_urls: list[str],
+    extractors: dict[str, dict],
+) -> Path:
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    path = output / "llm-extractor-comparison.md"
+    lines = [
+        "# LLM 抽取器对比评测",
+        "",
+        "## Seed URLs",
+        "",
+    ]
+    lines.extend(f"- {url}" for url in seed_urls)
+    lines.extend(
+        [
+            "",
+            "## 汇总",
+            "",
+            "| Extractor | Tasks | Completed | Success Rate | Valid Jobs | Failure Counts |",
+            "|---|---:|---:|---:|---:|---|",
+        ]
+    )
+    for name, result in extractors.items():
+        failure_counts = result.get("failure_counts") or {}
+        failure_summary = (
+            ", ".join(f"{key}={value}" for key, value in sorted(failure_counts.items()))
+            if failure_counts
+            else "-"
+        )
+        lines.append(
+            "| "
+            f"{name} | {result.get('total_tasks', 0)} | "
+            f"{result.get('completed_tasks', 0)} | "
+            f"{result.get('success_rate', 0.0):.2f} | "
+            f"{result.get('total_valid_jobs', 0)} | {failure_summary} |"
+        )
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
 
 
 def print_run_history(runs) -> None:

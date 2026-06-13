@@ -823,6 +823,102 @@ def test_cli_compare_llm_extractor_writes_comparison_json(
     assert payload["llm_demo"]["completed_tasks"] == 1
 
 
+def test_cli_compare_llm_extractor_accepts_seed_urls_and_writes_report(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--seed-url",
+                "https://example.com/jobs/unstructured-ai-agent-intern",
+                "--seed-url",
+                "https://example.com/jobs/ai-engineering-intern",
+                "--json-output",
+                "evaluations/seed-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LLM extractor comparison" in captured.out
+    assert "baseline: 1/2" in captured.out
+    assert "llm-demo: 2/2" in captured.out
+    assert "Comparison report written to:" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "seed-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["seed_urls"] == [
+        "https://example.com/jobs/unstructured-ai-agent-intern",
+        "https://example.com/jobs/ai-engineering-intern",
+    ]
+    assert payload["extractors"]["baseline"]["completed_tasks"] == 1
+    assert payload["extractors"]["llm_demo"]["completed_tasks"] == 2
+    report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
+    assert "# LLM 抽取器对比评测" in report
+    assert "| baseline | 2 | 1 | 0.50 |" in report
+    assert "| llm_demo | 2 | 2 | 1.00 |" in report
+
+
+def test_cli_compare_llm_extractor_can_include_provider_result(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    class FakeProviderExtractor:
+        provider = "deepseek"
+        model = "deepseek-v4-flash"
+
+        def __call__(self, page: BrowserPage) -> dict[str, str]:
+            return {
+                "title": "AI Agent Intern",
+                "company": "Example Robotics",
+                "location": "Remote",
+                "requirements": "Python, LangGraph, LLM evaluation",
+                "responsibilities": "Build browser agents",
+            }
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_llm_field_extractor",
+        lambda *, provider, model=None: FakeProviderExtractor(),
+    )
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--seed-url",
+                "https://example.com/jobs/unstructured-ai-agent-intern",
+                "--llm-extractor-provider",
+                "deepseek",
+                "--json-output",
+                "evaluations/provider-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "deepseek: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "provider-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["deepseek"]["completed_tasks"] == 1
+    report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
+    assert "| deepseek | 1 | 1 | 1.00 |" in report
+
+
 def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
     tmp_path,
     monkeypatch,

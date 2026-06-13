@@ -29,6 +29,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --list-fixture-urls
 .\.venv\Scripts\web-task-agent.exe --print-demo-script
 .\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --json-output evaluations\llm-comparison.json
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --seed-url "https://example.com/jobs/ai-engineering-intern" --json-output evaluations\seed-comparison.json
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard --action-plan --json-output outputs\result.json
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-file .\resume.md --demo --dashboard
@@ -81,7 +82,7 @@ $env:DASHSCOPE_API_KEY="..."
 
 使用 `--print-demo-script` 可以输出一组面试现场可复制的演示命令，覆盖环境自检、fixture URL、一键闭环 demo、LangGraph 编排对比、seed URL、LLM extractor demo、DeepSeek provider 示例、运行历史和 fixture evaluation。
 
-使用 `--compare-llm-extractor` 可以对比同一个低结构化 JD 在规则抽取和 deterministic LLM demo 抽取下的评测表现，当前 baseline 为 `0/1`，LLM demo 为 `1/1`。
+使用 `--compare-llm-extractor` 可以对比同一批 seed URL 在规则抽取、deterministic LLM demo 和可选真实 provider 下的评测表现；默认 seed 的当前 baseline 为 `0/1`，LLM demo 为 `1/1`。传入多个 `--seed-url` 后会逐个 URL 生成评测任务，并写出 `evaluations/llm-extractor-comparison.md` 和可选 JSON。
 
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
 
