@@ -55,6 +55,11 @@ def test_action_plan_renders_priority_jobs_skill_gaps_and_project_tasks():
     assert "## 简历项目改写要点" in markdown
     assert "把 LLM 补强任务写成项目亮点" in markdown
     assert "## 7 天执行节奏" in markdown
+    assert "## 技术栈体验与面试说法" in markdown
+    assert "browser-use" in markdown
+    assert "LangGraph" in markdown
+    assert "评测" in markdown
+    assert "面试说法" in markdown
     assert "Day 1" in markdown
     assert "Day 2-4" in markdown
     assert "Day 7" in markdown

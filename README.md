@@ -12,6 +12,7 @@
 - 汇总所有匹配结果中的技能缺口，帮助判断下一步该补强哪些项目经历。
 - 生成本地 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能、Agent 输入轨迹和 Agent 执行轨迹。
 - Dashboard 支持按岗位文本搜索、优先级筛选、匹配分数排序，并展示搜索 query、seed URL、URL 级错误和工作流节点摘要，适合现场演示筛选、调试和 Agent 可观测性。
+- 低置信度页面可通过可替换的 LLM 抽取边界恢复结构化字段，支持 deterministic demo、DeepSeek 和 Qwen OpenAI-compatible provider。
 - 运行内置 20 任务评测集，统计任务成功率、有效岗位数、平均访问页面数和失败原因分布。
 - 用测试中的 fake browser 保证端到端流程可复现。
 
@@ -33,6 +34,10 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-file .\resume.md --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-demo --json-output outputs\unstructured-llm-demo.json --dashboard
+$env:DEEPSEEK_API_KEY="..."
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-provider deepseek --llm-extractor-model deepseek-v4-flash --json-output outputs\deepseek-llm-demo.json
+$env:DASHSCOPE_API_KEY="..."
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-provider qwen --llm-extractor-model qwen-plus --json-output outputs\qwen-llm-demo.json
 .\.venv\Scripts\web-task-agent.exe --history
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
@@ -62,17 +67,19 @@ python -m venv .venv
 
 使用 `--json-output outputs\result.json` 可以导出完整工作流状态，包含用户输入、岗位、匹配结果、运行指标、报告路径、编排模式和 Agent 执行轨迹；与 `--action-plan` / `--dashboard` 同用时还会在 metadata 中记录行动计划路径、Dashboard 路径和结构化 Top action gaps，方便后续接前端或自动投递流程。
 
-使用 `--action-plan` 可以根据岗位匹配结果生成 Markdown 行动计划，包含优先投递岗位、技能补强顺序、可展示项目任务、简历项目改写要点和 7 天执行节奏；CLI 也会打印 `Top action gaps`，方便现场直接讲补强重点。
+使用 `--action-plan` 可以根据岗位匹配结果生成 Markdown 行动计划，包含优先投递岗位、技能补强顺序、可展示项目任务、简历项目改写要点、7 天执行节奏，以及技术栈体验与面试说法；CLI 也会打印 `Top action gaps`，方便现场直接讲补强重点。
 
 使用 `--seed-url <job-url>` 可以跳过搜索规划，直接打开指定招聘链接；该参数可重复，用于白名单真实站点 smoke 或面试现场稳定演示 exact JD 抽取。
 
 使用 `--llm-extractor-demo` 可以启用 deterministic LLM 风格结构化抽取器，用于演示低结构化 JD 页面如何通过可替换的 LLM 抽取边界恢复为 `JobPosting`，不会调用真实外部 API；该参数可用于普通 workflow 和 `--evaluate` 评测路径。
 
+使用 `--llm-extractor-provider deepseek|qwen` 可以启用真实 OpenAI-compatible LLM 抽取边界；DeepSeek 默认模型为 `deepseek-v4-flash`，读取 `DEEPSEEK_API_KEY`，Qwen 默认模型为 `qwen-plus`，读取 `DASHSCOPE_API_KEY`。也可以用 `--llm-extractor-model` 覆盖模型名。规则抽取仍然先执行，只有低置信度页面才会调用 LLM；CLI 会在 JSON metadata 中记录 `extractor_mode`、`llm_provider` 和 `llm_model`。
+
 使用 `--list-fixture-urls` 可以列出内置 Greenhouse/Lever 风格 fixture URL，便于快速复制到 `--seed-url` 演示或评测命令。
 
 使用 `--doctor` 可以检查当前 Python 路径、虚拟环境状态、关键依赖和输出目录可写性。
 
-使用 `--print-demo-script` 可以输出一组面试现场可复制的演示命令，覆盖环境自检、fixture URL、一键闭环 demo、LangGraph 编排对比、seed URL、LLM extractor demo、运行历史和 fixture evaluation。
+使用 `--print-demo-script` 可以输出一组面试现场可复制的演示命令，覆盖环境自检、fixture URL、一键闭环 demo、LangGraph 编排对比、seed URL、LLM extractor demo、DeepSeek provider 示例、运行历史和 fixture evaluation。
 
 使用 `--compare-llm-extractor` 可以对比同一个低结构化 JD 在规则抽取和 deterministic LLM demo 抽取下的评测表现，当前 baseline 为 `0/1`，LLM demo 为 `1/1`。
 

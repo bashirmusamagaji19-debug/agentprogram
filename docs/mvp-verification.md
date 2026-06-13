@@ -17,6 +17,8 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-text "Built LangGraph browser agents with LLM evaluation loops." --demo --dashboard
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/ai-engineering-intern" --demo --target-count 1 --json-output outputs\seed-demo.json
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-demo --json-output outputs\unstructured-llm-demo.json --dashboard
+$env:DEEPSEEK_API_KEY="..."
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-provider deepseek --llm-extractor-model deepseek-v4-flash --json-output outputs\deepseek-llm-demo.json
 .\.venv\Scripts\web-task-agent.exe --history
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 1
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
@@ -52,9 +54,10 @@ print(jobs[0].title if jobs else "no jobs")
 - LangGraph demo 成功运行，输出 `LangGraph workflow: enabled`、`Valid jobs: 2` 和 dashboard 路径；JSON 中 `metadata.orchestration_mode` 为 `langgraph`。
 - 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。
 - JSON 导出 demo 成功运行，输出 `JSON output written to: outputs\result.json`。
-- 行动计划 demo 成功运行，输出 `Action plan written to: action-plans\...` 和 `Top action gaps: ...`；Markdown 包含优先投递岗位、技能补强顺序、补强项目任务、简历项目改写要点和 7 天执行节奏。
+- 行动计划 demo 成功运行，输出 `Action plan written to: action-plans\...` 和 `Top action gaps: ...`；Markdown 包含优先投递岗位、技能补强顺序、补强项目任务、简历项目改写要点、7 天执行节奏，以及技术栈体验与面试说法。
 - seed URL demo 成功运行，输出 `Valid jobs: 1` 和 `JSON output written to: outputs\seed-demo.json`，说明可跳过搜索并直接打开指定 JD。
 - deterministic LLM extractor demo 成功运行，输出 `LLM extractor demo: enabled`、`Valid jobs: 1` 和 `JSON output written to: outputs\unstructured-llm-demo.json`；JSON 中 `metadata.extractor_mode` 为 `llm-demo`，岗位为 `AI Agent Intern / Example Robotics`。
+- DeepSeek/Qwen provider 边界已接入 CLI，使用 `--llm-extractor-provider deepseek|qwen` 启用；测试通过 fake transport 验证 OpenAI-compatible 请求、JSON 输出解析和 provider/model metadata，不依赖真实 API key。
 - deterministic LLM extractor evaluation 成功运行，输出 `LLM extractor demo: enabled`、`Completed tasks: 1/1` 和 `Evaluation JSON written to: evaluations\unstructured-llm-result.json`。
 - seed URL Dashboard 成功运行，生成的 HTML 包含 `Input Trace`、`Seed URL mode` 和指定 JD 链接。
 - 搜索模式 Dashboard 成功运行，生成的 HTML 包含 `Input Trace`、`Search query mode` 和 `AI intern Remote`。
@@ -72,7 +75,7 @@ print(jobs[0].title if jobs else "no jobs")
 - Markdown 报告包含 `面试讲述要点`，把 BrowserClient 边界、编排模式、Agent 执行轨迹和评测闭环转化为可直接讲的项目叙事。
 - Markdown 报告包含 `Agent 执行轨迹`，展示 planner、browser、extractor、verifier、matcher、reporter 节点摘要。
 - Markdown 报告和 Dashboard 展示编排模式，区分 sequential 与 LangGraph 路径。
-- `action-plans/` 下生成 Markdown 行动计划，报告投递优先级、技能缺口、项目补强任务、简历项目改写要点和 7 天执行节奏。
+- `action-plans/` 下生成 Markdown 行动计划，报告投递优先级、技能缺口、项目补强任务、简历项目改写要点、7 天执行节奏和技术栈体验与面试说法。
 - `dashboards/` 下生成 HTML Dashboard，展示岗位、匹配分数、优先级、缺失技能、技能缺口汇总、输入轨迹、Agent 执行轨迹和行动计划等相关产物链接。
 - 岗位 Dashboard 支持文本搜索、优先级筛选和匹配分数排序。
 - `evaluations/evaluation-report.md` 记录任务总数、完成任务数、任务成功率、有效岗位总数和平均访问页面数。

@@ -61,9 +61,10 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--dashboard --action-plan --json-output outputs\\result.json" in captured.out
     assert "--langgraph" in captured.out
     assert "--llm-extractor-demo" in captured.out
+    assert "--llm-extractor-provider deepseek" in captured.out
     assert "--history" in captured.out
     assert "--evaluate --fixture-sites" in captured.out
-    assert "8. " in captured.out
+    assert "9. " in captured.out
 
 
 def test_format_top_action_gaps_handles_empty_and_ranked_gaps() -> None:
@@ -169,6 +170,66 @@ def test_cli_llm_extractor_demo_recovers_unstructured_seed_page(
     )
     assert payload["jobs"][0]["title"] == "AI Agent Intern"
     assert payload["jobs"][0]["company"] == "Example Robotics"
+
+
+def test_cli_can_enable_configured_llm_extractor_provider(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+
+    class FakeProviderExtractor:
+        def __init__(self, *, provider, model=None):
+            self.provider = provider
+            self.model = model or "deepseek-v4-flash"
+
+        def __call__(self, page: BrowserPage) -> dict[str, str]:
+            return {
+                "title": "AI Agent Intern",
+                "company": "Example Robotics",
+                "location": "Remote",
+                "requirements": "Python, LangGraph, LLM evaluation",
+                "responsibilities": "Build browser agents",
+            }
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_llm_field_extractor",
+        lambda *, provider, model=None: FakeProviderExtractor(
+            provider=provider,
+            model=model,
+        ),
+    )
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/unstructured-ai-agent-intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--llm-extractor-provider",
+                "deepseek",
+                "--llm-extractor-model",
+                "deepseek-v4-flash",
+                "--json-output",
+                "outputs/provider-llm.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "LLM extractor provider: deepseek" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "provider-llm.json").read_text(encoding="utf-8")
+    )
+    assert payload["metadata"]["extractor_mode"] == "llm-provider"
+    assert payload["metadata"]["llm_provider"] == "deepseek"
+    assert payload["metadata"]["llm_model"] == "deepseek-v4-flash"
+    assert payload["jobs"][0]["title"] == "AI Agent Intern"
 
 
 def test_cli_demo_mode_can_run_with_langgraph(tmp_path, monkeypatch, capsys) -> None:

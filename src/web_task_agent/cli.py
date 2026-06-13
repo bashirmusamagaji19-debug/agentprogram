@@ -27,6 +27,10 @@ from web_task_agent.evaluation import (
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.graph_export import LangGraphExporter
 from web_task_agent.llm_extractor import DemoLlmFieldExtractor
+from web_task_agent.llm_extractor import (
+    LlmExtractorConfigurationError,
+    build_configured_llm_field_extractor,
+)
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import MatchResult, UserProfile
 from web_task_agent.reporter import MarkdownReporter
@@ -96,6 +100,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--llm-extractor-demo",
         action="store_true",
         help="Use a deterministic LLM-style structured extractor demo.",
+    )
+    parser.add_argument(
+        "--llm-extractor-provider",
+        choices=["deepseek", "qwen"],
+        help="Use a configured external LLM extractor provider for low-confidence pages.",
+    )
+    parser.add_argument(
+        "--llm-extractor-model",
+        help="Override the default provider model, such as deepseek-v4-flash or qwen-plus.",
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--action-plan-dir", default="action-plans")
@@ -197,17 +210,27 @@ async def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.export_graph:
+        try:
+            llm_field_extractor = build_cli_llm_field_extractor(args)
+        except LlmExtractorConfigurationError as exc:
+            print(f"LLM extractor is not configured: {exc}")
+            return 2
         workflow = build_workflow(
             browser=FakeBrowserClient(DEMO_JOB_PAGES),
             db_path=args.db_path,
             report_dir=args.report_dir,
-            llm_extractor_demo=args.llm_extractor_demo,
+            llm_field_extractor=llm_field_extractor,
         )
         graph_path = LangGraphExporter().write_markdown(workflow)
         print(f"Graph written to: {graph_path}")
         return 0
 
     if args.evaluate:
+        try:
+            build_cli_llm_field_extractor(args)
+        except LlmExtractorConfigurationError as exc:
+            print(f"LLM extractor is not configured: {exc}")
+            return 2
         try:
             resume_text = load_resume_text(args.resume_text, args.resume_file)
         except FileNotFoundError as exc:
@@ -286,11 +309,16 @@ async def _run(args: argparse.Namespace) -> int:
         return 2
 
     browser = build_browser(demo=args.demo)
+    try:
+        llm_field_extractor = build_cli_llm_field_extractor(args)
+    except LlmExtractorConfigurationError as exc:
+        print(f"LLM extractor is not configured: {exc}")
+        return 2
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
         report_dir=args.report_dir,
-        llm_extractor_demo=args.llm_extractor_demo,
+        llm_field_extractor=llm_field_extractor,
     )
     try:
         resume_text = load_resume_text(args.resume_text, args.resume_file)
@@ -320,6 +348,12 @@ async def _run(args: argparse.Namespace) -> int:
     if args.llm_extractor_demo:
         print("LLM extractor demo: enabled")
         state.metadata["extractor_mode"] = "llm-demo"
+    if args.llm_extractor_provider:
+        model = getattr(llm_field_extractor, "model", args.llm_extractor_model or "")
+        print(f"LLM extractor provider: {args.llm_extractor_provider}")
+        state.metadata["extractor_mode"] = "llm-provider"
+        state.metadata["llm_provider"] = args.llm_extractor_provider
+        state.metadata["llm_model"] = model
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
     artifact_links = {}
@@ -513,6 +547,13 @@ def print_demo_script() -> None:
             r"--target-count 1 --llm-extractor-demo "
             r"--json-output outputs\unstructured-llm-demo.json --dashboard"
         ),
+        (
+            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r'"https://example.com/jobs/unstructured-ai-agent-intern" --demo '
+            r"--target-count 1 --llm-extractor-provider deepseek "
+            r"--llm-extractor-model deepseek-v4-flash "
+            r"--json-output outputs\deepseek-llm-demo.json"
+        ),
         r".\.venv\Scripts\web-task-agent.exe --history",
         (
             r".\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites "
@@ -539,15 +580,13 @@ def build_workflow(
     browser,
     db_path: str,
     report_dir: str,
-    llm_extractor_demo: bool = False,
+    llm_field_extractor=None,
 ) -> WebTaskWorkflow:
     repo = JobRepository(db_path)
     repo.initialize()
     return WebTaskWorkflow(
         browser=browser,
-        extractor=PageExtractor(
-            llm_field_extractor=DemoLlmFieldExtractor() if llm_extractor_demo else None,
-        ),
+        extractor=PageExtractor(llm_field_extractor=llm_field_extractor),
         matcher=JobMatcher(),
         verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
         repository=repo,
@@ -556,9 +595,22 @@ def build_workflow(
 
 
 def build_extractor_factory(args: argparse.Namespace):
-    if not args.llm_extractor_demo:
+    if not args.llm_extractor_demo and not args.llm_extractor_provider:
         return None
-    return lambda task: PageExtractor(llm_field_extractor=DemoLlmFieldExtractor())
+    return lambda task: PageExtractor(
+        llm_field_extractor=build_cli_llm_field_extractor(args)
+    )
+
+
+def build_cli_llm_field_extractor(args: argparse.Namespace):
+    if args.llm_extractor_demo:
+        return DemoLlmFieldExtractor()
+    if args.llm_extractor_provider:
+        return build_configured_llm_field_extractor(
+            provider=args.llm_extractor_provider,
+            model=args.llm_extractor_model,
+        )
+    return None
 
 
 if __name__ == "__main__":
