@@ -109,6 +109,7 @@ $env:DASHSCOPE_API_KEY="..."
 - `outputs/deepseek-llm-demo.json` / `outputs/qwen-llm-demo.json`：外部 provider 抽取低结构化 JD 后的 workflow state，metadata 会记录 provider 和 model。
 - `evaluations/llm-comparison.json` / `evaluations/seed-comparison.json`：规则抽取、LLM demo 和可选真实 provider 在同一批 seed URL 上的对比结果。
 - `evaluations/llm-extractor-comparison.md`：LLM 抽取器对比评测 Markdown 报告，按 extractor 汇总任务数、完成数、成功率、有效岗位和失败原因。
+- `--real-site-sample`：真实站点样本模式，配合 `--evaluate` 或 `--compare-llm-extractor` 使用，走固定真实 URL 样本并通过 HTTP loader 读取正文，保留真实页面对比能力。
 - `agent.db`：SQLite 岗位和运行指标。
 - `--history`：从 SQLite 打印最近运行记录。
 - `--print-demo-script`：输出面试现场可复制的演示命令清单。

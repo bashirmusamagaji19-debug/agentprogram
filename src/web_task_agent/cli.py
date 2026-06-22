@@ -11,6 +11,7 @@ from web_task_agent import __version__
 from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.browser import (
     BrowserConfigurationError,
+    HttpPageLoader,
     BrowserUseClient,
     FakeBrowserClient,
 )
@@ -22,6 +23,7 @@ from web_task_agent.evaluation import (
     build_public_job_fixture_browser,
     build_public_job_fixture_tasks,
     build_default_tasks,
+    build_real_site_sample_tasks,
     build_real_smoke_tasks,
 )
 from web_task_agent.extractor import PageExtractor
@@ -124,6 +126,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--fixture-sites",
         action="store_true",
         help="Use public job-board style fixture pages when --evaluate is enabled.",
+    )
+    parser.add_argument(
+        "--real-site-sample",
+        action="store_true",
+        help="Use a small set of real job URLs when --evaluate or --compare-llm-extractor is enabled.",
     )
     parser.add_argument(
         "--export-graph",
@@ -247,7 +254,16 @@ async def _run(args: argparse.Namespace) -> int:
         except FileNotFoundError as exc:
             print(f"Resume file not found: {exc.filename}")
             return 2
-        if args.seed_url:
+        if args.real_site_sample:
+            tasks = build_real_site_sample_tasks()[: args.evaluation_count]
+            runner = EvaluationRunner(
+                args.evaluation_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+                extractor_factory=build_extractor_factory(args),
+            )
+        elif args.seed_url:
             tasks = [
                 EvaluationTask(
                     keyword=args.keyword or "seed URLs",
@@ -470,20 +486,31 @@ def write_mapping_json_output(payload: dict, output_path: str) -> Path:
 
 
 async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
-    seed_urls = args.seed_url or ["https://example.com/jobs/unstructured-ai-agent-intern"]
-    tasks = [
-        EvaluationTask(
-            keyword=args.keyword or "AI intern",
-            location=args.location,
-            target_count=1,
-            skills=args.skill,
-            seed_urls=[seed_url],
-        )
-        for seed_url in seed_urls
-    ]
-    baseline = await EvaluationRunner(args.evaluation_dir).run(tasks=tasks)
+    if args.real_site_sample:
+        tasks = build_real_site_sample_tasks()[: args.evaluation_count]
+        seed_urls = [seed_url for task in tasks for seed_url in task.seed_urls]
+        browser_factory = lambda task: BrowserUseClient(page_loader=HttpPageLoader())
+    else:
+        seed_urls = args.seed_url or ["https://example.com/jobs/unstructured-ai-agent-intern"]
+        tasks = [
+            EvaluationTask(
+                keyword=args.keyword or "AI intern",
+                location=args.location,
+                target_count=1,
+                skills=args.skill,
+                seed_urls=[seed_url],
+            )
+            for seed_url in seed_urls
+        ]
+        browser_factory = None
+
+    baseline = await EvaluationRunner(
+        args.evaluation_dir,
+        browser_factory=browser_factory,
+    ).run(tasks=tasks)
     llm_demo = await EvaluationRunner(
         args.evaluation_dir,
+        browser_factory=browser_factory,
         extractor_factory=lambda task: PageExtractor(
             llm_field_extractor=DemoLlmFieldExtractor(),
         ),
@@ -495,6 +522,7 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
     if args.llm_extractor_provider:
         provider_result = await EvaluationRunner(
             args.evaluation_dir,
+            browser_factory=browser_factory,
             extractor_factory=lambda task: PageExtractor(
                 llm_field_extractor=build_cli_llm_field_extractor(args),
             ),

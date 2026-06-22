@@ -290,6 +290,39 @@ def build_real_smoke_tasks() -> list[EvaluationTask]:
     ]
 
 
+def build_real_site_sample_tasks() -> list[EvaluationTask]:
+    return [
+        EvaluationTask(
+            keyword="AI Deployment Engineer- Codex",
+            location="Remote - US",
+            target_count=1,
+            skills=["Codex", "AI", "deployment"],
+            seed_urls=["https://openai.com/careers/ai-deployment-engineer-codex-remote-us/"],
+        ),
+        EvaluationTask(
+            keyword="AI Systems Engineer, Codex Agents",
+            location="San Francisco",
+            target_count=1,
+            skills=["Codex", "agent", "LLM"],
+            seed_urls=["https://openai.com/careers/ai-systems-engineer-codex-agents-san-francisco/"],
+        ),
+        EvaluationTask(
+            keyword="Applied AI Claude Evangelist",
+            location="San Francisco, CA",
+            target_count=1,
+            skills=["AI", "demos", "customer"],
+            seed_urls=["https://job-boards.greenhouse.io/anthropic/jobs/5116927008"],
+        ),
+        EvaluationTask(
+            keyword="Technical Program Manager, API Platform",
+            location="San Francisco, CA",
+            target_count=1,
+            skills=["API", "platform", "program management"],
+            seed_urls=["https://job-boards.greenhouse.io/anthropic/jobs/5256303008"],
+        ),
+    ]
+
+
 def build_public_job_fixture_tasks() -> list[EvaluationTask]:
     return [
         EvaluationTask(

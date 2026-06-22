@@ -1,9 +1,10 @@
 import pytest
 import browser_use
+from pathlib import Path
 
 from tests.fixtures.job_pages import JOB_PAGES
 from web_task_agent import browser as browser_module
-from web_task_agent.browser import BrowserUseClient, FakeBrowserClient
+from web_task_agent.browser import BrowserUseClient, FakeBrowserClient, HttpPageLoader
 from web_task_agent.models import BrowserPage
 
 
@@ -212,6 +213,37 @@ async def test_browser_use_client_loads_browser_use_page_api():
 
 
 @pytest.mark.asyncio
+async def test_browser_use_client_loads_page_title_and_body_from_browser_session():
+    events: list[str] = []
+
+    class FakePage:
+        async def get_title(self) -> str:
+            return "AI Deployment Engineer"
+
+        async def evaluate(self, page_function: str) -> str:
+            events.append(page_function)
+            return "Company: OpenAI\nRequirements: Python, LLM"
+
+    class FakeSession:
+        async def start(self) -> None:
+            pass
+
+        async def new_page(self, url: str) -> FakePage:
+            return FakePage()
+
+        async def close(self) -> None:
+            pass
+
+    browser = BrowserUseClient(session_factory=FakeSession)
+
+    page = await browser.open_url("https://openai.com/careers/test")
+
+    assert page.title == "AI Deployment Engineer"
+    assert page.content == "Company: OpenAI\nRequirements: Python, LLM"
+    assert events == ["() => document.body ? document.body.innerText : ''"]
+
+
+@pytest.mark.asyncio
 async def test_browser_use_client_closes_session_when_page_loading_fails():
     events: list[str] = []
 
@@ -233,3 +265,72 @@ async def test_browser_use_client_closes_session_when_page_loading_fails():
 
     assert excinfo.type is browser_module.BrowserConfigurationError
     assert events == ["start", "new_page:https://example.com/jobs/blocked", "close"]
+
+
+@pytest.mark.asyncio
+async def test_browser_use_client_can_load_real_http_page_via_page_loader():
+    async def loader(url: str) -> BrowserPage:
+        html = """
+        <html>
+          <head><title>AI Deployment Engineer</title></head>
+          <body>
+            <h1>AI Deployment Engineer</h1>
+            <p>Company: OpenAI</p>
+            <p>Requirements: Python, LLM</p>
+          </body>
+        </html>
+        """
+        return BrowserPage(
+            url=url,
+            title="AI Deployment Engineer",
+            content=html,
+            source="http",
+        )
+
+    browser = BrowserUseClient(page_loader=loader)
+
+    page = await browser.open_url("https://openai.com/careers/test")
+
+    assert page.title == "AI Deployment Engineer"
+    assert "Python" in page.content
+
+
+@pytest.mark.asyncio
+async def test_http_page_loader_extracts_title_and_text():
+    html = """
+    <html>
+      <head><title>AI Deployment Engineer</title></head>
+      <body>
+        <h1>AI Deployment Engineer</h1>
+        <p>Company: OpenAI</p>
+        <p>Requirements: Python, LLM</p>
+        <script>window.x = 1;</script>
+      </body>
+    </html>
+    """
+
+    def fake_urlopen(req, timeout=0):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return html.encode("utf-8")
+
+        return Response()
+
+    loader = HttpPageLoader()
+    original = browser_module.request.urlopen
+    browser_module.request.urlopen = fake_urlopen
+    try:
+        page = await loader("https://openai.com/careers/test")
+    finally:
+        browser_module.request.urlopen = original
+
+    assert page.title == "AI Deployment Engineer"
+    assert page.source == "http"
+    assert "Company: OpenAI" in page.content
+    assert "window.x" not in page.content

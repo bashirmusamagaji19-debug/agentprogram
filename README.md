@@ -84,6 +84,8 @@ $env:DASHSCOPE_API_KEY="..."
 
 使用 `--compare-llm-extractor` 可以对比同一批 seed URL 在规则抽取、deterministic LLM demo 和可选真实 provider 下的评测表现；默认 seed 的当前 baseline 为 `0/1`，LLM demo 为 `1/1`。传入多个 `--seed-url` 后会逐个 URL 生成评测任务，并写出 `evaluations/llm-extractor-comparison.md` 和可选 JSON。
 
+使用 `--real-site-sample` 可以切换到一组固定的真实招聘页样本，便于做更接近真实页面的 `--evaluate` 和 `--compare-llm-extractor` smoke 对比；该模式保留真实 URL，但内容采集走 HTTP loader，默认保留规则抽取、deterministic LLM demo 和可选 DeepSeek/Qwen provider 的同批对比。
+
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
 
 ## 真实 browser-use adapter 状态

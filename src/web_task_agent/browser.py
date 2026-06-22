@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 import inspect
+import re
 from typing import Any, Protocol
 from urllib.parse import quote_plus
+from urllib import request
+from html.parser import HTMLParser
 
 from web_task_agent.models import BrowserPage
 
@@ -131,10 +134,19 @@ class BrowserUseClient:
         if hasattr(page, "inner_text"):
             return str(await self._call(page.inner_text, "body"))
         if hasattr(page, "evaluate"):
+            try:
+                text = await self._call(
+                    page.evaluate,
+                    "() => document.body ? document.body.innerText : ''",
+                )
+                if str(text).strip():
+                    return str(text)
+            except Exception:
+                pass
             return str(
                 await self._call(
                     page.evaluate,
-                    "() => document.body ? document.body.innerText : ''",
+                    "() => document.documentElement ? document.documentElement.innerText : ''",
                 )
             )
         return ""
@@ -144,3 +156,73 @@ class BrowserUseClient:
         if inspect.isawaitable(result):
             return await result
         return result
+
+
+class HttpPageLoader:
+    def __init__(self, timeout_seconds: int = 30) -> None:
+        self.timeout_seconds = timeout_seconds
+
+    async def __call__(self, url: str) -> BrowserPage:
+        return await self._load(url)
+
+    async def _load(self, url: str) -> BrowserPage:
+        return self._load_sync(url)
+
+    def _load_sync(self, url: str) -> BrowserPage:
+        req = request.Request(
+            url,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/125.0 Safari/537.36"
+                ),
+            },
+        )
+        with request.urlopen(req, timeout=self.timeout_seconds) as response:
+            html = response.read().decode("utf-8", errors="replace")
+        return BrowserPage(
+            url=url,
+            title=self._extract_title(html),
+            content=self._extract_text(html),
+            source="http",
+            metadata={"timeout_seconds": self.timeout_seconds},
+        )
+
+    def _extract_title(self, html: str) -> str:
+        match = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+        if not match:
+            return ""
+        return self._clean_text(match.group(1))
+
+    def _extract_text(self, html: str) -> str:
+        parser = _TextExtractor()
+        parser.feed(html)
+        return parser.get_text()
+
+    def _clean_text(self, value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip()
+
+
+class _TextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._chunks: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag.lower() in {"script", "style", "noscript"}:
+            self._skip_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style", "noscript"} and self._skip_depth > 0:
+            self._skip_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth == 0:
+            text = data.strip()
+            if text:
+                self._chunks.append(text)
+
+    def get_text(self) -> str:
+        return "\n".join(self._chunks)

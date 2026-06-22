@@ -6,6 +6,12 @@ import pytest
 from web_task_agent import __version__
 from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent.cli import format_top_action_gaps, load_resume_text, main, write_json_output
+from web_task_agent.evaluation import (
+    EvaluationResult,
+    EvaluationTask,
+    TaskEvaluationResult,
+    build_real_site_sample_tasks,
+)
 from web_task_agent.models import BrowserPage, MatchResult, UserProfile, WorkflowState
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 
@@ -917,6 +923,151 @@ def test_cli_compare_llm_extractor_can_include_provider_result(
     assert payload["extractors"]["deepseek"]["completed_tasks"] == 1
     report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
     assert "| deepseek | 1 | 1 | 1.00 |" in report
+
+
+def test_build_real_site_sample_tasks_uses_live_job_seed_urls() -> None:
+    tasks = build_real_site_sample_tasks()
+
+    assert len(tasks) >= 4
+    assert all(task.target_count == 1 for task in tasks)
+    assert any(
+        task.seed_urls == [
+            "https://openai.com/careers/ai-deployment-engineer-codex-remote-us/"
+        ]
+        for task in tasks
+    )
+    assert any(
+        task.seed_urls
+        == ["https://job-boards.greenhouse.io/anthropic/jobs/5116927008"]
+        for task in tasks
+    )
+    assert all(task.seed_urls for task in tasks)
+
+
+def test_cli_evaluate_real_site_sample_uses_browser_use_client(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    browser_calls: list[str] = []
+    runner_calls: list[list[EvaluationTask]] = []
+    page_loaders: list[object] = []
+
+    class FakeBrowserUseClient:
+        def __init__(self, *, page_loader=None) -> None:
+            browser_calls.append("init")
+            page_loaders.append(page_loader)
+
+    class FakeRunner:
+        def __init__(self, output_dir, browser_factory=None, extractor_factory=None):
+            self.output_dir = output_dir
+            self.browser_factory = browser_factory
+            self.extractor_factory = extractor_factory
+
+        async def run(self, tasks):
+            runner_calls.append(tasks)
+            if self.browser_factory is not None:
+                for task in tasks:
+                    self.browser_factory(task)
+            result = EvaluationResult(
+                total_tasks=len(tasks),
+                completed_tasks=len(tasks),
+                success_rate=1.0,
+                total_valid_jobs=len(tasks),
+                average_pages_visited=1.0,
+                task_results=[
+                    TaskEvaluationResult(
+                        keyword=task.keyword,
+                        location=task.location,
+                        pages_visited=1,
+                        valid_jobs=1,
+                        success=True,
+                    )
+                    for task in tasks
+                ],
+            )
+            report_path = tmp_path / "evaluations" / "evaluation-report.md"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text("ok", encoding="utf-8")
+            return result.model_copy(update={"report_path": report_path})
+
+    monkeypatch.setattr("web_task_agent.cli.BrowserUseClient", FakeBrowserUseClient)
+    monkeypatch.setattr("web_task_agent.cli.build_real_site_sample_tasks", build_real_site_sample_tasks)
+    monkeypatch.setattr("web_task_agent.cli.EvaluationRunner", FakeRunner)
+
+    assert main(["--evaluate", "--real-site-sample", "--json-output", "evaluations/real-site.json"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Evaluation report written to:" in captured.out
+    assert len(browser_calls) == len(build_real_site_sample_tasks())
+    assert all(loader is not None for loader in page_loaders)
+    assert len(runner_calls) == 1
+    assert runner_calls[0][0].seed_urls
+
+
+def test_cli_compare_llm_extractor_real_site_sample_uses_browser_use_client(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    browser_calls: list[str] = []
+    runner_calls: list[list[EvaluationTask]] = []
+    page_loaders: list[object] = []
+
+    class FakeBrowserUseClient:
+        def __init__(self, *, page_loader=None) -> None:
+            browser_calls.append("init")
+            page_loaders.append(page_loader)
+
+    class FakeRunner:
+        def __init__(self, output_dir, browser_factory=None, extractor_factory=None):
+            self.output_dir = output_dir
+            self.browser_factory = browser_factory
+            self.extractor_factory = extractor_factory
+
+        async def run(self, tasks):
+            runner_calls.append(tasks)
+            if self.browser_factory is not None:
+                for task in tasks:
+                    self.browser_factory(task)
+            result = EvaluationResult(
+                total_tasks=len(tasks),
+                completed_tasks=max(len(tasks) - 1, 0),
+                success_rate=0.5 if tasks else 0.0,
+                total_valid_jobs=len(tasks),
+                average_pages_visited=1.0,
+                failure_counts={"verification_filtered": 1},
+                task_results=[
+                    TaskEvaluationResult(
+                        keyword=task.keyword,
+                        location=task.location,
+                        pages_visited=1,
+                        valid_jobs=1 if index == 0 else 0,
+                        success=index == 0,
+                        failure_category="" if index == 0 else "verification_filtered",
+                    )
+                    for index, task in enumerate(tasks)
+                ],
+            )
+            report_path = tmp_path / "evaluations" / "llm-extractor-comparison.md"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text("ok", encoding="utf-8")
+            return result
+
+    monkeypatch.setattr("web_task_agent.cli.BrowserUseClient", FakeBrowserUseClient)
+    monkeypatch.setattr("web_task_agent.cli.build_real_site_sample_tasks", build_real_site_sample_tasks)
+    monkeypatch.setattr("web_task_agent.cli.EvaluationRunner", FakeRunner)
+
+    assert main(["--compare-llm-extractor", "--real-site-sample", "--json-output", "evaluations/real-site-compare.json"]) == 0
+
+    captured = capsys.readouterr()
+    assert "LLM extractor comparison" in captured.out
+    assert len(browser_calls) == len(build_real_site_sample_tasks()) * 2
+    assert all(loader is not None for loader in page_loaders)
+    assert len(runner_calls) == 2
+    assert runner_calls[0][0].seed_urls
 
 
 def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
