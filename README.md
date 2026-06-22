@@ -40,6 +40,12 @@ $env:DEEPSEEK_API_KEY="..."
 $env:DASHSCOPE_API_KEY="..."
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --demo --target-count 1 --llm-extractor-provider qwen --llm-extractor-model qwen-plus --json-output outputs\qwen-llm-demo.json
 .\.venv\Scripts\web-task-agent.exe --history
+# LLM 语义匹配（demo / DeepSeek provider）
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --skill FastAPI --resume-text "Built REST APIs with FastAPI." --demo --llm-match --json-output outputs\semantic-match.json
+$env:DEEPSEEK_API_KEY="..."
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --skill FastAPI --resume-text "Built REST APIs with FastAPI." --demo --llm-match-provider deepseek --json-output outputs\deepseek-match.json
+# 真实站点 LLM 全链路对比
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --real-site-sample --evaluation-count 4 --llm-extractor-provider deepseek --json-output evaluations\final-comparison.json
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --json-output evaluations\fixture-result.json

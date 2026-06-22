@@ -692,6 +692,18 @@ def print_demo_script() -> None:
         ),
         r".\.venv\Scripts\web-task-agent.exe --history",
         (
+            r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
+            r"--target-count 2 --skill Python --skill FastAPI "
+            r"--resume-text \"Built REST APIs with FastAPI.\" "
+            r"--demo --llm-match --json-output outputs\semantic-match.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --compare-llm-extractor "
+            r"--real-site-sample --evaluation-count 4 "
+            r"--llm-extractor-provider deepseek "
+            r"--json-output evaluations\final-comparison.json"
+        ),
+        (
             r".\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites "
             r"--json-output evaluations\fixture-result.json"
         ),
