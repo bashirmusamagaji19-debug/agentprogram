@@ -928,7 +928,7 @@ def test_cli_compare_llm_extractor_can_include_provider_result(
 def test_build_real_site_sample_tasks_uses_live_job_seed_urls() -> None:
     tasks = build_real_site_sample_tasks()
 
-    assert len(tasks) == 2
+    assert len(tasks) == 8
     assert all(task.target_count == 1 for task in tasks)
     assert any(
         task.seed_urls
@@ -937,7 +937,12 @@ def test_build_real_site_sample_tasks_uses_live_job_seed_urls() -> None:
     )
     assert any(
         task.seed_urls
-        == ["https://job-boards.greenhouse.io/anthropic/jobs/5256303008"]
+        == ["https://job-boards.greenhouse.io/scaleai/jobs/4703343005"]
+        for task in tasks
+    )
+    assert any(
+        task.seed_urls
+        == ["https://job-boards.greenhouse.io/reddit/jobs/7958354"]
         for task in tasks
     )
     assert all(task.seed_urls for task in tasks)

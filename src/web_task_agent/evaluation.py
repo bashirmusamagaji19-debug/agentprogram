@@ -293,10 +293,14 @@ def build_real_smoke_tasks() -> list[EvaluationTask]:
 def build_real_site_sample_tasks() -> list[EvaluationTask]:
     """Real, verified-accessible job posting URLs.
 
-    Each URL was manually verified with curl (HTTP 200, non-empty body).
+    Each URL individually verified with curl (HTTP 200, body > 10KB).
+    URLs sourced from Greenhouse API (boards-api.greenhouse.io/v1/boards/).
     See docs/work-log/2026-06-22-real-site-verification.md for verification details.
+
+    All 8 URLs return server-rendered HTML with full job descriptions.
     """
     return [
+        # ── Anthropic (2) ──────────────────────────────────────────
         EvaluationTask(
             keyword="Applied AI Claude Evangelist",
             location="San Francisco, CA",
@@ -310,6 +314,51 @@ def build_real_site_sample_tasks() -> list[EvaluationTask]:
             target_count=1,
             skills=["API", "platform", "program management"],
             seed_urls=["https://job-boards.greenhouse.io/anthropic/jobs/5256303008"],
+        ),
+        # ── ScaleAI (3) ────────────────────────────────────────────
+        EvaluationTask(
+            keyword="AI Builder Intern",
+            location="San Francisco, CA; New York, NY",
+            target_count=1,
+            skills=["AI", "Python", "intern"],
+            seed_urls=["https://job-boards.greenhouse.io/scaleai/jobs/4703343005"],
+        ),
+        EvaluationTask(
+            keyword="AI Deployment Strategist",
+            location="San Francisco, CA; New York, NY",
+            target_count=1,
+            skills=["AI", "strategy", "deployment"],
+            seed_urls=["https://job-boards.greenhouse.io/scaleai/jobs/4699458005"],
+        ),
+        EvaluationTask(
+            keyword="AI Strategy Consultant",
+            location="San Francisco, CA",
+            target_count=1,
+            skills=["AI", "consulting", "strategy"],
+            seed_urls=["https://job-boards.greenhouse.io/scaleai/jobs/4472223005"],
+        ),
+        # ── Reddit (2) ─────────────────────────────────────────────
+        EvaluationTask(
+            keyword="Analytics Engineer",
+            location="Remote - United States",
+            target_count=1,
+            skills=["SQL", "Python", "analytics"],
+            seed_urls=["https://job-boards.greenhouse.io/reddit/jobs/7958354"],
+        ),
+        EvaluationTask(
+            keyword="Analytics Engineer Toronto",
+            location="Toronto, Canada",
+            target_count=1,
+            skills=["SQL", "Python", "analytics"],
+            seed_urls=["https://job-boards.greenhouse.io/reddit/jobs/7958385"],
+        ),
+        # ── Discord (1) ────────────────────────────────────────────
+        EvaluationTask(
+            keyword="Director Developer Solutions",
+            location="San Francisco Bay Area",
+            target_count=1,
+            skills=["developer relations", "platform", "leadership"],
+            seed_urls=["https://job-boards.greenhouse.io/discord/jobs/8480100002"],
         ),
     ]
 

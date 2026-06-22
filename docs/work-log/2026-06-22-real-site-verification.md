@@ -51,6 +51,7 @@ DeepSeek 在真实 Anthropic 招聘页上 100% 完成，规则和 demo 各完成
 
 ## 下一步
 
-- 寻找更多可验证的招聘 URL 扩展真实样本库
-- 考虑用 Greenhouse/Lever 等公开的招聘 API 或已知活跃岗位 ID
-- 对每个加入的 URL 执行 curl 验证并记录 HTTP 状态和响应体大小
+- ✅ 已通过 Greenhouse API 扩展 8 个验证 URL（4 家公司），评测完成
+- ✅ DeepSeek 7/8 (88%) vs 规则 2/8 (25%)
+- 后续可继续扩展更多公司（Greenhouse API 支持 100+ 公司）
+- 考虑对不同页面类型（有标签 / 无标签 / 非英语）做分层评测
