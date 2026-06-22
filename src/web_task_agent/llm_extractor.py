@@ -81,6 +81,20 @@ def build_configured_llm_field_extractor(
     )
 
 
+def build_configured_llm_matcher(
+    *,
+    provider: str,
+    model: str | None = None,
+) -> "OpenAiCompatibleSemanticMatcher":
+    config = build_llm_provider_config(provider=provider, model=model)
+    return OpenAiCompatibleSemanticMatcher(
+        provider=config.provider,
+        model=config.model,
+        api_key=config.api_key,
+        base_url=config.base_url,
+    )
+
+
 class OpenAiCompatibleLlmFieldExtractor:
     def __init__(
         self,
@@ -176,6 +190,177 @@ class OpenAiCompatibleLlmFieldExtractor:
         with request.urlopen(req, timeout=timeout_seconds) as response:
             body = response.read().decode("utf-8")
         return json.loads(body)
+
+
+# ─── Semantic matcher ────────────────────────────────────────────────
+
+
+LlmMatcher = Callable[[dict[str, str]], dict[str, object]]
+
+
+class OpenAiCompatibleSemanticMatcher:
+    """Calls an OpenAI-compatible LLM to score how well a job matches a user profile.
+
+    Rule-based matching is fast and testable but cannot understand:
+    - "FastAPI" ≈ "API development" ≈ "backend framework"
+    - "built browser agents" ≈ "Playwright automation experience"
+    - "prototype RAG workflows" ≈ "LangChain retrieval projects"
+
+    This matcher sends the job description and user profile to an LLM with a
+    structured output schema, so it can capture semantic overlap that string
+    matching misses.
+    """
+
+    def __init__(
+        self,
+        *,
+        provider: str,
+        model: str,
+        api_key: str,
+        base_url: str | None = None,
+        timeout_seconds: int = 60,
+        transport: LlmTransport | None = None,
+    ) -> None:
+        self.provider = provider
+        self.model = model
+        self.api_key = api_key
+        self.base_url = (base_url or PROVIDER_DEFAULTS[provider]["base_url"]).rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.transport = transport or self._urllib_transport
+
+    def __call__(self, payload: dict[str, str]) -> dict[str, object]:
+        response = self.transport(
+            f"{self.base_url}/chat/completions",
+            self._headers(),
+            self._match_payload(payload),
+            self.timeout_seconds,
+        )
+        content = self._response_content(response)
+        parsed = json.loads(content)
+        return {
+            "score": float(parsed.get("score", 0)),
+            "matched_skills": self._string_list(parsed.get("matched_skills", [])),
+            "missing_skills": self._string_list(parsed.get("missing_skills", [])),
+            "reason": str(parsed.get("reason", "")).strip(),
+            "priority": str(parsed.get("priority", "medium")).strip(),
+            "suggested_actions": self._string_list(parsed.get("suggested_actions", [])),
+        }
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+    def _match_payload(self, fields: dict[str, str]) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a recruiting skill matcher. Compare the user profile against "
+                        "a job posting and return a JSON object with these fields:\n"
+                        "- score: float 0-1, how well the user fits\n"
+                        "- matched_skills: array of strings, user skills/experience that match\n"
+                        "- missing_skills: array of strings, job requirements the user lacks\n"
+                        "- reason: short explanation in Chinese\n"
+                        "- priority: 'high', 'medium', or 'low'\n"
+                        "- suggested_actions: array of strings, concrete steps to close the gap\n"
+                        "Consider semantic similarity (e.g. 'FastAPI' ≈ 'API development'), "
+                        "transferable skills, and project experience overlaps."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "User skills: " + fields.get("user_skills", "") + "\n"
+                        "User resume: " + fields.get("user_resume", "") + "\n"
+                        "---\n"
+                        "Job title: " + fields.get("job_title", "") + "\n"
+                        "Job company: " + fields.get("job_company", "") + "\n"
+                        "Job requirements: " + fields.get("job_requirements", "") + "\n"
+                        "Job responsibilities: " + fields.get("job_responsibilities", "") + "\n"
+                        "Job skills: " + fields.get("job_skills", "") + "\n"
+                    ),
+                },
+            ],
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        }
+
+    def _response_content(self, response: dict[str, Any]) -> str:
+        choices = response.get("choices", [])
+        if not choices:
+            raise ValueError("LLM response did not include choices.")
+        message = choices[0].get("message", {})
+        content = message.get("content", "")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("LLM response did not include message content.")
+        return content
+
+    def _string_list(self, value: Any) -> list[str]:
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return []
+
+    def _urllib_transport(
+        self,
+        url: str,
+        headers: dict[str, str],
+        payload: dict[str, Any],
+        timeout_seconds: int,
+    ) -> dict[str, Any]:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = request.Request(url, data=data, headers=headers, method="POST")
+        with request.urlopen(req, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8")
+        return json.loads(body)
+
+
+class DemoLlmMatcher:
+    """Deterministic stand-in for an LLM semantic matching call.
+
+    Matches when the job skills overlap the user signal with at least one
+    keyword, and produces richer explanations than the rule matcher.
+    """
+
+    def __call__(self, payload: dict[str, str]) -> dict[str, object]:
+        import re
+
+        user_signal = (
+            payload.get("user_skills", "") + " " + payload.get("user_resume", "")
+        ).casefold()
+        job_skills_raw = payload.get("job_skills", "").casefold()
+        job_reqs = payload.get("job_requirements", "").casefold()
+        job_title = payload.get("job_title", "").casefold()
+
+        job_skills = [s.strip() for s in re.split(r"[,\n]+", job_skills_raw) if s.strip()]
+        matched: list[str] = []
+        missing: list[str] = []
+        for skill in job_skills:
+            if skill in user_signal:
+                matched.append(skill)
+            else:
+                missing.append(skill)
+
+        score = round(len(matched) / max(len(job_skills), 1), 2)
+        priority = "high" if score >= 0.75 else "medium" if score >= 0.4 else "low"
+
+        return {
+            "score": score,
+            "matched_skills": matched,
+            "missing_skills": missing,
+            "reason": (
+                f"语义分析：岗位 {job_title} 要求 {', '.join(job_skills)}，"
+                f"你已掌握 {', '.join(matched) if matched else '暂无匹配技能'}，"
+                f"还需补强 {', '.join(missing) if missing else '无需补强'}。"
+            ),
+            "priority": priority,
+            "suggested_actions": [
+                f"围绕 {s} 补一个最小可展示项目" for s in missing
+            ] if missing else ["匹配度高，优先准备投递材料。"],
+        }
 
 
 class DemoLlmFieldExtractor:

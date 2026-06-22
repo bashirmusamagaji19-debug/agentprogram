@@ -112,6 +112,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--llm-extractor-model",
         help="Override the default provider model, such as deepseek-v4-flash or qwen-plus.",
     )
+    parser.add_argument(
+        "--llm-match",
+        action="store_true",
+        help="Enable LLM semantic matching for low rule-match-score jobs.",
+    )
+    parser.add_argument(
+        "--llm-match-provider",
+        choices=["deepseek", "qwen"],
+        help="Use a configured external LLM provider for semantic matching.",
+    )
+    parser.add_argument(
+        "--llm-match-model",
+        help="Override the default model for LLM matching.",
+    )
+    parser.add_argument(
+        "--llm-match-demo",
+        action="store_true",
+        help="Use a deterministic LLM-style semantic matching demo.",
+    )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--action-plan-dir", default="action-plans")
     parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
@@ -338,6 +357,7 @@ async def _run(args: argparse.Namespace) -> int:
     browser = build_browser(demo=args.demo)
     try:
         llm_field_extractor = build_cli_llm_field_extractor(args)
+        llm_matcher = build_cli_llm_matcher(args)
     except LlmExtractorConfigurationError as exc:
         print(f"LLM extractor is not configured: {exc}")
         return 2
@@ -346,7 +366,11 @@ async def _run(args: argparse.Namespace) -> int:
         db_path=args.db_path,
         report_dir=args.report_dir,
         llm_field_extractor=llm_field_extractor,
+        llm_matcher=llm_matcher,
     )
+    if llm_matcher is not None:
+        mode = f"llm-match-{args.llm_match_provider or 'demo'}"
+        print(f"LLM match enabled: {mode}")
     try:
         resume_text = load_resume_text(args.resume_text, args.resume_file)
     except FileNotFoundError as exc:
@@ -693,13 +717,14 @@ def build_workflow(
     db_path: str,
     report_dir: str,
     llm_field_extractor=None,
+    llm_matcher=None,
 ) -> WebTaskWorkflow:
     repo = JobRepository(db_path)
     repo.initialize()
     return WebTaskWorkflow(
         browser=browser,
         extractor=PageExtractor(llm_field_extractor=llm_field_extractor),
-        matcher=JobMatcher(),
+        matcher=JobMatcher(llm_matcher=llm_matcher),
         verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
         repository=repo,
         reporter=MarkdownReporter(report_dir),
@@ -722,6 +747,23 @@ def build_cli_llm_field_extractor(args: argparse.Namespace):
             provider=args.llm_extractor_provider,
             model=args.llm_extractor_model,
         )
+    return None
+
+
+def build_cli_llm_matcher(args: argparse.Namespace):
+    if args.llm_match_demo:
+        from web_task_agent.llm_extractor import DemoLlmMatcher
+        return DemoLlmMatcher()
+    if args.llm_match_provider:
+        from web_task_agent.llm_extractor import build_configured_llm_matcher
+        return build_configured_llm_matcher(
+            provider=args.llm_match_provider,
+            model=args.llm_match_model,
+        )
+    if args.llm_match:
+        # --llm-match without --llm-match-provider defaults to demo
+        from web_task_agent.llm_extractor import DemoLlmMatcher
+        return DemoLlmMatcher()
     return None
 
 

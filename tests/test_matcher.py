@@ -81,3 +81,65 @@ def test_matcher_matches_many_jobs_in_order():
     ]
     assert results[0].score == 1.0
     assert results[1].score == 0.0
+
+
+# ─── LLM matcher integration tests ────────────────────────────────────
+
+
+class _FakeLlmMatcher:
+    """Fake LLM matcher for deterministic testing — does not hit a real API."""
+
+    def __call__(self, payload: dict[str, str]) -> dict[str, object]:
+        return {
+            "score": 0.85,
+            "matched_skills": ["Python", "FastAPI"],
+            "missing_skills": ["SQL"],
+            "reason": "语义分析：你的 Python 和 API 开发背景与岗位高度匹配。",
+            "priority": "high",
+            "suggested_actions": ["补强 SQL 项目经历。"],
+        }
+
+
+def test_matcher_falls_back_to_llm_when_rule_score_low():
+    matcher = JobMatcher(llm_matcher=_FakeLlmMatcher())
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    job = make_job(skills=["FastAPI", "SQL"])
+    # rule score = 0/2 = 0.0 < 0.6 → LLM fallback
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 0.85
+    assert result.matched_skills == ["Python", "FastAPI"]
+    assert result.missing_skills == ["SQL"]
+    assert result.priority == "high"
+    assert "语义分析" in result.reason
+
+
+def test_matcher_skips_llm_when_rule_score_high():
+    matcher = JobMatcher(llm_matcher=_FakeLlmMatcher())
+    user = UserProfile(keyword="AI intern", skills=["Python", "LangGraph"])
+    job = make_job(skills=["Python", "LangGraph"])
+    # rule score = 2/2 = 1.0 >= 0.6 → no LLM fallback
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 1.0
+    assert result.matched_skills == ["Python", "LangGraph"]
+    # rule match reason uses "匹配" not "语义分析"
+    assert "匹配" in result.reason
+    assert "语义分析" not in result.reason
+
+
+def test_matcher_falls_back_to_rule_when_llm_errors():
+    def _broken_matcher(_payload):
+        raise RuntimeError("API timeout")
+
+    matcher = JobMatcher(llm_matcher=_broken_matcher)
+    user = UserProfile(keyword="AI intern", skills=["Python"])
+    job = make_job(skills=["FastAPI", "SQL"])
+    # rule score = 0/2 = 0.0 < 0.6 → attempts LLM → fails → falls back
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 0.0  # rule result
+    assert result.priority == "low"
