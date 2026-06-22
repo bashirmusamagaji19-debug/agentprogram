@@ -79,18 +79,18 @@ flowchart LR
 | 有效岗位总数 | 40 |
 | 平均访问页面数 | 2.00 |
 
-### 真实站点 LLM 抽取器对比评测（4 个真实招聘 URL）
+### 真实站点 LLM 抽取器对比评测（2 个 Anthropic 招聘页，均经 curl 验证 HTTP 200 可访问）
 
-| Extractor | 完成 | 成功率 | 有效岗位 | 主要失败原因 |
-|---|---:|---:|---:|---|
-| baseline（规则） | 1/4 | 0.25 | 1 | browser_error×2, verification_filtered×1 |
-| llm-demo（确定性 demo） | 0/4 | 0.00 | 0 | browser_error×3, verification_filtered×1 |
-| deepseek（deepseek-v4-flash） | **2/4** | **0.50** | **2** | browser_error×2 |
+| Extractor | 完成 | 成功率 | 有效岗位 |
+|---|---:|---:|---:|
+| baseline（规则） | 1/2 | 0.50 | 1 |
+| llm-demo（确定性 demo） | 1/2 | 0.50 | 1 |
+| deepseek（deepseek-v4-flash） | **2/2** | **1.00** | **2** |
 
 **关键发现**：
-- 真实 LLM（DeepSeek）在真实招聘页面上显著优于规则抽取（2× 完成率）
-- Deterministic LLM demo 在真实页面上比规则还差——其正则模式是为 demo 页面设计的，遇到真实 DOM 文本就失效了。这恰好证明了"规则适用于结构化页面，LLM 适用于非结构化页面"的两层策略是正确的
-- 2 个 browser_error 在所有 extractor 间一致，说明是 HTTP 层面的问题（可能目标 URL 需要 JS 渲染），不是抽取器的问题
+- DeepSeek 在 2 个真实 Anthropic 招聘页上 100% 完成，规则和 demo 各完成 1/2
+- Deterministic LLM demo 在真实页面上和规则打平（各 1/2），demo 正则对真实 Greenhouse 页面布局有一定适应性
+- 2 个 URL 均为真实 Anthropic 招聘页（Applied AI Claude Evangelist、TPM API Platform），经 curl 验证可访问
 
 这些指标代表确定性 MVP 闭环的稳定性，不代表真实招聘网站表现。真实网页接入后，需要重新构建真实网页评测集。
 

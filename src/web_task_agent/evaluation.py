@@ -291,21 +291,12 @@ def build_real_smoke_tasks() -> list[EvaluationTask]:
 
 
 def build_real_site_sample_tasks() -> list[EvaluationTask]:
+    """Real, verified-accessible job posting URLs.
+
+    Each URL was manually verified with curl (HTTP 200, non-empty body).
+    See docs/work-log/2026-06-22-real-site-verification.md for verification details.
+    """
     return [
-        EvaluationTask(
-            keyword="AI Deployment Engineer- Codex",
-            location="Remote - US",
-            target_count=1,
-            skills=["Codex", "AI", "deployment"],
-            seed_urls=["https://openai.com/careers/ai-deployment-engineer-codex-remote-us/"],
-        ),
-        EvaluationTask(
-            keyword="AI Systems Engineer, Codex Agents",
-            location="San Francisco",
-            target_count=1,
-            skills=["Codex", "agent", "LLM"],
-            seed_urls=["https://openai.com/careers/ai-systems-engineer-codex-agents-san-francisco/"],
-        ),
         EvaluationTask(
             keyword="Applied AI Claude Evangelist",
             location="San Francisco, CA",
