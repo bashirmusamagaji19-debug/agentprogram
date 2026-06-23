@@ -1371,3 +1371,51 @@ def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> N
     assert report.exists()
     content = report.read_text(encoding="utf-8")
     assert "LLM 语义匹配对比评测" in content
+
+
+def test_cli_interactive_runs_multiple_rounds_and_consolidates(
+    tmp_path, monkeypatch, capsys,
+) -> None:
+    """Smoke test: --interactive runs multiple rounds when commands are piped in."""
+    monkeypatch.chdir(tmp_path)
+
+    # Simulate user typing: run, add skill, more, done
+    monkeypatch.setattr("builtins.input", _FakeInput([
+        "skill:FastAPI",
+        "more:3",
+        "done",
+    ]))
+
+    exit_code = main([
+        "--interactive",
+        "--keyword", "AI intern",
+        "--target-count", "2",
+        "--skill", "Python",
+        "--demo",
+        "--dashboard",
+        "--action-plan",
+        "--json-output", "outputs/interactive-smoke.json",
+    ])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert "Round 1" in captured.out
+    assert "Round 2" in captured.out
+    assert "Round 3" in captured.out
+    assert "consolidated" in captured.out.lower() or "unique jobs" in captured.out.lower()
+    assert (tmp_path / "outputs" / "interactive-smoke.json").exists()
+
+
+class _FakeInput:
+    """Return canned strings for input(), one per call."""
+
+    def __init__(self, responses: list[str]) -> None:
+        self._responses = list(responses)
+        self._index = 0
+
+    def __call__(self, prompt: str = "") -> str:
+        if self._index < len(self._responses):
+            value = self._responses[self._index]
+            self._index += 1
+            return value
+        return "done"

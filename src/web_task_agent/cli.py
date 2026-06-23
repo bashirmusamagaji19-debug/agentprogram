@@ -40,7 +40,7 @@ from web_task_agent.llm_extractor import (
     build_configured_llm_field_extractor,
 )
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import MatchResult, UserProfile
+from web_task_agent.models import MatchResult, RunMetrics, UserProfile
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.skill_gap import summarize_skill_gaps
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
@@ -192,6 +192,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--compare-llm-match",
         action="store_true",
         help="Compare rule matching with LLM semantic matching on real-site-sample jobs.",
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Run in interactive multi-turn mode: adjust search parameters and re-run.",
     )
     return parser
 
@@ -385,6 +390,12 @@ async def _run(args: argparse.Namespace) -> int:
             print(f"Evaluation dashboard written to: {dashboard_path}")
         return 0
 
+    if args.interactive:
+        if not args.keyword and not args.seed_url:
+            print("--keyword is required for --interactive mode.")
+            return 2
+        return await run_interactive(args)
+
     if not args.keyword and not args.seed_url:
         print("--keyword is required unless --evaluate is used.")
         return 2
@@ -495,6 +506,213 @@ async def _run(args: argparse.Namespace) -> int:
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
         print(f"JSON output written to: {json_path}")
+    return 0
+
+
+# ── Interactive multi-turn mode ───────────────────────────────────────
+
+
+async def run_interactive(args: argparse.Namespace) -> int:
+    """Multi-turn interactive Agent: adjust search and iterate based on results.
+
+    Commands:
+      more / more:N    → increase target count (default +5)
+      skill:X          → add a skill tag
+      keyword:X        → change search keyword
+      location:X       → change location
+      status           → show current round summary
+      done / quit      → finish and write consolidated report
+    """
+    from uuid import uuid4
+
+    print("=== Web Task Agent — Interactive Mode ===")
+    print("Commands: more | more:N | skill:X | keyword:X | location:X | status | done")
+    print()
+
+    # ── Setup ──
+    browser = build_browser(demo=args.demo)
+    try:
+        llm_field_extractor = build_cli_llm_field_extractor(args)
+        llm_matcher = build_cli_llm_matcher(args)
+    except LlmExtractorConfigurationError as exc:
+        print(f"LLM config error: {exc}")
+        return 2
+
+    workflow = build_workflow(
+        browser=browser,
+        db_path=args.db_path,
+        report_dir=args.report_dir,
+        llm_field_extractor=llm_field_extractor,
+        llm_matcher=llm_matcher,
+    )
+    try:
+        resume_text = load_resume_text(args.resume_text, args.resume_file)
+    except FileNotFoundError as exc:
+        print(f"Resume file not found: {exc.filename}")
+        return 2
+
+    # Accumulated state across rounds
+    all_jobs: list[JobPosting] = []
+    all_matches: list[MatchResult] = []
+    round_states: list[WorkflowState] = []
+    round_num = 0
+    keyword = args.keyword
+    location = args.location
+    target_count = args.target_count
+    skills = list(args.skill)
+    seed_urls = list(args.seed_url)
+
+    # ── Main loop ──
+    while True:
+        round_num += 1
+        print(f"--- Round {round_num} ---")
+        print(f"  Keyword: {keyword}, Location: {location}, Target: {target_count}")
+        if skills:
+            print(f"  Skills: {', '.join(skills)}")
+
+        user = UserProfile(
+            keyword=keyword,
+            location=location,
+            target_count=target_count,
+            skills=skills,
+            resume_text=resume_text,
+            seed_urls=seed_urls,
+        )
+
+        try:
+            state = await workflow.run(user, run_id=f"interactive-{round_num:02d}-{uuid4().hex[:6]}")
+        except BrowserConfigurationError as exc:
+            print(f"  Browser error: {exc}")
+            print("  Try --demo for deterministic local pages.")
+            return 2
+
+        round_states.append(state)
+        valid = state.metrics.valid_jobs if state.metrics else 0
+        print(f"  Jobs found: {valid} valid / {state.metrics.jobs_found if state.metrics else 0} total")
+
+        # Collect jobs (dedupe by URL)
+        seen_urls = {j.url for j in all_jobs}
+        for job in state.jobs:
+            if job.url not in seen_urls:
+                seen_urls.add(job.url)
+                all_jobs.append(job)
+        all_matches.extend(state.matches)
+
+        # ── REPL ──
+        cmd = input("\n> ").strip()
+        if not cmd:
+            continue
+
+        if cmd.lower() in ("done", "quit", "q"):
+            break
+
+        if cmd.lower() == "status":
+            print(f"  Total unique jobs: {len(all_jobs)} across {round_num} rounds")
+            if all_matches:
+                gaps = summarize_skill_gaps(all_matches)
+                if gaps:
+                    print(f"  Top skill gaps: {', '.join(f'{s}({c})' for s, c in gaps[:5])}")
+            continue
+
+        if cmd.lower().startswith("more"):
+            parts = cmd.split(":", 1)
+            increment = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 5
+            target_count += increment
+            print(f"  Target → {target_count}")
+            continue
+
+        if cmd.lower().startswith("skill:"):
+            new_skill = cmd.split(":", 1)[1].strip()
+            if new_skill and new_skill.casefold() not in {s.casefold() for s in skills}:
+                skills.append(new_skill)
+                print(f"  Skills → {', '.join(skills)}")
+            continue
+
+        if cmd.lower().startswith("keyword:"):
+            keyword = cmd.split(":", 1)[1].strip()
+            if keyword:
+                print(f"  Keyword → {keyword}")
+            continue
+
+        if cmd.lower().startswith("location:"):
+            location = cmd.split(":", 1)[1].strip()
+            if location:
+                print(f"  Location → {location}")
+            continue
+
+        print(f"  Unknown command: {cmd}")
+        print("  Commands: more | more:N | skill:X | keyword:X | location:X | status | done")
+
+    # ── Consolidated report ──
+    print(f"\n=== Search complete: {len(all_jobs)} unique jobs across {round_num} rounds ===")
+
+    if all_jobs and state.metrics:
+        # Build a synthetic metrics for the consolidated report
+        from datetime import datetime, timezone
+        cons_metrics = RunMetrics(
+            run_id=f"interactive-consolidated-{uuid4().hex[:8]}",
+            pages_visited=sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states),
+            jobs_found=sum((s.metrics.jobs_found if s.metrics else 0) for s in round_states),
+            valid_jobs=len(all_jobs),
+            duplicate_jobs=sum((s.metrics.duplicate_jobs if s.metrics else 0) for s in round_states),
+            failed_pages=sum(len(s.failed_urls) for s in round_states),
+            avg_steps_per_job=round(
+                sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states) / len(all_jobs), 2
+            ) if all_jobs else 0.0,
+            finished_at=datetime.now(timezone.utc),
+        )
+        state.metrics = cons_metrics
+        state.jobs = all_jobs
+        state.matches = all_matches
+        state.metadata["interactive_rounds"] = round_num
+        state.metadata["execution_trace"].append(
+            {"node": "interactive", "summary": f"consolidated {round_num} rounds, {len(all_jobs)} unique jobs"}
+        )
+
+        # Reuse reporter/dashboard/action-plan pipeline
+        artifact_links = {}
+        if args.action_plan and state.metrics:
+            plan_path = ActionPlanWriter(args.action_plan_dir).write_plan(
+                run_id=state.metrics.run_id,
+                user=UserProfile(keyword=keyword, location=location, target_count=target_count, skills=skills, resume_text=resume_text),
+                jobs=all_jobs,
+                matches=all_matches,
+            )
+            state.metadata["action_plan_path"] = plan_path.as_posix()
+            artifact_links["行动计划"] = plan_path
+            print(f"Action plan written to: {plan_path}")
+            print(f"Top action gaps: {', '.join(f'{s}({c})' for s, c in summarize_skill_gaps(all_matches)[:3])}")
+
+        if args.dashboard and state.metrics:
+            dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
+                user=UserProfile(keyword=keyword, location=location, skills=skills, resume_text=resume_text),
+                jobs=all_jobs,
+                matches=all_matches,
+                metrics=cons_metrics,
+                search_queries=[],
+                failed_url_errors=state.metadata.get("failed_url_errors", []),
+                artifact_links=artifact_links,
+                execution_trace=state.metadata.get("execution_trace", []),
+                orchestration_mode="interactive",
+            )
+            state.metadata["dashboard_path"] = dashboard_path.as_posix()
+            print(f"Dashboard written to: {dashboard_path}")
+
+        report_path = workflow.reporter.write_report(
+            user=UserProfile(keyword=keyword, location=location, skills=skills, resume_text=resume_text),
+            jobs=all_jobs,
+            matches=all_matches,
+            metrics=cons_metrics,
+            artifact_links=artifact_links,
+            execution_trace=state.metadata.get("execution_trace", []),
+            orchestration_mode="interactive",
+        )
+        print(f"Consolidated report: {report_path}")
+
+        if args.json_output:
+            json_path = write_json_output(state, args.json_output)
+            print(f"JSON written to: {json_path}")
+
     return 0
 
 
