@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 import inspect
 import re
+import socket
 from typing import Any, Protocol
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus
 from urllib import request
 from html.parser import HTMLParser
@@ -17,6 +19,22 @@ SessionFactory = Callable[[], Any]
 
 class BrowserConfigurationError(RuntimeError):
     """Raised when the real browser adapter cannot run a requested action."""
+
+
+class PageTimeoutError(BrowserConfigurationError):
+    """DNS resolution failure, connection timeout, or response timeout."""
+
+
+class PageHttpError(BrowserConfigurationError):
+    """HTTP error status returned (4xx, 5xx)."""
+
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class PageEmptyError(BrowserConfigurationError):
+    """Page was fetched successfully but returned no useful content (JS shell or empty body)."""
 
 
 class BrowserClient(Protocol):
@@ -77,7 +95,7 @@ class BrowserUseClient:
                 return await self._page_loader(url)
             return await self._load_with_browser_use(url)
         except BrowserConfigurationError:
-            raise
+            raise  # pass through specific subtypes (PageTimeoutError, etc.)
         except Exception as exc:
             raise BrowserConfigurationError(
                 f"browser-use failed while opening {url}: {exc}"
@@ -169,22 +187,42 @@ class HttpPageLoader:
         return self._load_sync(url)
 
     def _load_sync(self, url: str) -> BrowserPage:
-        req = request.Request(
-            url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/125.0 Safari/537.36"
-                ),
-            },
-        )
-        with request.urlopen(req, timeout=self.timeout_seconds) as response:
-            html = response.read().decode("utf-8", errors="replace")
+        try:
+            req = request.Request(
+                url,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/125.0 Safari/537.36"
+                    ),
+                },
+            )
+            with request.urlopen(req, timeout=self.timeout_seconds) as response:
+                html = response.read().decode("utf-8", errors="replace")
+        except HTTPError as exc:
+            raise PageHttpError(
+                f"HTTP {exc.code} {exc.reason}: {url}",
+                status_code=exc.code,
+            ) from exc
+        except URLError as exc:
+            reason = getattr(exc, "reason", None)
+            if isinstance(reason, (socket.timeout, TimeoutError)):
+                raise PageTimeoutError(f"connection timed out after {self.timeout_seconds}s: {url}") from exc
+            if isinstance(reason, OSError) and "getaddrinfo" in str(reason).lower():
+                raise PageTimeoutError(f"DNS resolution failed: {url}") from exc
+            raise PageTimeoutError(f"URL error: {url} — {exc}") from exc
+        except TimeoutError as exc:
+            raise PageTimeoutError(f"request timed out: {url}") from exc
+
+        content = self._extract_text(html)
+        if not content.strip():
+            raise PageEmptyError(f"page returned empty content (likely JS-rendered): {url}")
+
         return BrowserPage(
             url=url,
             title=self._extract_title(html),
-            content=self._extract_text(html),
+            content=content,
             source="http",
             metadata={"timeout_seconds": self.timeout_seconds},
         )

@@ -6,7 +6,14 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from web_task_agent.browser import BrowserClient, BrowserConfigurationError, FakeBrowserClient
+from web_task_agent.browser import (
+    BrowserClient,
+    BrowserConfigurationError,
+    FakeBrowserClient,
+    PageEmptyError,
+    PageHttpError,
+    PageTimeoutError,
+)
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
@@ -100,6 +107,7 @@ class EvaluationRunner:
                     run_id=f"eval-{index:02d}-{uuid4().hex[:6]}",
                 )
             except BrowserConfigurationError as exc:
+                category, reason = _classify_browser_error(exc)
                 task_results.append(
                     TaskEvaluationResult(
                         keyword=task.keyword,
@@ -107,8 +115,8 @@ class EvaluationRunner:
                         pages_visited=0,
                         valid_jobs=0,
                         success=False,
-                        failure_reason="browser error",
-                        failure_category="browser_error",
+                        failure_reason=reason,
+                        failure_category=category,
                         failure_details=str(exc),
                     )
                 )
@@ -255,6 +263,17 @@ class EvaluationRunner:
             )
         lines.append("")
         return "\n".join(lines)
+
+
+def _classify_browser_error(exc: BrowserConfigurationError) -> tuple[str, str]:
+    """Translate a BrowserConfigurationError into (failure_category, failure_reason)."""
+    if isinstance(exc, PageTimeoutError):
+        return "http_timeout", "HTTP timeout or DNS failure"
+    if isinstance(exc, PageHttpError):
+        return "http_error", f"HTTP error (status {exc.status_code})" if exc.status_code else "HTTP error"
+    if isinstance(exc, PageEmptyError):
+        return "empty_page", "empty page (JS-rendered or no body)"
+    return "browser_error", "browser error"
 
 
 def build_default_tasks() -> list[EvaluationTask]:

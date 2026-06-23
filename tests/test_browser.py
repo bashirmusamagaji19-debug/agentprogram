@@ -333,4 +333,70 @@ async def test_http_page_loader_extracts_title_and_text():
     assert page.title == "AI Deployment Engineer"
     assert page.source == "http"
     assert "Company: OpenAI" in page.content
-    assert "window.x" not in page.content
+
+
+def test_http_loader_raises_page_timeout_error_on_connection_failure():
+    import sys, socket
+    from web_task_agent.browser import HttpPageLoader, PageTimeoutError
+    from urllib.error import URLError
+
+    browser_module = sys.modules["web_task_agent.browser"]
+    loader = HttpPageLoader(timeout_seconds=1)
+    original = browser_module.request.urlopen
+
+    def fake_urlopen(req, timeout=None):
+        raise URLError(socket.timeout("timed out"))
+
+    browser_module.request.urlopen = fake_urlopen
+    try:
+        import asyncio
+        with pytest.raises(PageTimeoutError) as exc:
+            asyncio.run(loader("https://example.com/timeout"))
+        assert "timed out" in str(exc.value)
+    finally:
+        browser_module.request.urlopen = original
+
+
+def test_http_loader_raises_page_http_error_on_404():
+    import sys
+    from web_task_agent.browser import HttpPageLoader, PageHttpError
+    from urllib.error import HTTPError
+    from io import BytesIO
+
+    browser_module = sys.modules["web_task_agent.browser"]
+    loader = HttpPageLoader(timeout_seconds=1)
+    original = browser_module.request.urlopen
+
+    def fake_urlopen(req, timeout=None):
+        raise HTTPError("https://example.com/404", 404, "Not Found", {}, BytesIO(b""))
+
+    browser_module.request.urlopen = fake_urlopen
+    try:
+        import asyncio
+        with pytest.raises(PageHttpError) as exc:
+            asyncio.run(loader("https://example.com/404"))
+        assert exc.value.status_code == 404
+    finally:
+        browser_module.request.urlopen = original
+
+
+def test_http_loader_raises_page_empty_error_on_js_shell():
+    import sys
+    from web_task_agent.browser import HttpPageLoader, PageEmptyError
+
+    browser_module = sys.modules["web_task_agent.browser"]
+    loader = HttpPageLoader(timeout_seconds=1)
+    original = browser_module.request.urlopen
+
+    def fake_urlopen(req, timeout=None):
+        import io
+        return io.BytesIO(b"<html><body><script>window.x=1;</script></body></html>")
+
+    browser_module.request.urlopen = fake_urlopen
+    try:
+        import asyncio
+        with pytest.raises(PageEmptyError) as exc:
+            asyncio.run(loader("https://example.com/js-only"))
+        assert "empty content" in str(exc.value)
+    finally:
+        browser_module.request.urlopen = original
