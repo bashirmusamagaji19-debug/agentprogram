@@ -45,7 +45,9 @@ $env:DASHSCOPE_API_KEY="..."
 $env:DEEPSEEK_API_KEY="..."
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --skill FastAPI --resume-text "Built REST APIs with FastAPI." --demo --llm-match-provider deepseek --json-output outputs\deepseek-match.json
 # 真实站点 LLM 全链路对比
-.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --real-site-sample --evaluation-count 4 --llm-extractor-provider deepseek --json-output evaluations\final-comparison.json
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --real-site-sample --evaluation-count 8 --llm-extractor-provider deepseek --json-output evaluations\final-comparison.json
+# LLM 语义匹配对比评测
+.\.venv\Scripts\web-task-agent.exe --compare-llm-match --real-site-sample --evaluation-count 8 --llm-extractor-provider deepseek --llm-match-provider deepseek --skill Python --skill LangGraph --skill FastAPI --resume-text "Built REST APIs with FastAPI. Built LangGraph agents." --json-output evaluations\match-comparison.json
 .\.venv\Scripts\web-task-agent.exe --evaluate --evaluation-count 20
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --json-output evaluations\fixture-result.json

@@ -188,6 +188,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Compare rule extraction with the deterministic LLM extractor demo.",
     )
+    parser.add_argument(
+        "--compare-llm-match",
+        action="store_true",
+        help="Compare rule matching with LLM semantic matching on real-site-sample jobs.",
+    )
     return parser
 
 
@@ -239,6 +244,30 @@ async def _run(args: argparse.Namespace) -> int:
             print(
                 f"{args.llm_extractor_provider}: "
                 f"{provider_result['completed_tasks']}/{provider_result['total_tasks']}"
+            )
+        print(f"Comparison report written to: {result['report_path']}")
+        if args.json_output:
+            json_path = write_mapping_json_output(result, args.json_output)
+            print(f"Comparison JSON written to: {json_path}")
+        return 0
+
+    if args.compare_llm_match:
+        try:
+            llm_matcher = build_cli_llm_matcher(args)
+        except LlmExtractorConfigurationError as exc:
+            print(f"LLM matcher is not configured: {exc}")
+            return 2
+        result = await run_llm_matcher_comparison(args, llm_matcher=llm_matcher)
+        print("LLM match comparison")
+        print(
+            "rule-demo: "
+            f"{result['rule_demo']['score_diff_count']}/{result['rule_demo']['total_pairs']} scores changed"
+        )
+        if result.get("llm_provider"):
+            provider_result = result["llm_provider"]
+            print(
+                f"{args.llm_match_provider}: "
+                f"{provider_result['score_diff_count']}/{provider_result['total_pairs']} scores changed"
             )
         print(f"Comparison report written to: {result['report_path']}")
         if args.json_output:
@@ -574,6 +603,163 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
     if args.llm_extractor_provider:
         result[args.llm_extractor_provider] = extractors[args.llm_extractor_provider]
     return result
+
+
+async def run_llm_matcher_comparison(
+    args: argparse.Namespace,
+    *,
+    llm_matcher,
+) -> dict:
+    """Compare rule matching with LLM semantic matching on real-site pages.
+
+    Steps:
+    1. Fetch and extract jobs from real URLs (browser + extractor).
+    2. For each job, run rule match and LLM match side-by-side.
+    3. Compare scores, matched/missing skills, priorities.
+    4. Write a Markdown comparison report.
+    """
+    from web_task_agent.matcher import JobMatcher
+    from web_task_agent.extractor import PageExtractor
+    from web_task_agent.verifier import JobVerifier
+
+    if args.real_site_sample:
+        tasks = build_real_site_sample_tasks()[: args.evaluation_count]
+        browser = BrowserUseClient(page_loader=HttpPageLoader())
+    else:
+        tasks = build_real_site_sample_tasks()  # always use real sites for meaningful comparison
+        browser = BrowserUseClient(page_loader=HttpPageLoader())
+
+    extractor = PageExtractor(
+        llm_field_extractor=build_cli_llm_field_extractor(args),
+    )
+    verifier = JobVerifier(required_keywords=["AI", "LLM", "Agent", "analytics", "developer", "platform", "strategy", "deployment", "consultant", "director"])
+    rule_matcher = JobMatcher()
+    llm_matcher_instance = JobMatcher(llm_matcher=llm_matcher)
+
+    try:
+        resume_text = load_resume_text(args.resume_text, args.resume_file)
+    except FileNotFoundError as exc:
+        print(f"Resume file not found: {exc.filename}")
+        resume_text = ""
+
+    user = UserProfile(
+        keyword=args.keyword or "AI intern",
+        location=args.location,
+        target_count=args.target_count,
+        skills=args.skill or ["Python", "LangGraph"],
+        resume_text=resume_text,
+    )
+
+    # ── Step 1: Fetch + extract jobs from each URL ──
+    pairs: list[dict] = []
+    for task in tasks:
+        url = task.seed_urls[0]
+        try:
+            page = await browser.open_url(url)
+            job = extractor.extract(page)
+            if not verifier.verify(job).is_valid:
+                continue
+        except Exception as exc:
+            # URL failed → skip this entry in comparison
+            continue
+
+        # ── Step 2: Rule match + LLM match ──
+        rule_result = rule_matcher.match(user=user, job=job)
+        llm_result = llm_matcher_instance.match(user=user, job=job)
+
+        pairs.append({
+            "url": url,
+            "title": job.title,
+            "company": job.company,
+            "job_skills": job.skills,
+            "rule": rule_result.model_dump(mode="json"),
+            "llm": llm_result.model_dump(mode="json"),
+        })
+
+    # ── Step 3: Summarize ──
+    result: dict[str, object] = {
+        "total_pairs": len(pairs),
+        "rule_demo": _summarize_match_comparison(pairs),
+        "seed_urls": [t.seed_urls[0] for t in tasks],
+        "pairs": pairs,
+    }
+
+    # ── Step 4: Write report ──
+    report_path = write_llm_match_comparison_report(
+        output_dir=args.evaluation_dir,
+        pairs=pairs,
+        llm_provider=args.llm_match_provider,
+        args=args,
+    )
+    result["report_path"] = report_path.as_posix()
+    return result
+
+
+def _summarize_match_comparison(pairs: list[dict]) -> dict:
+    """Count how many pairs had score differences between rule and LLM matching."""
+    score_diff_count = 0
+    priority_change_count = 0
+    for pair in pairs:
+        rule_score = pair["rule"]["score"]
+        llm_score = pair["llm"]["score"]
+        if abs(rule_score - llm_score) > 0.01:
+            score_diff_count += 1
+        if pair["rule"]["priority"] != pair["llm"]["priority"]:
+            priority_change_count += 1
+    return {
+        "total_pairs": len(pairs),
+        "score_diff_count": score_diff_count,
+        "priority_change_count": priority_change_count,
+    }
+
+
+def write_llm_match_comparison_report(
+    *,
+    output_dir: str | Path,
+    pairs: list[dict],
+    llm_provider: str | None = None,
+    args: argparse.Namespace | None = None,
+) -> Path:
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    path = output / "llm-match-comparison.md"
+
+    matcher_label = llm_provider or "llm-demo"
+    rule_demo = _summarize_match_comparison(pairs)
+
+    lines = [
+        "# LLM 语义匹配对比评测",
+        "",
+        "## 搜索条件",
+        "",
+        f"- 技能标签: {', '.join(args.skill) if args and args.skill else '未提供'}",
+        f"- 岗位数: {len(pairs)}",
+        f"- LLM 匹配器: {matcher_label}",
+        "",
+        "## 汇总",
+        "",
+        f"- 有效岗位-匹配对: {len(pairs)}",
+        f"- 规则 vs {matcher_label}: {rule_demo['score_diff_count']}/{rule_demo['total_pairs']} 分数变化, {rule_demo['priority_change_count']} 优先级变化",
+        "",
+        "## 逐对明细",
+        "",
+        "| # | 岗位 | 公司 | 岗位技能 | 规则分 | LLM 分 | 规则优先级 | LLM 优先级 | 规则匹配 | LLM 匹配 |",
+        "|---|---|---|---:|---:|---|---|---|---|",
+    ]
+    for i, pair in enumerate(pairs, start=1):
+        rule = pair["rule"]
+        llm = pair["llm"]
+        lines.append(
+            f"| {i} | {pair['title'][:30]} | {pair['company'][:20]} | "
+            f"{', '.join(pair['job_skills'][:3]) if pair['job_skills'] else '-'} | "
+            f"{rule['score']:.2f} | {llm['score']:.2f} | "
+            f"{rule['priority']} | {llm['priority']} | "
+            f"{', '.join(rule['matched_skills'][:3]) if rule['matched_skills'] else '-'} | "
+            f"{', '.join(llm['matched_skills'][:3]) if llm['matched_skills'] else '-'} |"
+        )
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
 
 
 def write_llm_comparison_report(

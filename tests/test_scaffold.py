@@ -1302,3 +1302,72 @@ def test_cli_evaluate_dashboard_writes_evaluation_html(
     html = dashboards[0].read_text(encoding="utf-8")
     assert "Evaluation Summary" in html
     assert "任务成功率" in html
+
+
+def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> None:
+    """Smoke test: --compare-llm-match completes end-to-end with demo matcher."""
+    monkeypatch.chdir(tmp_path)
+    from web_task_agent.demo_pages import DEMO_JOB_PAGES
+    # Override real_site_sample_tasks to use demo pages
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_real_site_sample_tasks",
+        lambda: [
+            EvaluationTask(
+                keyword="AI intern",
+                location="Remote",
+                target_count=1,
+                skills=["Python"],
+                seed_urls=["https://example.com/jobs/test-ai-intern"],
+            ),
+            EvaluationTask(
+                keyword="ML intern",
+                location="Shanghai",
+                target_count=1,
+                skills=["Python", "SQL"],
+                seed_urls=["https://example.com/jobs/test-ml-intern"],
+            ),
+        ],
+    )
+
+    url_to_page = {
+        "https://example.com/jobs/test-ai-intern": BrowserPage(
+            url="https://example.com/jobs/test-ai-intern",
+            title="AI Intern",
+            content="Title: AI Intern\nCompany: TestCo\nLocation: Remote\nRequirements: Python, LangGraph\nResponsibilities: Build AI agents\nSkills: Python, LangGraph\n",
+            source="fixture",
+        ),
+        "https://example.com/jobs/test-ml-intern": BrowserPage(
+            url="https://example.com/jobs/test-ml-intern",
+            title="ML Intern",
+            content="Title: ML Intern\nCompany: DataCo\nLocation: Shanghai\nRequirements: Python, FastAPI, SQL\nResponsibilities: Build ML platform\nSkills: Python, FastAPI, SQL\n",
+            source="fixture",
+        ),
+    }
+
+    class _FakeBrowser:
+        def __init__(self, *, page_loader=None):
+            pass
+        async def open_url(self, url):
+            if url in url_to_page:
+                return url_to_page[url]
+            raise ValueError(f"URL not found: {url}")
+
+    monkeypatch.setattr("web_task_agent.cli.BrowserUseClient", _FakeBrowser)
+
+    exit_code = main([
+        "--compare-llm-match",
+        "--real-site-sample",
+        "--evaluation-count", "2",
+        "--skill", "Python",
+        "--llm-match-demo",
+        "--json-output", "evaluations/match-smoke.json",
+    ])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert "LLM match comparison" in captured.out
+    assert "scores changed" in captured.out
+    report = tmp_path / "evaluations" / "llm-match-comparison.md"
+    assert report.exists()
+    content = report.read_text(encoding="utf-8")
+    assert "LLM 语义匹配对比评测" in content

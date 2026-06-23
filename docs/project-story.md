@@ -103,6 +103,16 @@ flowchart LR
 - 规则抽取在 Greenhouse 格式页面上只对带 "Title:" / "Requirements:" 标签的页面有效，多数真实页面没有这种标签
 - 仅 1 个页面（Discord Director Developer Solutions）在所有 extractor 下都失败
 
+### 语义匹配对比评测（7 个有效岗位，DeepSeek 匹配）
+
+| 指标 | 结果 |
+|---|---|
+| 规则 vs DeepSeek 分数变化 | **4/7** (57%) |
+| 规则匹配平均分 | 0.00 |
+| DeepSeek 匹配平均分 | 0.08 |
+
+规则匹配在真实页面上全打 0 分——Greenhouse 页面抽取的"技能"字段是原始需求文本而非关键词列表。DeepSeek 在 4/7 的岗位上发现了语义关联（如 `LangGraph` ↔ "Agentic AI"、`FastAPI` ↔ "back-end engineering"），验证了语义匹配在真实数据上的价值。
+
 这些指标代表确定性 MVP 闭环的稳定性，不代表真实招聘网站表现。真实网页接入后，需要重新构建真实网页评测集。
 
 ## 演示命令
