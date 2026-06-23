@@ -14,6 +14,12 @@ from web_task_agent.evaluation import (
 )
 from web_task_agent.models import BrowserPage, MatchResult, UserProfile, WorkflowState
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
+from web_task_agent.storage import JobRepository
+from web_task_agent.workflow import WebTaskWorkflow
+from web_task_agent.extractor import PageExtractor
+from web_task_agent.matcher import JobMatcher
+from web_task_agent.verifier import JobVerifier
+from web_task_agent.reporter import MarkdownReporter
 
 
 def test_package_version_matches_project_version() -> None:
@@ -1072,6 +1078,147 @@ def test_cli_compare_llm_extractor_real_site_sample_uses_browser_use_client(
     assert all(loader is not None for loader in page_loaders)
     assert len(runner_calls) == 2
     assert runner_calls[0][0].seed_urls
+
+
+def test_cli_evaluate_real_site_sample_includes_filtered_job_details(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    class FakeRunner:
+        def __init__(self, output_dir, browser_factory=None, extractor_factory=None):
+            self.output_dir = output_dir
+            self.browser_factory = browser_factory
+            self.extractor_factory = extractor_factory
+
+        async def run(self, tasks):
+            if self.browser_factory is not None:
+                for task in tasks:
+                    self.browser_factory(task)
+            report_path = tmp_path / "evaluations" / "evaluation-report.md"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text("ok", encoding="utf-8")
+            return EvaluationResult(
+                total_tasks=4,
+                completed_tasks=3,
+                success_rate=0.75,
+                total_valid_jobs=3,
+                average_pages_visited=1.0,
+                failure_counts={"verification_filtered": 1},
+                task_results=[
+                    TaskEvaluationResult(
+                        keyword="AI Deployment Engineer- Codex",
+                        location="Remote - US",
+                        pages_visited=1,
+                        valid_jobs=1,
+                        success=True,
+                    ),
+                    TaskEvaluationResult(
+                        keyword="AI Systems Engineer, Codex Agents",
+                        location="San Francisco",
+                        pages_visited=1,
+                        valid_jobs=1,
+                        success=True,
+                    ),
+                    TaskEvaluationResult(
+                        keyword="Applied AI Claude Evangelist",
+                        location="San Francisco, CA",
+                        pages_visited=1,
+                        valid_jobs=0,
+                        success=False,
+                        failure_reason="no valid jobs",
+                        failure_category="verification_filtered",
+                        failure_details=(
+                            "Applied AI Claude Evangelist @ Anthropic -> "
+                            "confidence below 0.5, not relevant to AI internship direction"
+                        ),
+                    ),
+                    TaskEvaluationResult(
+                        keyword="Technical Program Manager, API Platform",
+                        location="San Francisco, CA",
+                        pages_visited=1,
+                        valid_jobs=1,
+                        success=True,
+                    ),
+                ],
+            )
+
+    monkeypatch.setattr("web_task_agent.cli.EvaluationRunner", FakeRunner)
+
+    assert (
+        main(
+            [
+                "--evaluate",
+                "--real-site-sample",
+                "--evaluation-count",
+                "4",
+                "--json-output",
+                "evaluations/real-site-4.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Completed tasks: 3/4" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "real-site-4.json").read_text(encoding="utf-8")
+    )
+    filtered = [
+        item
+        for item in payload["task_results"]
+        if item["failure_category"] == "verification_filtered"
+    ]
+    assert len(filtered) == 1
+    assert "Applied AI Claude Evangelist" in filtered[0]["failure_details"]
+    assert "confidence below" in filtered[0]["failure_details"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_records_filtered_job_metadata(tmp_path) -> None:
+    class FakeBrowser:
+        async def search(self, query: str, target_count: int):
+                return [
+                    BrowserPage(
+                        url="https://example.com/jobs/applied-ai-claude-evangelist",
+                        title="Applied AI Claude Evangelist",
+                        content=(
+                            "Title: Applied AI Claude Evangelist\n"
+                            "Company: Anthropic\n"
+                            "Location: San Francisco, CA\n"
+                        ),
+                        source="fixture",
+                    )
+                ]
+
+        async def open_url(self, url: str):
+            raise AssertionError("open_url should not be called in this test")
+
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+    workflow = WebTaskWorkflow(
+        browser=FakeBrowser(),
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run(
+        UserProfile(keyword="AI intern", location="Remote", target_count=1, skills=["Python"]),
+        run_id="run-filtered",
+    )
+
+    assert state.jobs == []
+    assert state.metadata["filtered_jobs"][0]["title"] == "Applied AI Claude Evangelist"
+    assert any(
+        "missing requirements and responsibilities" in reason
+        for reason in state.metadata["filtered_jobs"][0]["reasons"]
+    )
+    assert any("filtered 1 jobs" in item["summary"] for item in state.metadata["execution_trace"])
 
 
 def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(

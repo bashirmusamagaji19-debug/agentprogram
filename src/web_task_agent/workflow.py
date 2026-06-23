@@ -149,15 +149,32 @@ class WebTaskWorkflow:
     def _verifier_node(self, state: WorkflowState) -> WorkflowState:
         extracted_jobs = state.metadata.get("extracted_jobs", [])
         unique_jobs, duplicate_jobs = self.verifier.dedupe(extracted_jobs)
-        state.jobs = [
-            job for job in unique_jobs if self.verifier.verify(job).is_valid
-        ]
+        verified_jobs: list = []
+        filtered_jobs: list[dict[str, object]] = []
+        for job in unique_jobs:
+            result = self.verifier.verify(job)
+            if result.is_valid:
+                verified_jobs.append(job)
+                continue
+            filtered_jobs.append(
+                {
+                    "title": job.title,
+                    "company": job.company,
+                    "url": job.url,
+                    "reasons": result.reasons,
+                }
+            )
+        state.jobs = verified_jobs
         state.metadata["jobs_found"] = len(extracted_jobs)
         state.metadata["duplicate_jobs"] = len(duplicate_jobs)
+        state.metadata["filtered_jobs"] = filtered_jobs
         self._record_trace(
             state,
             "verifier",
-            f"kept {len(state.jobs)} valid jobs; removed {len(duplicate_jobs)} duplicates",
+            (
+                f"kept {len(state.jobs)} valid jobs; removed "
+                f"{len(duplicate_jobs)} duplicates; filtered {len(filtered_jobs)} jobs"
+            ),
         )
         return state
 

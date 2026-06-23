@@ -15,6 +15,7 @@ python -m venv .venv
 .\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/unstructured-ai-agent-intern" --seed-url "https://example.com/jobs/ai-engineering-intern" --json-output evaluations\seed-comparison.json
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-site-sample --evaluation-count 2 --json-output evaluations\real-site.json
 .\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --real-site-sample --evaluation-count 2 --json-output evaluations\real-site-comparison.json
+.\.venv\Scripts\web-task-agent.exe --evaluate --real-site-sample --evaluation-count 4 --llm-extractor-provider deepseek --json-output evaluations\real-site-4.json
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --dashboard --action-plan --json-output outputs\result.json
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --location "Remote" --target-count 2 --skill Python --skill LangGraph --demo --langgraph --dashboard
 .\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --target-count 2 --skill Python --resume-text "Built LangGraph browser agents with LLM evaluation loops." --demo --dashboard
@@ -55,6 +56,8 @@ print(jobs[0].title if jobs else "no jobs")
 - LLM extractor 对比命令成功运行，输出 `baseline: 0/1` 和 `llm-demo: 1/1`，并生成 `evaluations\llm-comparison.json`。
 - 多 seed URL LLM extractor 对比命令成功运行，输出 `baseline: 1/2` 和 `llm-demo: 2/2`，并生成 `evaluations\seed-comparison.json` 与 `evaluations/llm-extractor-comparison.md`。
 - 真实站点样本模式已接入 `--evaluate` 和 `--compare-llm-extractor`，可对固定真实 URL 样本做同批对比，并通过 HTTP loader 读取正文。
+- 真实站点样本 8 条正式评测已成功运行，输出 DeepSeek 88% (7/8) 完成率，规则抽取仅 25% (2/8)。
+- 评测 JSON 和 report 现在都会写出被 verifier 过滤的具体岗位、公司和原因，便于复盘 benchmark 差异。
 - CLI demo 成功运行，输出 `Report written to: reports\run-*.md`、`Valid jobs: 2`、`Action plan written to: action-plans\...`、`Top action gaps: ...`、`JSON output written to: outputs\result.json` 和 `Dashboard written to: dashboards\run-*.html`。
 - LangGraph demo 成功运行，输出 `LangGraph workflow: enabled`、`Valid jobs: 2` 和 dashboard 路径；JSON 中 `metadata.orchestration_mode` 为 `langgraph`。
 - 带简历文本的 demo 成功运行，输出 `Valid jobs: 2`，并在报告中将简历内容作为匹配信号。

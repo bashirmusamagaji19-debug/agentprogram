@@ -123,7 +123,11 @@ class EvaluationRunner:
                 valid_jobs=valid_jobs,
                 failed_pages=metrics.failed_pages if metrics else 0,
             )
-            failure_details = self._format_failed_url_errors(state) or failure_details
+            failure_details = (
+                self._format_filtered_jobs(state)
+                or self._format_failed_url_errors(state)
+                or failure_details
+            )
             task_results.append(
                 TaskEvaluationResult(
                     keyword=task.keyword,
@@ -192,6 +196,19 @@ class EvaluationRunner:
         return "; ".join(
             f"{item.get('url', '-')} -> {item.get('error', '-')}"
             for item in errors
+        )
+
+    def _format_filtered_jobs(self, state) -> str:
+        filtered_jobs = state.metadata.get("filtered_jobs", [])
+        if not filtered_jobs:
+            return ""
+        return "; ".join(
+            (
+                f"{item.get('title', '-')}"
+                f" @ {item.get('company', '-')}"
+                f" -> {', '.join(item.get('reasons', []))}"
+            )
+            for item in filtered_jobs
         )
 
     def _render_report(self, result: EvaluationResult) -> str:
