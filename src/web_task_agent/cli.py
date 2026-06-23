@@ -7,7 +7,13 @@ import json
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from web_task_agent import __version__
+
+# Load .env before anything else reads os.environ
+# __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.browser import (
     BrowserConfigurationError,

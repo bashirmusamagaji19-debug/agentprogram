@@ -95,12 +95,13 @@ flowchart LR
 | baseline（规则） | 2/8 | 0.25 |
 | llm-demo（确定性 demo） | 3/8 | 0.38 |
 | deepseek（deepseek-v4-flash） | **7/8** | **0.88** |
+| qwen（qwen-plus） | **7/8** | **0.88** |
 
 **关键发现**：
-- DeepSeek 在 8 个真实招聘页上完成率 88%，是规则抽取的 3.5×（25%），确定性 demo 的 2.3×（38%）
+- 两个主流 LLM provider（DeepSeek、Qwen）在 8 个真实招聘页上均达到 88% 完成率，是规则抽取的 3.5×，确定性 demo 的 2.3×
+- DeepSeek 和 Qwen 结果一致（均为 7/8），表明 LLM 抽取的稳定性不依赖单一 provider——这验证了 provider 可替换架构的合理性
 - 规则抽取在 Greenhouse 格式页面上只对带 "Title:" / "Requirements:" 标签的页面有效，多数真实页面没有这种标签
-- 确定性 demo 优于规则但远不如真实 LLM，验证了"规则优先 + LLM fallback"两层策略的合理性
-- 仅 1 个页面（Discord）在所有 extractor 下都失败，可能是页面内容结构差异导致
+- 仅 1 个页面（Discord Director Developer Solutions）在所有 extractor 下都失败
 
 这些指标代表确定性 MVP 闭环的稳定性，不代表真实招聘网站表现。真实网页接入后，需要重新构建真实网页评测集。
 
