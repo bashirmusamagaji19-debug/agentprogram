@@ -60,6 +60,24 @@ def test_job_from_visual_fields_fills_safe_unknowns():
     assert job.confidence == 0.4
 
 
+def test_job_from_visual_fields_derives_skills_from_chinese_commas():
+    """Fallback skill parsing handles Chinese commas from VLM text."""
+    page = BrowserPage(
+        url="https://example.com/jobs/chinese-comma",
+        title="Visual AI Intern",
+        content="",
+        source="visual-demo",
+    )
+    fields = VisualJobFields(
+        requirements="Python， LangGraph，LLM",
+        confidence=0.6,
+    )
+
+    job = job_from_visual_fields(page=page, fields=fields)
+
+    assert job.skills == ["Python", "LangGraph", "LLM"]
+
+
 @pytest.mark.asyncio
 async def test_demo_visual_extractor_returns_structured_fields_for_known_seed_url():
     """Known fixture URL produces a successful extraction result."""
