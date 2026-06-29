@@ -76,7 +76,8 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--llm-extractor-provider deepseek" in captured.out
     assert "--history" in captured.out
     assert "--evaluate --fixture-sites" in captured.out
-    assert "9. " in captured.out
+    assert "--benchmark-v2" in captured.out
+    assert "--benchmark-providers baseline,llm-demo,deepseek" in captured.out
 
 
 def test_format_top_action_gaps_handles_empty_and_ranked_gaps() -> None:
@@ -1696,3 +1697,61 @@ def test_cli_compare_visual_provider_zero_valid_jobs_stays_comparison_success(
         )
     )
     assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 0
+
+
+def test_cli_benchmark_v2_prints_provider_matrix(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--benchmark-v2 runs provider matrix and prints per-provider results."""
+    monkeypatch.chdir(tmp_path)
+
+    from web_task_agent.benchmark import (
+        BenchmarkMatrixResult,
+        BenchmarkProviderResult,
+        build_real_site_benchmark_v2_cases,
+    )
+
+    async def fake_run_cli_benchmark_v2(args, *, providers):
+        return BenchmarkMatrixResult(
+            cases=build_real_site_benchmark_v2_cases()[:1],
+            providers=[
+                BenchmarkProviderResult(
+                    provider=provider,
+                    total_tasks=1,
+                    completed_tasks=1 if provider != "qwen-vl" else 0,
+                    success_rate=1.0 if provider != "qwen-vl" else 0.0,
+                    total_valid_jobs=1 if provider != "qwen-vl" else 0,
+                    average_pages_visited=1.0,
+                    failure_counts={}
+                    if provider != "qwen-vl"
+                    else {"verification_filtered": 1},
+                    elapsed_seconds=0.01,
+                    report_path=f"evaluations/{provider}/evaluation-report.md",
+                )
+                for provider in providers
+            ],
+        )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.run_cli_benchmark_v2",
+        fake_run_cli_benchmark_v2,
+    )
+
+    exit_code = main(
+        [
+            "--benchmark-v2",
+            "--benchmark-providers",
+            "baseline,llm-demo,qwen-vl",
+            "--benchmark-limit",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "Real site benchmark v2" in captured.out
+    assert "baseline: 1/1 success_rate=1.00" in captured.out
+    assert "llm-demo: 1/1 success_rate=1.00" in captured.out
+    assert "qwen-vl: 0/1 success_rate=0.00" in captured.out

@@ -21,4 +21,11 @@
 - 继续扩真实样本数，做回归基线。
 - 把 `HttpPageLoader` 改成非阻塞，减少评测时的事件循环阻塞。
 - 扩 Qwen provider 对比，形成更完整的 provider matrix。
+- 把真实站点评测从一次性 comparison 升级成 provider matrix benchmark，每个样本有公司、ATS、岗位族元数据，所有 provider 跑同一批样本输出矩阵。
+
+## Real Site Benchmark V2 讲法
+
+下一阶段我把真实站点评测从一次性 comparison 升级成 provider matrix。每个样本不仅有 URL，还有公司、ATS 类型、岗位族、期望信号和技能标签；每个 provider 都跑同一批样本，输出完成率、有效岗位数、失败分类和耗时。
+
+面试时重点不是说某个 provider 永远最好，而是说明我如何设计可复现评测：固定样本目录、统一 workflow、统一 verifier、统一失败分类，再把 rule、LLM、visual provider 放在同一张矩阵里比较。真实页面可能变化，所以系统把 HTTP、空页面、抽取失败、verifier 过滤都记录下来，这比只展示一次成功 demo 更能体现工程判断。
 - 把 verifier 过滤原因拆得更细，继续提高解释性。

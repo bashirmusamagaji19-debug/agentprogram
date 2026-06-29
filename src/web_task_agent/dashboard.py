@@ -528,3 +528,90 @@ class HtmlDashboard:
   <td>{escape(task_result.failure_reason or "-")}</td>
   <td>{escape(task_result.failure_details or "-")}</td>
 </tr>"""
+
+    # ── Benchmark v2 summary ─────────────────────────────────────────
+
+    def render_benchmark_summary(self, result) -> str:
+        """Render an HTML dashboard for the benchmark v2 provider matrix."""
+        provider_rows = "\n".join(
+            "<tr>"
+            f"<td>{escape(p.provider)}</td>"
+            f"<td>{p.completed_tasks}/{p.total_tasks}</td>"
+            f"<td>{p.success_rate:.2f}</td>"
+            f"<td>{p.total_valid_jobs}</td>"
+            f"<td>{p.elapsed_seconds:.2f}s</td>"
+            f"<td>{escape(self._format_failure_counts(p.failure_counts))}</td>"
+            f'<td><a href="{escape(p.report_path)}">report</a></td>'
+            "</tr>"
+            for p in result.providers
+        ) or '<tr><td colspan="7">No providers</td></tr>'
+
+        case_rows = "\n".join(
+            "<tr>"
+            f"<td>{escape(c.case_id)}</td>"
+            f"<td>{escape(c.company)}</td>"
+            f"<td>{escape(c.ats)}</td>"
+            f"<td>{escape(c.role_family)}</td>"
+            f'<td><a href="{escape(c.url)}">{escape(c.keyword)}</a></td>'
+            f"<td>{escape(c.expected_signal)}</td>"
+            "</tr>"
+            for c in result.cases
+        ) or '<tr><td colspan="6">No cases</td></tr>'
+
+        return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Real Site Benchmark V2</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; }}
+    table {{ border-collapse: collapse; width: 100%; margin-bottom: 2rem; }}
+    th, td {{ border: 1px solid #ddd; padding: 6px 10px; text-align: left; }}
+    th {{ background: #f5f5f5; }}
+    .metrics {{ display: flex; gap: 2rem; margin-bottom: 1.5rem; }}
+    .metric {{ background: #f0f0ff; padding: 0.5rem 1rem; border-radius: 4px; }}
+    .metric span {{ font-size: 0.85rem; color: #666; }}
+    .metric strong {{ display: block; font-size: 1.4rem; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Real Site Benchmark V2</h1>
+    <section class="metrics">
+      {self._metric("Cases", len(result.cases))}
+      {self._metric("Providers", len(result.providers))}
+      {self._metric("Best Provider", escape(result.best_provider or "-"))}
+    </section>
+    <h2>Provider Matrix</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Provider</th><th>Completed</th><th>Success Rate</th>
+          <th>Valid Jobs</th><th>Elapsed</th>
+          <th>Failure Counts</th><th>Report</th>
+        </tr>
+      </thead>
+      <tbody>{provider_rows}</tbody>
+    </table>
+    <h2>Case Catalog</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Case ID</th><th>Company</th><th>ATS</th>
+          <th>Role Family</th><th>Keyword</th><th>Expected Signal</th>
+        </tr>
+      </thead>
+      <tbody>{case_rows}</tbody>
+    </table>
+  </main>
+</body>
+</html>
+"""
+
+    def _format_failure_counts(self, failure_counts: dict[str, int]) -> str:
+        if not failure_counts:
+            return "-"
+        return ", ".join(
+            f"{key}={value}" for key, value in sorted(failure_counts.items())
+        )

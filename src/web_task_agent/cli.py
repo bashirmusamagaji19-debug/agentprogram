@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from time import perf_counter
 
 from dotenv import load_dotenv
 
@@ -15,6 +16,13 @@ from web_task_agent import __version__
 # __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from web_task_agent.action_plan import ActionPlanWriter
+from web_task_agent.benchmark import (
+    BenchmarkProviderResult,
+    build_real_site_benchmark_v2_cases,
+    parse_benchmark_providers,
+    run_benchmark_matrix,
+    write_benchmark_artifacts,
+)
 from web_task_agent.browser import (
     BrowserConfigurationError,
     HttpPageLoader,
@@ -217,6 +225,27 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run in interactive multi-turn mode: adjust search parameters and re-run.",
     )
+    parser.add_argument(
+        "--benchmark-v2",
+        action="store_true",
+        help="Run the real-site benchmark v2 provider matrix.",
+    )
+    parser.add_argument(
+        "--benchmark-providers",
+        default="baseline,llm-demo",
+        help="Comma-separated providers: baseline,llm-demo,deepseek,qwen,qwen-vl.",
+    )
+    parser.add_argument(
+        "--benchmark-limit",
+        type=int,
+        default=8,
+        help="Limit benchmark v2 cases.",
+    )
+    parser.add_argument(
+        "--benchmark-dashboard",
+        action="store_true",
+        help="Write a benchmark v2 HTML summary.",
+    )
     return parser
 
 
@@ -310,6 +339,31 @@ async def _run(args: argparse.Namespace) -> int:
         if args.json_output:
             json_path = write_mapping_json_output(result, args.json_output)
             print(f"Comparison JSON written to: {json_path}")
+        return 0
+
+    if args.benchmark_v2:
+        try:
+            providers = parse_benchmark_providers(args.benchmark_providers)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        try:
+            result = await run_cli_benchmark_v2(args, providers=providers)
+        except (LlmExtractorConfigurationError, VisualProviderConfigurationError) as exc:
+            err_type = (
+                "LLM extractor"
+                if isinstance(exc, LlmExtractorConfigurationError)
+                else "Visual extractor"
+            )
+            print(f"Benchmark {err_type} is not configured: {exc}")
+            return 2
+        print("Real site benchmark v2")
+        for provider in result.providers:
+            print(
+                f"{provider.provider}: "
+                f"{provider.completed_tasks}/{provider.total_tasks} "
+                f"success_rate={provider.success_rate:.2f}"
+            )
         return 0
 
     if args.history:
@@ -863,6 +917,92 @@ def write_model_json_output(model, output_path: str) -> Path:
     return path
 
 
+async def run_cli_benchmark_v2(
+    args: argparse.Namespace, *, providers: list[str]
+) -> BenchmarkMatrixResult:
+    """Run the benchmark v2 provider matrix from CLI configuration."""
+    cases = build_real_site_benchmark_v2_cases()[: args.benchmark_limit]
+
+    async def run_provider(provider, tasks, output_dir, cli_args):
+        start = perf_counter()
+        if provider == "baseline":
+            eval_result = await EvaluationRunner(
+                output_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+            ).run(tasks=tasks)
+        elif provider == "llm-demo":
+            eval_result = await EvaluationRunner(
+                output_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+                extractor_factory=lambda task: PageExtractor(
+                    llm_field_extractor=DemoLlmFieldExtractor()
+                ),
+            ).run(tasks=tasks)
+        elif provider in {"deepseek", "qwen"}:
+            provider_args = argparse.Namespace(**vars(cli_args))
+            provider_args.llm_extractor_provider = provider
+            eval_result = await EvaluationRunner(
+                output_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+                extractor_factory=lambda task: PageExtractor(
+                    llm_field_extractor=build_cli_llm_field_extractor(provider_args)
+                ),
+            ).run(tasks=tasks)
+        elif provider == "qwen-vl":
+            visual_provider = build_configured_visual_extractor(
+                provider="qwen-vl",
+                model=cli_args.visual_extractor_model,
+            )
+            try:
+                eval_result = await EvaluationRunner(
+                    output_dir,
+                    browser_factory=lambda task: BrowserUseClient(
+                        page_loader=HttpPageLoader()
+                    ),
+                    extractor_factory=lambda task: PageExtractor(),
+                    visual_extractor_factory=lambda task: visual_provider,
+                ).run(tasks=tasks)
+            finally:
+                await visual_provider.close()
+        else:
+            raise ValueError(f"Unsupported benchmark provider: {provider}")
+        return BenchmarkProviderResult.from_evaluation(
+            provider=provider,
+            result=eval_result,
+            elapsed_seconds=perf_counter() - start,
+        )
+
+    result = await run_benchmark_matrix(
+        cases=cases,
+        providers=providers,
+        output_dir=args.evaluation_dir,
+        args=args,
+        run_provider=run_provider,
+    )
+    json_path, md_path = write_benchmark_artifacts(
+        result=result,
+        output_dir=args.evaluation_dir,
+    )
+    print(f"Benchmark Markdown written to: {md_path}")
+    print(f"Benchmark JSON written to: {json_path}")
+    if args.benchmark_dashboard:
+        dashboard_dir = HtmlDashboard(args.dashboard_dir).output_dir
+        dashboard_dir.mkdir(parents=True, exist_ok=True)
+        dashboard_path = dashboard_dir / "benchmark-v2.html"
+        dashboard_path.write_text(
+            HtmlDashboard(args.dashboard_dir).render_benchmark_summary(result),
+            encoding="utf-8",
+        )
+        print(f"Benchmark dashboard written to: {dashboard_path}")
+    return result
+
+
 def write_mapping_json_output(payload: dict, output_path: str) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1280,6 +1420,11 @@ def print_demo_script() -> None:
             r"--real-site-sample --evaluation-count 4 "
             r"--visual-extractor-provider qwen-vl "
             r"--json-output evaluations\visual-provider-comparison.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --benchmark-v2 "
+            r"--benchmark-providers baseline,llm-demo,deepseek "
+            r"--benchmark-limit 8 --benchmark-dashboard"
         ),
     ]
     for index, command in enumerate(commands, start=1):

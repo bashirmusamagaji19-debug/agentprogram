@@ -141,6 +141,23 @@ Provider smoke 如果 `Valid jobs: 0`，会在写入诊断信息和 JSON 后返�
 
 真实 provider 自带 Playwright 浏览器，workflow 不会对 seed URL 重复获取——`_browser_node` 检测到 `uses_own_browser` 后跳过 workflow browser，直接创建占位 `BrowserPage`，由 provider 自己截图抽取。VLM 调用成功但返回空字段（`Unknown Title`、空 body、零置信度）时，adapter 质量门将其计为抽取失败，不污染 `visual_extraction.successes` 计数。
 
+## Real Site Benchmark V2
+
+`--benchmark-v2` 在真实站点评测目录上运行 provider matrix，是面试展示"不只是 demo"的核心 artifact。
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --benchmark-v2 --benchmark-providers baseline,llm-demo,deepseek --benchmark-limit 8 --benchmark-dashboard
+```
+
+产出物：
+
+- `evaluations/benchmark-v2.json`：机器可读的 case catalog 和 provider matrix。
+- `evaluations/benchmark-v2.md`：Markdown 报告（provider 成功率 + 失败分类）。
+- `dashboards/benchmark-v2.html`：本地 HTML 摘要（面试演示用）。
+- `evaluations/<provider>/evaluation-report.md`：每个 provider 的逐任务详情。
+
+当相关 API key 和 `visual-web-agent` sibling package 已配置时，可使用完整 provider 集：`--benchmark-providers baseline,llm-demo,deepseek,qwen,qwen-vl`。真实 URL 可能漂移，失败以 `failure_counts` 记录而非隐藏。
+
 ## 已验证的评测命令
 
 ```powershell
