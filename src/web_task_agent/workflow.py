@@ -12,6 +12,10 @@ from web_task_agent.models import RunMetrics, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
+from web_task_agent.visual_extractor import (
+    AsyncVisualJobExtractor,
+    job_from_visual_fields,
+)
 
 
 class WebTaskWorkflow:
@@ -24,9 +28,11 @@ class WebTaskWorkflow:
         verifier: JobVerifier,
         repository: JobRepository,
         reporter: MarkdownReporter,
+        visual_extractor: AsyncVisualJobExtractor | None = None,
     ) -> None:
         self.browser = browser
         self.extractor = extractor
+        self.visual_extractor = visual_extractor
         self.matcher = matcher
         self.verifier = verifier
         self.repository = repository
@@ -42,7 +48,7 @@ class WebTaskWorkflow:
         state.metrics = RunMetrics(run_id=run_id or f"run-{uuid4().hex[:8]}")
         state = await self._plan_node(state)
         state = await self._browser_node(state)
-        state = self._extractor_node(state)
+        state = await self._extractor_node(state)
         state = self._verifier_node(state)
         state = self._matcher_node(state)
         state = self._reporter_node(state)
@@ -134,11 +140,41 @@ class WebTaskWorkflow:
         )
         return state
 
-    def _extractor_node(self, state: WorkflowState) -> WorkflowState:
+    async def _extractor_node(self, state: WorkflowState) -> WorkflowState:
         state.candidate_urls = [page.url for page in state.pages]
-        state.metadata["extracted_jobs"] = [
-            self.extractor.extract(page) for page in state.pages
-        ]
+        extracted_jobs: list = []
+        visual_stats: dict[str, object] = {
+            "successes": 0,
+            "failures": 0,
+            "errors": [],
+        }
+        for page in state.pages:
+            if self.visual_extractor is not None:
+                visual_result = await self.visual_extractor.extract(page)
+                if visual_result.success and visual_result.fields is not None:
+                    extracted_jobs.append(
+                        job_from_visual_fields(page=page, fields=visual_result.fields)
+                    )
+                    visual_stats["successes"] = int(visual_stats["successes"]) + 1
+                    continue
+                visual_stats["failures"] = int(visual_stats["failures"]) + 1
+                visual_stats["errors"].append(  # type: ignore[union-attr]
+                    {"url": page.url, "error": visual_result.error}
+                )
+            extracted_jobs.append(self.extractor.extract(page))
+        state.metadata["extracted_jobs"] = extracted_jobs
+        if self.visual_extractor is not None:
+            state.metadata["extractor_mode"] = "visual-demo"
+            state.metadata["visual_extraction"] = visual_stats
+            self._record_trace(
+                state,
+                "extractor",
+                (
+                    f"visual extracted {visual_stats['successes']} job candidates; "
+                    f"fell back {visual_stats['failures']} times"
+                ),
+            )
+            return state
         self._record_trace(
             state,
             "extractor",

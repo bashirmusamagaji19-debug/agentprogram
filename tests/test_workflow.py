@@ -10,6 +10,7 @@ from web_task_agent.models import UserProfile
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
+from web_task_agent.visual_extractor import VisualExtractionResult, VisualJobFields
 from web_task_agent.workflow import WebTaskWorkflow
 
 
@@ -230,3 +231,171 @@ async def test_workflow_runs_end_to_end_with_langgraph(tmp_path):
         "matcher",
         "reporter",
     ]
+
+
+@pytest.mark.asyncio
+async def test_workflow_uses_visual_extractor_for_seed_url_pages(tmp_path):
+    """Visual extractor replaces text extraction for seed URL pages when configured."""
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+
+    class SeedBrowser:
+        async def search(self, query: str, target_count: int):
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str):
+            return FAKE_JOB_PAGES[0].model_copy(update={"url": url, "content": ""})
+
+    class FakeVisualExtractor:
+        async def extract(self, page):
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Visual AI Intern",
+                    company="Example Vision",
+                    location="Remote",
+                    requirements="Python, Playwright, Qwen-VL",
+                    responsibilities="Extract job fields from screenshots",
+                    skills=["Python", "Playwright", "Qwen-VL"],
+                    confidence=0.9,
+                ),
+            )
+
+    workflow = WebTaskWorkflow(
+        browser=SeedBrowser(),
+        extractor=PageExtractor(),
+        visual_extractor=FakeVisualExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent", "Visual"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run(
+        UserProfile(
+            keyword="seed URLs",
+            target_count=1,
+            skills=["Python"],
+            seed_urls=["https://example.com/jobs/visual-ai-intern"],
+        ),
+        run_id="run-visual",
+    )
+
+    assert state.jobs[0].title == "Visual AI Intern"
+    assert state.jobs[0].source == "visual-demo"
+    assert state.metadata["extractor_mode"] == "visual-demo"
+    assert state.metadata["visual_extraction"]["successes"] == 1
+    assert state.metadata["visual_extraction"]["failures"] == 0
+    assert any(
+        "visual extracted 1" in item["summary"]
+        for item in state.metadata["execution_trace"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_workflow_falls_back_to_text_extractor_when_visual_extractor_fails(tmp_path):
+    """When visual extraction fails, the workflow falls back to text extraction."""
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+
+    class SeedBrowser:
+        async def search(self, query: str, target_count: int):
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str):
+            return FAKE_JOB_PAGES[0].model_copy(update={"url": url})
+
+    class FailingVisualExtractor:
+        async def extract(self, page):
+            return VisualExtractionResult(
+                url=page.url,
+                success=False,
+                fields=None,
+                error="visual fixture missing",
+            )
+
+    workflow = WebTaskWorkflow(
+        browser=SeedBrowser(),
+        extractor=PageExtractor(),
+        visual_extractor=FailingVisualExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run(
+        UserProfile(
+            keyword="seed URLs",
+            target_count=1,
+            skills=["Python"],
+            seed_urls=["https://example.com/jobs/text-fallback"],
+        ),
+        run_id="run-visual-fallback",
+    )
+
+    assert state.metadata["visual_extraction"]["successes"] == 0
+    assert state.metadata["visual_extraction"]["failures"] == 1
+    assert state.metadata["visual_extraction"]["errors"] == [
+        {
+            "url": "https://example.com/jobs/text-fallback",
+            "error": "visual fixture missing",
+        }
+    ]
+    assert state.metadata["jobs_found"] == 1
+
+
+@pytest.mark.asyncio
+async def test_workflow_uses_visual_extractor_with_langgraph(tmp_path):
+    """Visual extractor also works with LangGraph orchestration mode."""
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+
+    class SeedBrowser:
+        async def search(self, query: str, target_count: int):
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str):
+            return FAKE_JOB_PAGES[0].model_copy(update={"url": url, "content": ""})
+
+    class FakeVisualExtractor:
+        async def extract(self, page):
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Visual AI Intern",
+                    company="Example Vision",
+                    location="Remote",
+                    requirements="Python, Playwright, Qwen-VL",
+                    responsibilities="Extract job fields from screenshots",
+                    skills=["Python", "Playwright", "Qwen-VL"],
+                    confidence=0.9,
+                ),
+            )
+
+    workflow = WebTaskWorkflow(
+        browser=SeedBrowser(),
+        extractor=PageExtractor(),
+        visual_extractor=FakeVisualExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent", "Visual"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run_with_langgraph(
+        UserProfile(
+            keyword="seed URLs",
+            target_count=1,
+            skills=["Python"],
+            seed_urls=["https://example.com/jobs/visual-ai-intern"],
+        ),
+        run_id="run-visual-lg",
+    )
+
+    assert state.metadata["orchestration_mode"] == "langgraph"
+    assert state.metadata["extractor_mode"] == "visual-demo"
+    assert state.jobs[0].title == "Visual AI Intern"
+    assert state.jobs[0].source == "visual-demo"
