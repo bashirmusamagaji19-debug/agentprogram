@@ -256,6 +256,12 @@ async def _run(args: argparse.Namespace) -> int:
                 f"{args.llm_extractor_provider}: "
                 f"{provider_result['completed_tasks']}/{provider_result['total_tasks']}"
             )
+        if args.visual_extractor_demo:
+            visual_result = result["visual_demo"]
+            print(
+                f"visual-demo: "
+                f"{visual_result['completed_tasks']}/{visual_result['total_tasks']}"
+            )
         print(f"Comparison report written to: {result['report_path']}")
         if args.json_output:
             json_path = write_mapping_json_output(result, args.json_output)
@@ -811,10 +817,18 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
             llm_field_extractor=DemoLlmFieldExtractor(),
         ),
     ).run(tasks=tasks)
-    extractors = {
+    extractors: dict[str, dict] = {
         "baseline": baseline.model_dump(mode="json"),
         "llm_demo": llm_demo.model_dump(mode="json"),
     }
+    if args.visual_extractor_demo:
+        visual_demo = await EvaluationRunner(
+            args.evaluation_dir,
+            browser_factory=browser_factory,
+            extractor_factory=lambda task: PageExtractor(),
+            visual_extractor_factory=lambda task: DemoVisualJobExtractor(),
+        ).run(tasks=tasks)
+        extractors["visual_demo"] = visual_demo.model_dump(mode="json")
     if args.llm_extractor_provider:
         provider_result = await EvaluationRunner(
             args.evaluation_dir,
@@ -839,6 +853,8 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
     }
     if args.llm_extractor_provider:
         result[args.llm_extractor_provider] = extractors[args.llm_extractor_provider]
+    if args.visual_extractor_demo:
+        result["visual_demo"] = extractors["visual_demo"]
     return result
 
 

@@ -1455,3 +1455,37 @@ def test_cli_seed_url_can_use_visual_extractor_demo(
     assert payload["metadata"]["visual_extraction"]["successes"] == 1
     assert payload["jobs"][0]["title"] == "Visual AI Intern"
     assert payload["jobs"][0]["company"] == "Example Vision"
+
+
+def test_cli_compare_extractor_can_include_visual_demo(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--compare-llm-extractor + --visual-extractor-demo adds a visual_demo row."""
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--visual-extractor-demo",
+                "--json-output",
+                "evaluations/visual-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "visual-demo: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "visual-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["visual_demo"]["completed_tasks"] == 1
+    report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
+    assert "| visual_demo | 1 | 1 | 1.00 |" in report
