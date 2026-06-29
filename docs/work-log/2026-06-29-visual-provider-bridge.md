@@ -114,6 +114,13 @@ popd
 
 修复后验证：真实 Anthropic 岗位 URL + Qwen-VL → 正确抽取出 `Applied AI Claude Evangelist, Startups @ Anthropic, San Francisco, CA`，`Valid jobs: 1`，无资源泄漏。
 
+### 2026-06-29 第二轮修复（四个 bug fix）
+
+1. **comparison 路径 Playwright 泄漏**：`run_llm_extractor_comparison` 中 provider eval 包装在 `try/finally` 内，`finally` 调用 `await provider.close()`。
+2. **`PlaywrightBrowserClient.close()` 幂等化**：`__init__` 初始化 `_playwright = None`，`close()` 检查 None 并在清理后置 None，安全应对未启动、重复关闭。
+3. **demo script 无效命令**：provider 示例改为真实 Anthropic URL + 不带 `--demo`，新增 `--compare-llm-extractor --real-site-sample` 示例。
+4. **provider 失败诊断**：`--visual-extractor-provider` 配置下 `valid_jobs == 0` 时，打印 extraction 统计（attempts/successes/failures/errors）、verifier 过滤原因和排查建议。不再静默 exit 0。
+
 ## 面试讲述要点
 
 - "我在两个独立项目之间做了窄桥接——`visual-web-agent` 负责视觉理解，`Agent` 通过 Protocol adapter 接入。"
