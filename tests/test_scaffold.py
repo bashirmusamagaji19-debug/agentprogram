@@ -1533,7 +1533,6 @@ def test_cli_seed_url_can_use_visual_extractor_provider(
                 "https://example.com/jobs/visual-ai-intern",
                 "--target-count",
                 "1",
-                "--demo",
                 "--visual-extractor-provider",
                 "qwen-vl",
                 "--json-output",
@@ -1613,3 +1612,29 @@ def test_cli_compare_extractor_can_include_visual_provider(
     assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 1
     report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
     assert "| qwen-vl | 1 | 1 | 1.00 |" in report
+
+
+def test_cli_demo_and_visual_provider_are_mutually_exclusive(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """--demo and --visual-extractor-provider cannot be used together."""
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main(
+        [
+            "--seed-url",
+            "https://example.com/jobs/visual-ai-intern",
+            "--target-count",
+            "1",
+            "--demo",
+            "--visual-extractor-provider",
+            "qwen-vl",
+            "--json-output",
+            "outputs/should-not-exist.json",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "cannot be used together" in captured.out
+    assert not (tmp_path / "outputs" / "should-not-exist.json").exists()

@@ -12,6 +12,7 @@ protocol used by ``WebTaskWorkflow``.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from importlib import import_module
 from typing import Any
@@ -66,6 +67,11 @@ class QwenVisualExtractorAdapter:
         )
         return VisualExtractionResult(url=page.url, success=True, fields=fields)
 
+    async def close(self) -> None:
+        """Release Playwright browser resources held by the underlying extractor."""
+        if hasattr(self.extractor, "close"):
+            await self.extractor.close()
+
 
 def import_visual_web_agent():
     """Lazy-import the sibling ``visual-web-agent`` package.
@@ -106,9 +112,16 @@ def build_configured_visual_extractor(
             f"Unsupported visual provider: {provider}"
         )
     if extractor_factory is None:
+        api_key = os.environ.get("DASHSCOPE_API_KEY", "").strip()
+        if not api_key:
+            raise VisualProviderConfigurationError(
+                "DASHSCOPE_API_KEY is required for --visual-extractor-provider qwen-vl. "
+                "Set it in your .env file or as an environment variable."
+            )
         factory = import_visual_web_agent()
         external_extractor = factory.build_visual_job_extractor(
-            model=model or "qwen-vl-plus"
+            api_key=api_key,
+            model=model or "qwen-vl-plus",
         )
     else:
         external_extractor = extractor_factory()

@@ -432,6 +432,15 @@ async def _run(args: argparse.Namespace) -> int:
         print("--keyword is required unless --evaluate is used.")
         return 2
 
+    if args.demo and args.visual_extractor_provider:
+        print(
+            "Error: --demo and --visual-extractor-provider cannot be used together.\n"
+            "The visual provider uses its own Playwright browser to fetch real URLs;\n"
+            "demo pages are fake URLs that a real browser cannot reach.\n"
+            "Use --visual-extractor-demo for deterministic demo fixtures, or\n"
+            "remove --demo and use --visual-extractor-provider with real seed URLs."
+        )
+        return 2
     if args.visual_extractor_demo and not args.seed_url:
         print(
             "Warning: --visual-extractor-demo is intended for use with --seed-url. "
@@ -489,6 +498,9 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"Real browser-use mode is not configured: {exc}")
         print("Use --demo for the deterministic local demo path.")
         return 2
+    finally:
+        if visual_extractor is not None and hasattr(visual_extractor, "close"):
+            await visual_extractor.close()
     valid_jobs = state.metrics.valid_jobs if state.metrics else 0
     if args.langgraph:
         print("LangGraph workflow: enabled")
@@ -584,6 +596,13 @@ async def run_interactive(args: argparse.Namespace) -> int:
     """
     from uuid import uuid4
 
+    if args.demo and args.visual_extractor_provider:
+        print(
+            "Error: --demo and --visual-extractor-provider cannot be used together.\n"
+            "The visual provider uses its own Playwright browser to fetch real URLs."
+        )
+        return 2
+
     print("=== Web Task Agent — Interactive Mode ===")
     print("Commands: more | more:N | skill:X | keyword:X | location:X | status | done")
     print()
@@ -649,6 +668,8 @@ async def run_interactive(args: argparse.Namespace) -> int:
         except BrowserConfigurationError as exc:
             print(f"  Browser error: {exc}")
             print("  Try --demo for deterministic local pages.")
+            if visual_extractor is not None and hasattr(visual_extractor, "close"):
+                await visual_extractor.close()
             return 2
 
         round_states.append(state)
@@ -778,6 +799,8 @@ async def run_interactive(args: argparse.Namespace) -> int:
             json_path = write_json_output(state, args.json_output)
             print(f"JSON written to: {json_path}")
 
+    if visual_extractor is not None and hasattr(visual_extractor, "close"):
+        await visual_extractor.close()
     return 0
 
 

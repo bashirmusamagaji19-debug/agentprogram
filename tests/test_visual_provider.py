@@ -64,6 +64,8 @@ def test_visual_provider_builder_raises_clear_error_when_dependency_is_missing(
     monkeypatch.setattr(
         "web_task_agent.visual_provider.import_module", fake_import
     )
+    # API key check must pass before the import is attempted
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "test-key")
 
     with pytest.raises(VisualProviderConfigurationError) as exc:
         build_configured_visual_extractor(provider="qwen-vl")
@@ -87,3 +89,37 @@ def test_qwen_adapter_has_uses_own_browser():
     )
     assert adapter.uses_own_browser is True
     assert adapter.provider == "qwen-vl"
+
+
+@pytest.mark.asyncio
+async def test_qwen_adapter_close_delegates_to_extractor():
+    """Adapter.close() calls the underlying extractor's close()."""
+    closed = False
+
+    class CloseableExtractor:
+        async def extract(self, url: str):
+            raise AssertionError("should not be called")
+
+        async def close(self):
+            nonlocal closed
+            closed = True
+
+    adapter = build_configured_visual_extractor(
+        provider="qwen-vl",
+        extractor_factory=lambda: CloseableExtractor(),
+    )
+
+    await adapter.close()
+
+    assert closed is True
+
+
+def test_build_configured_visual_extractor_checks_api_key(monkeypatch):
+    """Missing DASHSCOPE_API_KEY raises VisualProviderConfigurationError
+    before trying to create the VLM client."""
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+
+    with pytest.raises(VisualProviderConfigurationError) as exc:
+        build_configured_visual_extractor(provider="qwen-vl")
+
+    assert "DASHSCOPE_API_KEY" in str(exc.value)
