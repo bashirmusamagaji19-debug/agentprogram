@@ -102,6 +102,21 @@ $env:DEEPSEEK_API_KEY="..."
 
 非 `--demo` 模式会走 `BrowserUseClient`，通过 `browser_use.BrowserSession` 打开搜索页并读取页面标题和正文。这个路径用于下一阶段真实网页接入；当前推荐演示和评测仍使用 `--demo`，因为它不依赖登录、验证码、反爬策略或外部网页结构变化。
 
+## Visual extractor demo
+
+视觉抽取路径是一个实验性的 seed URL 模式，用截图/VLM 风格的确定性 fixture 替代文本抽取，用于验证 visual-web-agent 思路在 Agent 工作流中的表现，不改变默认文本抽取路径。
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/visual-ai-intern" --demo --target-count 1 --visual-extractor-demo --json-output outputs\visual-demo.json
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/visual-ai-intern" --visual-extractor-demo --json-output evaluations\visual-comparison.json
+```
+
+当前范围：
+
+- 使用确定性 visual fixture 做可复现的本地验证。
+- 产出标准 `JobPosting`，verifier、matcher、reports、dashboards 和 JSON 输出不受影响。
+- 视觉抽取失败时回退到文本抽取，不破坏现有闭环。
+
 ## 已验证的评测命令
 
 ```powershell
