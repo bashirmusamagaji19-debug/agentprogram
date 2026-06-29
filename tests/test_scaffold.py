@@ -1419,3 +1419,39 @@ class _FakeInput:
             self._index += 1
             return value
         return "done"
+
+
+def test_cli_seed_url_can_use_visual_extractor_demo(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--visual-extractor-demo replaces text extraction with visual fixtures for seed URLs."""
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--visual-extractor-demo",
+                "--json-output",
+                "outputs/visual-demo.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Visual extractor demo: enabled" in captured.out
+    assert "Valid jobs: 1" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "visual-demo.json").read_text(encoding="utf-8")
+    )
+    assert payload["metadata"]["extractor_mode"] == "visual-demo"
+    assert payload["metadata"]["visual_extraction"]["successes"] == 1
+    assert payload["jobs"][0]["title"] == "Visual AI Intern"
+    assert payload["jobs"][0]["company"] == "Example Vision"

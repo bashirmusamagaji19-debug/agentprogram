@@ -46,6 +46,7 @@ from web_task_agent.skill_gap import summarize_skill_gaps
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
+from web_task_agent.visual_extractor import DemoVisualJobExtractor
 from web_task_agent.workflow import WebTaskWorkflow
 
 
@@ -136,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--llm-match-demo",
         action="store_true",
         help="Use a deterministic LLM-style semantic matching demo.",
+    )
+    parser.add_argument(
+        "--visual-extractor-demo",
+        action="store_true",
+        help="Use deterministic screenshot-style visual job extraction for seed URL experiments.",
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--action-plan-dir", default="action-plans")
@@ -400,6 +406,12 @@ async def _run(args: argparse.Namespace) -> int:
         print("--keyword is required unless --evaluate is used.")
         return 2
 
+    if args.visual_extractor_demo and not args.seed_url:
+        print(
+            "Warning: --visual-extractor-demo is intended for use with --seed-url. "
+            "Without seed URLs the visual extractor may have no matching fixtures "
+            "and will fall back to text extraction."
+        )
     browser = build_browser(demo=args.demo)
     try:
         llm_field_extractor = build_cli_llm_field_extractor(args)
@@ -407,12 +419,14 @@ async def _run(args: argparse.Namespace) -> int:
     except LlmExtractorConfigurationError as exc:
         print(f"LLM extractor is not configured: {exc}")
         return 2
+    visual_extractor = build_cli_visual_extractor(args)
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
         report_dir=args.report_dir,
         llm_field_extractor=llm_field_extractor,
         llm_matcher=llm_matcher,
+        visual_extractor=visual_extractor,
     )
     if llm_matcher is not None:
         mode = f"llm-match-{args.llm_match_provider or 'demo'}"
@@ -451,6 +465,9 @@ async def _run(args: argparse.Namespace) -> int:
         state.metadata["extractor_mode"] = "llm-provider"
         state.metadata["llm_provider"] = args.llm_extractor_provider
         state.metadata["llm_model"] = model
+    if args.visual_extractor_demo:
+        print("Visual extractor demo: enabled")
+        state.metadata["extractor_mode"] = "visual-demo"
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
     artifact_links = {}
@@ -538,12 +555,14 @@ async def run_interactive(args: argparse.Namespace) -> int:
         print(f"LLM config error: {exc}")
         return 2
 
+    visual_extractor = build_cli_visual_extractor(args)
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
         report_dir=args.report_dir,
         llm_field_extractor=llm_field_extractor,
         llm_matcher=llm_matcher,
+        visual_extractor=visual_extractor,
     )
     try:
         resume_text = load_resume_text(args.resume_text, args.resume_file)
@@ -1117,6 +1136,18 @@ def print_demo_script() -> None:
             r".\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites "
             r"--json-output evaluations\fixture-result.json"
         ),
+        (
+            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r'"https://example.com/jobs/visual-ai-intern" --demo '
+            r"--target-count 1 --visual-extractor-demo "
+            r"--json-output outputs\visual-demo.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --compare-llm-extractor "
+            r"--seed-url https://example.com/jobs/visual-ai-intern "
+            r"--visual-extractor-demo "
+            r"--json-output evaluations\visual-comparison.json"
+        ),
     ]
     for index, command in enumerate(commands, start=1):
         print(f"{index}. {command}")
@@ -1140,6 +1171,7 @@ def build_workflow(
     report_dir: str,
     llm_field_extractor=None,
     llm_matcher=None,
+    visual_extractor=None,
 ) -> WebTaskWorkflow:
     repo = JobRepository(db_path)
     repo.initialize()
@@ -1150,6 +1182,7 @@ def build_workflow(
         verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
         repository=repo,
         reporter=MarkdownReporter(report_dir),
+        visual_extractor=visual_extractor,
     )
 
 
@@ -1186,6 +1219,18 @@ def build_cli_llm_matcher(args: argparse.Namespace):
         # --llm-match without --llm-match-provider defaults to demo
         from web_task_agent.llm_extractor import DemoLlmMatcher
         return DemoLlmMatcher()
+    return None
+
+
+def build_cli_visual_extractor(args: argparse.Namespace):
+    """Build a visual extractor from CLI args.
+
+    Currently only the deterministic demo mode is supported. Real Qwen-VL
+    integration remains in the ``visual-web-agent`` project until the Agent
+    adapter interface stabilizes.
+    """
+    if args.visual_extractor_demo:
+        return DemoVisualJobExtractor()
     return None
 
 
