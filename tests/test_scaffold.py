@@ -1489,3 +1489,127 @@ def test_cli_compare_extractor_can_include_visual_demo(
     assert payload["extractors"]["visual_demo"]["completed_tasks"] == 1
     report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
     assert "| visual_demo | 1 | 1 | 1.00 |" in report
+
+
+def test_cli_seed_url_can_use_visual_extractor_provider(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--visual-extractor-provider qwen-vl routes through the real provider bridge."""
+    monkeypatch.chdir(tmp_path)
+
+    class FakeProviderAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult, VisualJobFields
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Real Visual AI Intern",
+                    company="Example Vision",
+                    location="Remote",
+                    requirements="Python, Playwright, Qwen-VL",
+                    responsibilities="Extract fields from screenshots",
+                    skills=["Python", "Playwright", "Qwen-VL"],
+                    confidence=0.9,
+                ),
+            )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: FakeProviderAdapter(),
+    )
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--visual-extractor-provider",
+                "qwen-vl",
+                "--json-output",
+                "outputs/visual-provider.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Visual extractor provider: qwen-vl" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "visual-provider.json").read_text(encoding="utf-8")
+    )
+    assert payload["metadata"]["extractor_mode"] == "visual-provider"
+    assert payload["metadata"]["visual_provider"] == "qwen-vl"
+    assert payload["jobs"][0]["title"] == "Real Visual AI Intern"
+
+
+def test_cli_compare_extractor_can_include_visual_provider(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--compare-llm-extractor + --visual-extractor-provider adds a qwen-vl row."""
+    monkeypatch.chdir(tmp_path)
+
+    class FakeProviderAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult, VisualJobFields
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Real Visual AI Intern",
+                    company="Example Vision",
+                    location="Remote",
+                    requirements="Python, Playwright, Qwen-VL",
+                    responsibilities="Extract fields from screenshots",
+                    skills=["Python", "Playwright", "Qwen-VL"],
+                    confidence=0.9,
+                ),
+            )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: FakeProviderAdapter(),
+    )
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--visual-extractor-provider",
+                "qwen-vl",
+                "--json-output",
+                "evaluations/visual-provider-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "qwen-vl: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "visual-provider-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 1
+    report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
+    assert "| qwen-vl | 1 | 1 | 1.00 |" in report

@@ -47,6 +47,10 @@ from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.visual_extractor import DemoVisualJobExtractor
+from web_task_agent.visual_provider import (
+    VisualProviderConfigurationError,
+    build_configured_visual_extractor,
+)
 from web_task_agent.workflow import WebTaskWorkflow
 
 
@@ -143,6 +147,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use deterministic screenshot-style visual job extraction for seed URL experiments.",
     )
+    parser.add_argument(
+        "--visual-extractor-provider",
+        choices=["qwen-vl"],
+        help="Use a configured external visual extractor provider (requires visual-web-agent).",
+    )
+    parser.add_argument(
+        "--visual-extractor-model",
+        help="Override the visual provider model, such as qwen-vl-plus.",
+    )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--action-plan-dir", default="action-plans")
     parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
@@ -238,8 +251,9 @@ async def _run(args: argparse.Namespace) -> int:
     if args.compare_llm_extractor:
         try:
             result = await run_llm_extractor_comparison(args)
-        except LlmExtractorConfigurationError as exc:
-            print(f"LLM extractor is not configured: {exc}")
+        except (LlmExtractorConfigurationError, VisualProviderConfigurationError) as exc:
+            err_type = "LLM extractor" if isinstance(exc, LlmExtractorConfigurationError) else "Visual extractor"
+            print(f"{err_type} is not configured: {exc}")
             return 2
         print("LLM extractor comparison")
         print(
@@ -261,6 +275,12 @@ async def _run(args: argparse.Namespace) -> int:
             print(
                 f"visual-demo: "
                 f"{visual_result['completed_tasks']}/{visual_result['total_tasks']}"
+            )
+        if args.visual_extractor_provider:
+            provider_result = result[args.visual_extractor_provider]
+            print(
+                f"{args.visual_extractor_provider}: "
+                f"{provider_result['completed_tasks']}/{provider_result['total_tasks']}"
             )
         print(f"Comparison report written to: {result['report_path']}")
         if args.json_output:
@@ -418,6 +438,12 @@ async def _run(args: argparse.Namespace) -> int:
             "Without seed URLs the visual extractor may have no matching fixtures "
             "and will fall back to text extraction."
         )
+    if args.visual_extractor_provider and not args.seed_url:
+        print(
+            "Warning: --visual-extractor-provider requires --seed-url. "
+            "The visual provider fetches pages on its own and cannot be used "
+            "in search mode."
+        )
     browser = build_browser(demo=args.demo)
     try:
         llm_field_extractor = build_cli_llm_field_extractor(args)
@@ -425,7 +451,11 @@ async def _run(args: argparse.Namespace) -> int:
     except LlmExtractorConfigurationError as exc:
         print(f"LLM extractor is not configured: {exc}")
         return 2
-    visual_extractor = build_cli_visual_extractor(args)
+    try:
+        visual_extractor = build_cli_visual_extractor(args)
+    except VisualProviderConfigurationError as exc:
+        print(f"Visual extractor is not configured: {exc}")
+        return 2
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
@@ -474,6 +504,12 @@ async def _run(args: argparse.Namespace) -> int:
     if args.visual_extractor_demo:
         print("Visual extractor demo: enabled")
         state.metadata["extractor_mode"] = "visual-demo"
+    if args.visual_extractor_provider:
+        model = getattr(visual_extractor, "model", args.visual_extractor_model or "")
+        print(f"Visual extractor provider: {args.visual_extractor_provider}")
+        state.metadata["extractor_mode"] = "visual-provider"
+        state.metadata["visual_provider"] = args.visual_extractor_provider
+        state.metadata["visual_model"] = model
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
     artifact_links = {}
@@ -561,7 +597,11 @@ async def run_interactive(args: argparse.Namespace) -> int:
         print(f"LLM config error: {exc}")
         return 2
 
-    visual_extractor = build_cli_visual_extractor(args)
+    try:
+        visual_extractor = build_cli_visual_extractor(args)
+    except VisualProviderConfigurationError as exc:
+        print(f"Visual extractor is not configured: {exc}")
+        return 2
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
@@ -829,6 +869,19 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
             visual_extractor_factory=lambda task: DemoVisualJobExtractor(),
         ).run(tasks=tasks)
         extractors["visual_demo"] = visual_demo.model_dump(mode="json")
+    if args.visual_extractor_provider:
+        try:
+            provider = build_cli_visual_extractor(args)
+        except VisualProviderConfigurationError as exc:
+            print(f"Visual extractor is not configured: {exc}")
+            raise
+        provider_eval = await EvaluationRunner(
+            args.evaluation_dir,
+            browser_factory=browser_factory,
+            extractor_factory=lambda task: PageExtractor(),
+            visual_extractor_factory=lambda task: provider,
+        ).run(tasks=tasks)
+        extractors[args.visual_extractor_provider] = provider_eval.model_dump(mode="json")
     if args.llm_extractor_provider:
         provider_result = await EvaluationRunner(
             args.evaluation_dir,
@@ -855,6 +908,8 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
         result[args.llm_extractor_provider] = extractors[args.llm_extractor_provider]
     if args.visual_extractor_demo:
         result["visual_demo"] = extractors["visual_demo"]
+    if args.visual_extractor_provider:
+        result[args.visual_extractor_provider] = extractors[args.visual_extractor_provider]
     return result
 
 
@@ -1164,6 +1219,12 @@ def print_demo_script() -> None:
             r"--visual-extractor-demo "
             r"--json-output evaluations\visual-comparison.json"
         ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --seed-url "
+            r'"https://example.com/jobs/visual-ai-intern" --demo '
+            r"--target-count 1 --visual-extractor-provider qwen-vl "
+            r"--json-output outputs\visual-provider.json"
+        ),
     ]
     for index, command in enumerate(commands, start=1):
         print(f"{index}. {command}")
@@ -1241,12 +1302,16 @@ def build_cli_llm_matcher(args: argparse.Namespace):
 def build_cli_visual_extractor(args: argparse.Namespace):
     """Build a visual extractor from CLI args.
 
-    Currently only the deterministic demo mode is supported. Real Qwen-VL
-    integration remains in the ``visual-web-agent`` project until the Agent
-    adapter interface stabilizes.
+    Priority: demo > provider.  When both flags are passed, demo wins
+    to keep the deterministic path predictable.
     """
     if args.visual_extractor_demo:
         return DemoVisualJobExtractor()
+    if args.visual_extractor_provider:
+        return build_configured_visual_extractor(
+            provider=args.visual_extractor_provider,
+            model=args.visual_extractor_model,
+        )
     return None
 
 
