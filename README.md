@@ -117,6 +117,23 @@ $env:DEEPSEEK_API_KEY="..."
 - 产出标准 `JobPosting`，verifier、matcher、reports、dashboards 和 JSON 输出不受影响。
 - 视觉抽取失败时回退到文本抽取，不破坏现有闭环。
 
+### Real visual provider（需安装 sibling package）
+
+真实 Qwen-VL 视觉抽取链路位于同级 `visual-web-agent` 仓库。先安装到同一个 virtualenv：
+
+```powershell
+python -m pip install -e "..\visual-web-agent"
+```
+
+然后使用 `--visual-extractor-provider qwen-vl`：
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://job-boards.greenhouse.io/anthropic/jobs/5116927008" --target-count 1 --visual-extractor-provider qwen-vl --json-output outputs\visual-provider.json
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/visual-ai-intern" --visual-extractor-provider qwen-vl --json-output evaluations\visual-provider-comparison.json
+```
+
+真实 provider 自带 Playwright 浏览器，workflow 不会对 seed URL 重复获取——`_browser_node` 检测到 `uses_own_browser` 后跳过 workflow browser，直接创建占位 `BrowserPage`，由 provider 自己截图抽取。
+
 ## 已验证的评测命令
 
 ```powershell
