@@ -125,14 +125,21 @@ $env:DEEPSEEK_API_KEY="..."
 python -m pip install -e "..\visual-web-agent"
 ```
 
-然后使用 `--visual-extractor-provider qwen-vl`：
+**Provider smoke 命令**（需要真实、可公开访问的招聘 URL）：
 
 ```powershell
 .\.venv\Scripts\web-task-agent.exe --seed-url "https://job-boards.greenhouse.io/anthropic/jobs/5116927008" --target-count 1 --visual-extractor-provider qwen-vl --json-output outputs\visual-provider.json
+```
+
+Provider smoke 如果 `Valid jobs: 0`，会在写入诊断信息和 JSON 后返回退出码 `2`，防止空抽取看起来像验证通过。
+
+**对比评测命令**（comparison 始终返回退出码 `0`，即使某条 provider 行失败——对比评测是做横向测量）：
+
+```powershell
 .\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/visual-ai-intern" --visual-extractor-provider qwen-vl --json-output evaluations\visual-provider-comparison.json
 ```
 
-真实 provider 自带 Playwright 浏览器，workflow 不会对 seed URL 重复获取——`_browser_node` 检测到 `uses_own_browser` 后跳过 workflow browser，直接创建占位 `BrowserPage`，由 provider 自己截图抽取。
+真实 provider 自带 Playwright 浏览器，workflow 不会对 seed URL 重复获取——`_browser_node` 检测到 `uses_own_browser` 后跳过 workflow browser，直接创建占位 `BrowserPage`，由 provider 自己截图抽取。VLM 调用成功但返回空字段（`Unknown Title`、空 body、零置信度）时，adapter 质量门将其计为抽取失败，不污染 `visual_extraction.successes` 计数。
 
 ## 已验证的评测命令
 

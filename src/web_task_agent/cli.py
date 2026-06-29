@@ -579,11 +579,28 @@ async def _run(args: argparse.Namespace) -> int:
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
         print(f"JSON output written to: {json_path}")
-    # Real visual provider with no results is a soft failure — exit 1
-    # so smoke/acceptance scripts can distinguish empty from success.
-    if args.visual_extractor_provider and valid_jobs == 0:
-        return 1
+    if _visual_provider_run_failed(args, valid_jobs):
+        print(
+            "Visual provider produced no valid jobs. "
+            "Treating this provider smoke run as failed; "
+            "inspect diagnostics and JSON output."
+        )
+        return 2
     return 0
+
+
+def _visual_provider_run_failed(args: argparse.Namespace, valid_jobs: int) -> bool:
+    """Real provider smoke run that produced zero valid jobs should fail.
+
+    Comparison and evaluation paths are excluded — their purpose is
+    side-by-side measurement, not single-provider validation.
+    """
+    return (
+        bool(args.visual_extractor_provider)
+        and not args.compare_llm_extractor
+        and not args.evaluate
+        and valid_jobs == 0
+    )
 
 
 # ── Interactive multi-turn mode ───────────────────────────────────────

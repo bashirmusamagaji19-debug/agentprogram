@@ -121,6 +121,13 @@ popd
 3. **demo script 无效命令**：provider 示例改为真实 Anthropic URL + 不带 `--demo`，新增 `--compare-llm-extractor --real-site-sample` 示例。
 4. **provider 失败诊断**：`--visual-extractor-provider` 配置下 `valid_jobs == 0` 时，打印 extraction 统计（attempts/successes/failures/errors）、verifier 过滤原因和排查建议。不再静默 exit 0。
 
+### 最终质量门（quality gate）
+
+- **区分 VLM 调用成功与有效字段抽取**：`_visual_fields_are_meaningful()` 检查 title、company、body 字段和 confidence。VLM 返回空字段 / `Unknown Title` / `Unknown Company` / 零置信度时，adapter 返回 `success=False`，workflow 计为 `failures`（不是 `successes`），触发文本回退。
+- **Provider smoke 失败退出码**：`--visual-extractor-provider` + `valid_jobs == 0` → exit code `2` + `"produced no valid jobs"` 消息。`_visual_provider_run_failed()` helper 排除 comparison 和 evaluation 路径（它们的职责是横向对比，不应因单行失败而退出）。
+- **Comparison 始终保持 exit 0**：即使 qwen-vl 行显示 `0/1`，report 和 JSON 正常写入，不拦截退出码。
+- **标题仅字段（title-only）也视为不充分**：有 title/company 但无 requirements/responsibilities body → 质量门拒绝。
+
 ## 面试讲述要点
 
 - "我在两个独立项目之间做了窄桥接——`visual-web-agent` 负责视觉理解，`Agent` 通过 Protocol adapter 接入。"

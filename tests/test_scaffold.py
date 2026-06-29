@@ -1638,3 +1638,61 @@ def test_cli_demo_and_visual_provider_are_mutually_exclusive(
     captured = capsys.readouterr()
     assert "cannot be used together" in captured.out
     assert not (tmp_path / "outputs" / "should-not-exist.json").exists()
+
+
+def test_cli_compare_visual_provider_zero_valid_jobs_stays_comparison_success(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """Comparison stays exit 0 even when the provider row fails — it's a measurement."""
+    monkeypatch.chdir(tmp_path)
+
+    class EmptyProviderAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+        closed = False
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=False,
+                fields=None,
+                error="visual extraction produced empty or placeholder fields",
+            )
+
+        async def close(self):
+            self.closed = True
+
+    adapter = EmptyProviderAdapter()
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: adapter,
+    )
+
+    exit_code = main(
+        [
+            "--compare-llm-extractor",
+            "--seed-url",
+            "https://example.com/jobs/visual-ai-intern",
+            "--visual-extractor-provider",
+            "qwen-vl",
+            "--json-output",
+            "evaluations/visual-provider-empty-comparison.json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert adapter.closed is True
+    captured = capsys.readouterr()
+    assert "qwen-vl: 0/1" in captured.out
+    assert "Comparison JSON written to:" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "visual-provider-empty-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 0

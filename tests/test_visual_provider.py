@@ -162,16 +162,54 @@ async def test_adapter_rejects_empty_vlm_fields_as_quality_failure():
     assert "placeholder fields" in result.error
 
 
-def test_cli_visual_provider_returns_exit_1_when_no_valid_jobs(
+@pytest.mark.asyncio
+async def test_adapter_rejects_title_only_visual_fields():
+    """Fields with title/company but no body content are not meaningful."""
+
+    class TitleOnlyJob:
+        title = "AI Engineer"
+        company = "Example Vision"
+        location = "Remote"
+        requirements = ""
+        responsibilities = ""
+        skills = []
+        confidence = 0.8
+
+    class FakeExternalExtractor:
+        async def extract(self, url: str):
+
+            class Result:
+                success = True
+                job = TitleOnlyJob()
+                error = ""
+
+            return Result()
+
+    adapter = build_configured_visual_extractor(
+        provider="qwen-vl",
+        extractor_factory=lambda: FakeExternalExtractor(),
+    )
+
+    result = await adapter.extract(
+        BrowserPage(url="https://example.com/jobs/visual", title="", content="", source="demo")
+    )
+
+    assert result.success is False
+    assert result.fields is None
+    assert "placeholder fields" in result.error
+
+
+def test_cli_visual_provider_returns_exit_2_when_no_valid_jobs(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    """--visual-extractor-provider with empty results returns exit code 1."""
+    """--visual-extractor-provider with empty results returns exit code 2."""
     monkeypatch.chdir(tmp_path)
 
     class EmptyAdapter:
         provider = "qwen-vl"
         model = "qwen-vl-plus"
         uses_own_browser = True
+        closed = False
 
         async def extract(self, page):
             from web_task_agent.visual_extractor import VisualExtractionResult
@@ -184,11 +222,12 @@ def test_cli_visual_provider_returns_exit_1_when_no_valid_jobs(
             )
 
         async def close(self):
-            pass
+            self.closed = True
 
+    adapter = EmptyAdapter()
     monkeypatch.setattr(
         "web_task_agent.cli.build_configured_visual_extractor",
-        lambda *, provider, model=None: EmptyAdapter(),
+        lambda *, provider, model=None: adapter,
     )
 
     # Import main locally to avoid module-level side effects
@@ -207,6 +246,8 @@ def test_cli_visual_provider_returns_exit_1_when_no_valid_jobs(
         ]
     )
 
-    assert exit_code == 1
+    assert exit_code == 2
     captured = capsys.readouterr()
     assert "Valid jobs: 0" in captured.out
+    assert "produced no valid jobs" in captured.out
+    assert adapter.closed is True
