@@ -8,7 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from web_task_agent.browser import BrowserClient
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import RunMetrics, UserProfile, WorkflowState
+from web_task_agent.models import BrowserPage, RunMetrics, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
@@ -105,6 +105,25 @@ class WebTaskWorkflow:
     async def _browser_node(self, state: WorkflowState) -> WorkflowState:
         pages_before = len(state.pages)
         failures_before = len(state.failed_urls)
+
+        # When the visual extractor fetches pages on its own (real provider),
+        # create placeholder BrowserPages directly — no workflow browser call.
+        if (
+            state.candidate_urls
+            and self.visual_extractor is not None
+            and getattr(self.visual_extractor, "uses_own_browser", False)
+        ):
+            for url in state.candidate_urls:
+                state.pages.append(
+                    BrowserPage(url=url, title="", content="", source="visual-provider")
+                )
+            self._record_trace(
+                state,
+                "browser",
+                f"deferred {len(state.candidate_urls)} seed URLs to visual provider",
+            )
+            return state
+
         if state.candidate_urls:
             failed_url_errors = state.metadata.setdefault("failed_url_errors", [])
             for url in state.candidate_urls:

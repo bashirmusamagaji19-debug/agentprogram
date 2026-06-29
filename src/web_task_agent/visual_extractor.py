@@ -68,7 +68,7 @@ def job_from_visual_fields(*, page: BrowserPage, fields: VisualJobFields) -> Job
     requirements = fields.requirements.strip()
     skills = fields.skills or [
         skill.strip()
-        for skill in requirements.replace("，", ",").split(",")
+        for skill in requirements.replace("\uFF0C", ",").split(",")
         if skill.strip()
     ]
     return JobPosting(
@@ -93,6 +93,10 @@ class DemoVisualJobExtractor:
     This is the visual counterpart of ``DemoLlmFieldExtractor`` — it proves
     the adapter interface without calling any external VLM API.
     """
+
+    # Does NOT fetch pages on its own — relies on the workflow browser
+    # to provide BrowserPage objects.  Real providers set this to True.
+    uses_own_browser: bool = False
 
     def __init__(self) -> None:
         self._fixtures: dict[str, VisualJobFields] = {

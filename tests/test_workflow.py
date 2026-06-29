@@ -399,3 +399,63 @@ async def test_workflow_uses_visual_extractor_with_langgraph(tmp_path):
     assert state.metadata["extractor_mode"] == "visual-demo"
     assert state.jobs[0].title == "Visual AI Intern"
     assert state.jobs[0].source == "visual-demo"
+
+
+@pytest.mark.asyncio
+async def test_workflow_skips_browser_when_visual_extractor_uses_own_browser(tmp_path):
+    """Real visual providers fetch pages on their own — workflow browser is skipped."""
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+
+    browser_called = False
+
+    class AssertBrowser:
+        async def search(self, query: str, target_count: int):
+            raise AssertionError("search should not be called")
+
+        async def open_url(self, url: str):
+            nonlocal browser_called
+            browser_called = True
+            raise AssertionError("browser.open_url should not be called for own-browser provider")
+
+    class OwnBrowserExtractor:
+        uses_own_browser = True
+
+        async def extract(self, page):
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Real Visual Job",
+                    company="Real Vision Co",
+                    location="Remote",
+                    requirements="Python, Qwen-VL",
+                    responsibilities="Screenshot-based extraction",
+                    skills=["Python", "Qwen-VL"],
+                    confidence=0.92,
+                ),
+            )
+
+    workflow = WebTaskWorkflow(
+        browser=AssertBrowser(),
+        extractor=PageExtractor(),
+        visual_extractor=OwnBrowserExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent", "Visual"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    state = await workflow.run(
+        UserProfile(
+            keyword="seed URLs",
+            target_count=1,
+            skills=["Python"],
+            seed_urls=["https://example.com/jobs/real-visual"],
+        ),
+        run_id="run-own-browser",
+    )
+
+    assert browser_called is False
+    assert state.jobs[0].title == "Real Visual Job"
+    assert "deferred 1 seed URLs to visual provider" in str(state.metadata["execution_trace"])
