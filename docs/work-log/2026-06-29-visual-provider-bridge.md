@@ -92,11 +92,11 @@ popd
 # 手动：安装 sibling package
 .\.venv\Scripts\python.exe -m pip install -e "..\visual-web-agent"
 
-# 手动：provider demo（用 demo 页面测试 adapter，不含真实 API key）
-.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/visual-ai-intern" --demo --target-count 1 --visual-extractor-provider qwen-vl --json-output outputs\visual-provider.json
+# 手动：真实 provider（需要 DASHSCOPE_API_KEY 已在 .env 中）
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://job-boards.greenhouse.io/anthropic/jobs/5116927008" --target-count 1 --visual-extractor-provider qwen-vl --json-output outputs\visual-provider.json
 ```
 
-预期：如果 `visual-web-agent` 未安装 → exit code 2 + 安装提示。如果已安装但无 `DASHSCOPE_API_KEY` → VLM 初始化报错（预期行为）。
+预期：如果 `visual-web-agent` 未安装 → exit code 2 + 安装提示。如果 `DASHSCOPE_API_KEY` 缺失 → exit code 2 + API key 配置提示。正常时 → `Valid jobs: 1` + 无 Playwright 泄漏警告。
 
 ## 当前边界
 
@@ -104,7 +104,15 @@ popd
 - Agent 只负责桥接、验证、匹配、报告和评测。
 - 如果 sibling package 没装，CLI 返回清晰的配置错误（exit code 2），不会静默降级。
 - `--visual-extractor-provider` 只能用于 seed URL 模式。搜索模式会打印 warning。
-- `--demo --visual-extractor-provider qwen-vl` 可以同时使用，但 demo 优先。demo URL 对应 `FakeBrowserClient` 的页面，provider 的 Playwright 无法访问这些假 URL（会超时）。
+- `--demo --visual-extractor-provider qwen-vl` 现在直接报错（exit code 2），因为 demo URL 是假的，Playwright 无法访问。用户必须选择确定性 demo（`--visual-extractor-demo`）或真实 provider（去掉 `--demo`）。
+
+### 2026-06-29 修复（三个 bug fix）
+
+1. **demo + provider 互斥**：两个 flag 同时用现在报错退出（exit code 2），因为 demo 页面的假 URL 对真实 Playwright 无意义。
+2. **Playwright 资源泄漏**：`VisualJobExtractor.close()` → `QwenVisualExtractorAdapter.close()` → CLI `finally` 块。不再有 `unclosed transport` 警告。
+3. **API key 前置检查**：`build_configured_visual_extractor` 在创建 VLM client 前检查 `DASHSCOPE_API_KEY`，缺失时报 `VisualProviderConfigurationError`（exit code 2 + 清晰提示），不会等到 `QwenVlClient.__init__` 才抛 `ValueError`。
+
+修复后验证：真实 Anthropic 岗位 URL + Qwen-VL → 正确抽取出 `Applied AI Claude Evangelist, Startups @ Anthropic, San Francisco, CA`，`Valid jobs: 1`，无资源泄漏。
 
 ## 面试讲述要点
 
