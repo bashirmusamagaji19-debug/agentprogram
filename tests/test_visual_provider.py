@@ -123,3 +123,90 @@ def test_build_configured_visual_extractor_checks_api_key(monkeypatch):
         build_configured_visual_extractor(provider="qwen-vl")
 
     assert "DASHSCOPE_API_KEY" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_adapter_rejects_empty_vlm_fields_as_quality_failure():
+    """VLM call that returns empty/placeholder fields is not counted as success."""
+
+    class EmptyExternalJob:
+        title = ""
+        company = ""
+        location = ""
+        requirements = ""
+        responsibilities = ""
+        skills = []
+        confidence = 0.0
+
+    class EmptyExternalExtractor:
+        async def extract(self, url: str):
+
+            class Result:
+                success = True
+                job = EmptyExternalJob()
+                error = ""
+
+            return Result()
+
+    adapter = build_configured_visual_extractor(
+        provider="qwen-vl",
+        extractor_factory=lambda: EmptyExternalExtractor(),
+    )
+
+    result = await adapter.extract(
+        BrowserPage(url="https://example.com/jobs/garbage", title="", content="", source="demo")
+    )
+
+    assert result.success is False
+    assert result.fields is None
+    assert "placeholder fields" in result.error
+
+
+def test_cli_visual_provider_returns_exit_1_when_no_valid_jobs(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """--visual-extractor-provider with empty results returns exit code 1."""
+    monkeypatch.chdir(tmp_path)
+
+    class EmptyAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=False,
+                fields=None,
+                error="no content on page",
+            )
+
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: EmptyAdapter(),
+    )
+
+    # Import main locally to avoid module-level side effects
+    from web_task_agent.cli import main
+
+    exit_code = main(
+        [
+            "--seed-url",
+            "https://example.com/jobs/visual-ai-intern",
+            "--target-count",
+            "1",
+            "--visual-extractor-provider",
+            "qwen-vl",
+            "--json-output",
+            "outputs/provider-empty.json",
+        ]
+    )
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "Valid jobs: 0" in captured.out

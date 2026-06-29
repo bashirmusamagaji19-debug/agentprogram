@@ -25,6 +25,22 @@ class VisualProviderConfigurationError(RuntimeError):
     """Raised when the visual provider cannot be configured (missing package, etc.)."""
 
 
+def _visual_fields_are_meaningful(fields: VisualJobFields) -> bool:
+    """Return True if the extracted fields contain real content.
+
+    Rejects results where the VLM returned only placeholder values
+    (empty strings, unknown defaults, zero confidence).
+    """
+    title_ok = bool(fields.title.strip()) and fields.title.strip() != "Unknown Title"
+    company_ok = (
+        bool(fields.company.strip())
+        and fields.company.strip() != "Unknown Company"
+    )
+    has_body = bool(fields.requirements.strip()) or bool(fields.responsibilities.strip())
+    confidence_ok = fields.confidence > 0.0
+    return title_ok and company_ok and has_body and confidence_ok
+
+
 @dataclass
 class QwenVisualExtractorAdapter:
     """Wraps a ``visual_web_agent`` extractor to match the Agent protocol.
@@ -65,6 +81,19 @@ class QwenVisualExtractorAdapter:
             skills=list(getattr(job, "skills", [])),
             confidence=getattr(job, "confidence", 0.0),
         )
+        # Quality gate: VLM call may "succeed" but return empty fields.
+        # Count as failure so the workflow falls back to text extraction.
+        if not _visual_fields_are_meaningful(fields):
+            return VisualExtractionResult(
+                url=page.url,
+                success=False,
+                fields=None,
+                error=(
+                    "visual extraction produced empty or placeholder fields "
+                    f"(title={fields.title[:40]!r}, company={fields.company[:30]!r}, "
+                    f"confidence={fields.confidence:.2f})"
+                ),
+            )
         return VisualExtractionResult(url=page.url, success=True, fields=fields)
 
     async def close(self) -> None:

@@ -579,6 +579,10 @@ async def _run(args: argparse.Namespace) -> int:
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
         print(f"JSON output written to: {json_path}")
+    # Real visual provider with no results is a soft failure — exit 1
+    # so smoke/acceptance scripts can distinguish empty from success.
+    if args.visual_extractor_provider and valid_jobs == 0:
+        return 1
     return 0
 
 
