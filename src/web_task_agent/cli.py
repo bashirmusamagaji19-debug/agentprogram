@@ -524,6 +524,8 @@ async def _run(args: argparse.Namespace) -> int:
         state.metadata["visual_model"] = model
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
+    if args.visual_extractor_provider and valid_jobs == 0:
+        _print_visual_provider_diagnostics(state)
     artifact_links = {}
     if args.action_plan and state.metrics:
         plan_path = ActionPlanWriter(args.action_plan_dir).write_plan(
@@ -898,13 +900,17 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
         except VisualProviderConfigurationError as exc:
             print(f"Visual extractor is not configured: {exc}")
             raise
-        provider_eval = await EvaluationRunner(
-            args.evaluation_dir,
-            browser_factory=browser_factory,
-            extractor_factory=lambda task: PageExtractor(),
-            visual_extractor_factory=lambda task: provider,
-        ).run(tasks=tasks)
-        extractors[args.visual_extractor_provider] = provider_eval.model_dump(mode="json")
+        try:
+            provider_eval = await EvaluationRunner(
+                args.evaluation_dir,
+                browser_factory=browser_factory,
+                extractor_factory=lambda task: PageExtractor(),
+                visual_extractor_factory=lambda task: provider,
+            ).run(tasks=tasks)
+            extractors[args.visual_extractor_provider] = provider_eval.model_dump(mode="json")
+        finally:
+            if hasattr(provider, "close"):
+                await provider.close()
     if args.llm_extractor_provider:
         provider_result = await EvaluationRunner(
             args.evaluation_dir,
@@ -1244,9 +1250,15 @@ def print_demo_script() -> None:
         ),
         (
             r".\.venv\Scripts\web-task-agent.exe --seed-url "
-            r'"https://example.com/jobs/visual-ai-intern" --demo '
+            r'"https://job-boards.greenhouse.io/anthropic/jobs/5116927008" '
             r"--target-count 1 --visual-extractor-provider qwen-vl "
             r"--json-output outputs\visual-provider.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --compare-llm-extractor "
+            r"--real-site-sample --evaluation-count 4 "
+            r"--visual-extractor-provider qwen-vl "
+            r"--json-output evaluations\visual-provider-comparison.json"
         ),
     ]
     for index, command in enumerate(commands, start=1):
@@ -1320,6 +1332,42 @@ def build_cli_llm_matcher(args: argparse.Namespace):
         from web_task_agent.llm_extractor import DemoLlmMatcher
         return DemoLlmMatcher()
     return None
+
+
+def _print_visual_provider_diagnostics(state) -> None:
+    """Print diagnostic info when real visual provider produces no valid jobs."""
+    visual_stats = state.metadata.get("visual_extraction", {})
+    successes = visual_stats.get("successes", 0)
+    failures = visual_stats.get("failures", 0)
+    errors = visual_stats.get("errors", [])
+
+    print("  Visual provider diagnostics:")
+    print(f"    extraction attempts: {successes + failures}")
+    print(f"    visual successes: {successes}")
+    print(f"    visual failures (fell back to text): {failures}")
+
+    if errors:
+        for err in errors[:3]:
+            print(f"    error: {err.get('url', '-')} → {err.get('error', '-')[:120]}")
+
+    # Check if verifier filtered the extracted jobs
+    filtered = state.metadata.get("filtered_jobs", [])
+    if filtered:
+        print(f"    verifier filtered {len(filtered)} jobs:")
+        for item in filtered[:5]:
+            reasons = ", ".join(item.get("reasons", []))
+            print(
+                f"      {item.get('title', '-')[:50]} @ {item.get('company', '-')[:30]}"
+                f" → {reasons}"
+            )
+
+    # Check for empty extractions (visual "succeeded" but produced garbage)
+    jobs_found = state.metadata.get("jobs_found", 0)
+    if jobs_found == 0 and successes == 0 and failures > 0:
+        print(
+            "    All visual extractions failed and text fallback produced nothing. "
+            "Check that the seed URLs are real, publicly accessible pages."
+        )
 
 
 def build_cli_visual_extractor(args: argparse.Namespace):
