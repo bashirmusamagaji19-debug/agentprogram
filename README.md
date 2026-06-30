@@ -146,13 +146,14 @@ Provider smoke 如果 `Valid jobs: 0`，会在写入诊断信息和 JSON 后返�
 `--benchmark-v2` 在真实站点评测目录上运行 provider matrix，是面试展示"不只是 demo"的核心 artifact。
 
 ```powershell
-.\.venv\Scripts\web-task-agent.exe --benchmark-v2 --benchmark-providers baseline,llm-demo,deepseek --benchmark-limit 8 --benchmark-dashboard
+.\.venv\Scripts\web-task-agent.exe --benchmark-v2 --benchmark-providers baseline,llm-demo,deepseek --benchmark-limit 8 --benchmark-dashboard --benchmark-explain
 ```
 
 产出物：
 
 - `evaluations/benchmark-v2.json`：机器可读的 case catalog 和 provider matrix。
 - `evaluations/benchmark-v2.md`：Markdown 报告（provider 成功率 + 失败分类）。
+- `evaluations/benchmark-v2-explained.md`：中文解释层（一句话结论、provider 解读、失败分析、面试讲法）。面试时用这个。
 - `dashboards/benchmark-v2.html`：本地 HTML 摘要（面试演示用）。
 - `evaluations/<provider>/evaluation-report.md`：每个 provider 的逐任务详情。
 

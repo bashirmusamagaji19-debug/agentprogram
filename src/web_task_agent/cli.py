@@ -23,6 +23,10 @@ from web_task_agent.benchmark import (
     run_benchmark_matrix,
     write_benchmark_artifacts,
 )
+from web_task_agent.benchmark_explainer import (
+    generate_benchmark_insights,
+    write_benchmark_explanation_artifact,
+)
 from web_task_agent.browser import (
     BrowserConfigurationError,
     HttpPageLoader,
@@ -246,6 +250,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write a benchmark v2 HTML summary.",
     )
+    parser.add_argument(
+        "--benchmark-explain",
+        action="store_true",
+        help="Write a Chinese explanation artifact for benchmark v2 results.",
+    )
     return parser
 
 
@@ -348,7 +357,9 @@ async def _run(args: argparse.Namespace) -> int:
             print(str(exc))
             return 2
         try:
-            result = await run_cli_benchmark_v2(args, providers=providers)
+            result = await run_cli_benchmark_v2(
+                args, providers=providers, explain=args.benchmark_explain
+            )
         except (LlmExtractorConfigurationError, VisualProviderConfigurationError) as exc:
             err_type = (
                 "LLM extractor"
@@ -364,6 +375,14 @@ async def _run(args: argparse.Namespace) -> int:
                 f"{provider.completed_tasks}/{provider.total_tasks} "
                 f"success_rate={provider.success_rate:.2f}"
             )
+        if args.benchmark_explain:
+            insight = generate_benchmark_insights(result)
+            explanation_path = write_benchmark_explanation_artifact(
+                result=result,
+                insight=insight,
+                output_dir=args.evaluation_dir,
+            )
+            print(f"Benchmark explanation written to: {explanation_path}")
         return 0
 
     if args.history:
@@ -918,7 +937,10 @@ def write_model_json_output(model, output_path: str) -> Path:
 
 
 async def run_cli_benchmark_v2(
-    args: argparse.Namespace, *, providers: list[str]
+    args: argparse.Namespace,
+    *,
+    providers: list[str],
+    explain: bool = False,
 ) -> BenchmarkMatrixResult:
     """Run the benchmark v2 provider matrix from CLI configuration."""
     cases = build_real_site_benchmark_v2_cases()[: args.benchmark_limit]
@@ -985,6 +1007,7 @@ async def run_cli_benchmark_v2(
         args=args,
         run_provider=run_provider,
     )
+    insight = generate_benchmark_insights(result) if explain else None
     json_path, md_path = write_benchmark_artifacts(
         result=result,
         output_dir=args.evaluation_dir,
@@ -996,7 +1019,9 @@ async def run_cli_benchmark_v2(
         dashboard_dir.mkdir(parents=True, exist_ok=True)
         dashboard_path = dashboard_dir / "benchmark-v2.html"
         dashboard_path.write_text(
-            HtmlDashboard(args.dashboard_dir).render_benchmark_summary(result),
+            HtmlDashboard(args.dashboard_dir).render_benchmark_summary(
+                result, insight=insight
+            ),
             encoding="utf-8",
         )
         print(f"Benchmark dashboard written to: {dashboard_path}")
@@ -1424,7 +1449,7 @@ def print_demo_script() -> None:
         (
             r".\.venv\Scripts\web-task-agent.exe --benchmark-v2 "
             r"--benchmark-providers baseline,llm-demo,deepseek "
-            r"--benchmark-limit 8 --benchmark-dashboard"
+            r"--benchmark-limit 8 --benchmark-dashboard --benchmark-explain"
         ),
     ]
     for index, command in enumerate(commands, start=1):

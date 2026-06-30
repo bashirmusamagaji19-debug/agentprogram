@@ -531,8 +531,25 @@ class HtmlDashboard:
 
     # ── Benchmark v2 summary ─────────────────────────────────────────
 
-    def render_benchmark_summary(self, result) -> str:
-        """Render an HTML dashboard for the benchmark v2 provider matrix."""
+    def render_benchmark_summary(self, result, *, insight=None) -> str:
+        """Render an HTML dashboard for the benchmark v2 provider matrix.
+
+        When *insight* (a ``BenchmarkInsight``) is provided, an explanation
+        summary section is rendered before the provider matrix.
+        """
+        explanation_section = ""
+        if insight is not None:
+            explanation_section = f"""
+    <h2>结果解释</h2>
+    <section>
+      <h3>一句话结论</h3>
+      <p>{escape(insight.one_sentence)}</p>
+      <h3>为什么这不是 prompt demo</h3>
+      <p>{escape(insight.not_prompt_demo_reason)}</p>
+      <h3>工程判断</h3>
+      <p>{escape(insight.engineering_judgement)}</p>
+    </section>
+"""
         provider_rows = "\n".join(
             "<tr>"
             f"<td>{escape(p.provider)}</td>"
@@ -583,6 +600,7 @@ class HtmlDashboard:
       {self._metric("Providers", len(result.providers))}
       {self._metric("Best Provider", escape(result.best_provider or "-"))}
     </section>
+    {explanation_section}
     <h2>Provider Matrix</h2>
     <table>
       <thead>

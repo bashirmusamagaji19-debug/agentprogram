@@ -78,6 +78,7 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--evaluate --fixture-sites" in captured.out
     assert "--benchmark-v2" in captured.out
     assert "--benchmark-providers baseline,llm-demo,deepseek" in captured.out
+    assert "--benchmark-explain" in captured.out
 
 
 def test_format_top_action_gaps_handles_empty_and_ranked_gaps() -> None:
@@ -1713,7 +1714,7 @@ def test_cli_benchmark_v2_prints_provider_matrix(
         build_real_site_benchmark_v2_cases,
     )
 
-    async def fake_run_cli_benchmark_v2(args, *, providers):
+    async def fake_run_cli_benchmark_v2(args, *, providers, explain=False):
         return BenchmarkMatrixResult(
             cases=build_real_site_benchmark_v2_cases()[:1],
             providers=[
@@ -1755,3 +1756,58 @@ def test_cli_benchmark_v2_prints_provider_matrix(
     assert "baseline: 1/1 success_rate=1.00" in captured.out
     assert "llm-demo: 1/1 success_rate=1.00" in captured.out
     assert "qwen-vl: 0/1 success_rate=0.00" in captured.out
+
+
+def test_cli_benchmark_v2_can_write_explanation(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--benchmark-explain writes benchmark-v2-explained.md."""
+    monkeypatch.chdir(tmp_path)
+
+    from web_task_agent.benchmark import (
+        BenchmarkMatrixResult,
+        BenchmarkProviderResult,
+        build_real_site_benchmark_v2_cases,
+    )
+
+    async def fake_run_cli_benchmark_v2(args, *, providers, explain=False):
+        return BenchmarkMatrixResult(
+            cases=build_real_site_benchmark_v2_cases()[:1],
+            providers=[
+                BenchmarkProviderResult(
+                    provider=provider,
+                    total_tasks=1,
+                    completed_tasks=1,
+                    success_rate=1.0,
+                    total_valid_jobs=1,
+                    average_pages_visited=1.0,
+                    failure_counts={},
+                    elapsed_seconds=0.01,
+                    report_path=f"evaluations/{provider}/evaluation-report.md",
+                )
+                for provider in providers
+            ],
+        )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.run_cli_benchmark_v2",
+        fake_run_cli_benchmark_v2,
+    )
+
+    exit_code = main(
+        [
+            "--benchmark-v2",
+            "--benchmark-providers",
+            "baseline,deepseek",
+            "--benchmark-limit",
+            "1",
+            "--benchmark-explain",
+        ]
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / "evaluations" / "benchmark-v2-explained.md").exists()
+    captured = capsys.readouterr()
+    assert "Benchmark explanation written to:" in captured.out
