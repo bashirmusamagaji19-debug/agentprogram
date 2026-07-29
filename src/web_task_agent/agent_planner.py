@@ -6,8 +6,8 @@ from typing import Any
 
 from web_task_agent.agent_models import AgentAction, AgentDecision, DecisionAgentState
 from web_task_agent.llm_extractor import (
-    LlmTransport,
     PROVIDER_DEFAULTS,
+    LlmTransport,
     build_llm_provider_config,
 )
 
@@ -16,7 +16,7 @@ def build_configured_agent_planner(
     *,
     provider: str,
     model: str | None = None,
-) -> "OpenAiCompatibleAgentPlanner":
+) -> OpenAiCompatibleAgentPlanner:
     config = build_llm_provider_config(provider=provider, model=model)
     return OpenAiCompatibleAgentPlanner(
         provider=config.provider,
@@ -147,4 +147,3 @@ class OpenAiCompatibleAgentPlanner:
         req = request.Request(url, data=data, headers=headers, method="POST")
         with request.urlopen(req, timeout=timeout_seconds) as response:
             return json.loads(response.read().decode("utf-8"))
-

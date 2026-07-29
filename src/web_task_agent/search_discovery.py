@@ -3,7 +3,6 @@ from __future__ import annotations
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
-
 _TRACKING_KEYS = {
     "fbclid",
     "gclid",
@@ -55,7 +54,11 @@ def _normalize_candidate(candidate: str, *, base_url: str) -> str | None:
     absolute = urljoin(base_url, value)
     parsed = urlparse(absolute)
 
-    if parsed.hostname and parsed.hostname.casefold().endswith("google.com") and parsed.path == "/url":
+    if (
+        parsed.hostname
+        and parsed.hostname.casefold().endswith("google.com")
+        and parsed.path == "/url"
+    ):
         redirected = parse_qs(parsed.query).get("q", [])
         if not redirected:
             return None
@@ -100,4 +103,3 @@ def _looks_like_job_url(url: str) -> bool:
     if host.startswith(("jobs.", "careers.")):
         return True
     return any(marker in path for marker in ("/jobs/", "/job/", "/careers/", "/positions/"))
-

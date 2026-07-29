@@ -94,15 +94,7 @@ async def test_planner_accepts_json_code_fence():
 @pytest.mark.asyncio
 async def test_planner_rejects_unknown_action():
     def transport(url, headers, payload, timeout_seconds):
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "content": '{"action":"delete_files","reason":"bad"}'
-                    }
-                }
-            ]
-        }
+        return {"choices": [{"message": {"content": '{"action":"delete_files","reason":"bad"}'}}]}
 
     planner = OpenAiCompatibleAgentPlanner(
         provider="deepseek",
@@ -123,11 +115,7 @@ async def test_planner_sends_compact_state_without_resume_or_page_body():
         captured.update(payload)
         return {
             "choices": [
-                {
-                    "message": {
-                        "content": '{"action":"extract_text","reason":"Page ready."}'
-                    }
-                }
+                {"message": {"content": '{"action":"extract_text","reason":"Page ready."}'}}
             ]
         }
 
@@ -146,4 +134,3 @@ async def test_planner_sends_compact_state_without_resume_or_page_body():
     assert "AI Engineering Intern" in serialized
     assert "remaining_steps" in serialized
     assert "allowed_actions" in serialized
-

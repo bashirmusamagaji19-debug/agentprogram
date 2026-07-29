@@ -59,9 +59,7 @@ def test_evaluation_separates_completion_termination_and_field_accuracy():
                 total_latency_ms=40,
             ),
         ),
-        ground_truth=AgentFieldGroundTruth(
-            title="AI Intern", company="Example", location="Remote"
-        ),
+        ground_truth=AgentFieldGroundTruth(title="AI Intern", company="Example", location="Remote"),
     )
     exhausted = AgentBenchmarkCase(
         case_id="budget-exhausted",

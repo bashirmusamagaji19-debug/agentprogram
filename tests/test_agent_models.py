@@ -80,4 +80,3 @@ def test_decision_agent_state_mutable_defaults_are_isolated():
     assert second.candidate_urls == []
     assert second.retry_counts == {}
     assert second.metrics.tool_calls == 0
-

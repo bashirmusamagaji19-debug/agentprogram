@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from web_task_agent import cli as cli_module
 from web_task_agent.agent_cli import (
     hybrid_state_payload,
     render_hybrid_html,
@@ -16,7 +17,6 @@ from web_task_agent.agent_models import (
     ToolObservation,
 )
 from web_task_agent.cli import build_parser
-from web_task_agent import cli as cli_module
 from web_task_agent.models import UserProfile
 
 

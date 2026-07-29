@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Ruff
+        run: >-
+          python -m ruff check
+          src/web_task_agent/agent_*.py
+          src/web_task_agent/search_discovery.py
+          tests/test_agent_*.py
+          tests/test_search_discovery.py
+      - name: Deterministic test suite
+        run: >-
+          python -m pytest -p no:cacheprovider
+          --cov=web_task_agent
+          --cov-report=term-missing
+          --cov-report=xml
+          --cov-fail-under=70
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from math import isfinite
 from typing import Any
 
@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from web_task_agent.models import BrowserPage, JobPosting, MatchResult, UserProfile
 
 
-class AgentAction(str, Enum):
+class AgentAction(StrEnum):
     SEARCH_JOBS = "search_jobs"
     OPEN_PAGE = "open_page"
     EXTRACT_TEXT = "extract_text"
@@ -20,7 +20,7 @@ class AgentAction(str, Enum):
     FINISH = "finish"
 
 
-class DecisionSource(str, Enum):
+class DecisionSource(StrEnum):
     LLM = "llm"
     POLICY = "policy"
     FALLBACK = "fallback"
@@ -114,9 +114,7 @@ class AgentMetrics(BaseModel):
     @property
     def recovery_success_rate(self) -> float:
         return (
-            self.successful_recoveries / self.recovery_attempts
-            if self.recovery_attempts
-            else 0.0
+            self.successful_recoveries / self.recovery_attempts if self.recovery_attempts else 0.0
         )
 
     @property

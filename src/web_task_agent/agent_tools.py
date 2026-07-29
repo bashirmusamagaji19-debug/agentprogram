@@ -10,7 +10,6 @@ from web_task_agent.agent_models import (
     DecisionAgentState,
     ToolObservation,
 )
-from web_task_agent.models import BrowserPage
 from web_task_agent.visual_extractor import job_from_visual_fields
 
 
@@ -21,8 +20,7 @@ class AgentTool(Protocol):
         self,
         state: DecisionAgentState,
         arguments: dict[str, Any],
-    ) -> ToolObservation:
-        ...
+    ) -> ToolObservation: ...
 
 
 class AgentToolRegistry:

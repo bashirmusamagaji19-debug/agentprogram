@@ -22,7 +22,7 @@ from web_task_agent.agent_tools import (
 )
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import BrowserPage, JobPosting, UserProfile
+from web_task_agent.models import BrowserPage, UserProfile
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.visual_extractor import DemoVisualJobExtractor
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from web_task_agent.agent_models import DecisionAgentState
+from web_task_agent.agent_policy import DeterministicAgentPolicy
 from web_task_agent.agent_runtime import HybridAgentRuntime
 from web_task_agent.agent_tools import (
     AgentToolRegistry,
@@ -18,7 +19,6 @@ from web_task_agent.agent_tools import (
     SearchJobsTool,
     VerifyJobTool,
 )
-from web_task_agent.agent_policy import DeterministicAgentPolicy
 
 
 def build_hybrid_runtime(workflow, *, planner=None) -> HybridAgentRuntime:
@@ -44,9 +44,7 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
     trace = []
     for index, decision in enumerate(state.decision_history):
         observation = (
-            state.observation_history[index]
-            if index < len(state.observation_history)
-            else None
+            state.observation_history[index] if index < len(state.observation_history) else None
         )
         trace.append(
             {
@@ -56,9 +54,7 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
                 "reason": decision.reason,
                 "target": decision.target,
                 "confidence": decision.confidence,
-                "observation": (
-                    observation.model_dump(mode="json") if observation else None
-                ),
+                "observation": (observation.model_dump(mode="json") if observation else None),
             }
         )
     metrics = state.metrics
@@ -168,7 +164,7 @@ code {{ color: #1769aa; }}
 </div>
 <table>
 <thead><tr><th>Step</th><th>Action</th><th>Source</th><th>Reason</th><th>Observation</th><th>ms</th></tr></thead>
-<tbody>{''.join(rows)}</tbody>
+<tbody>{"".join(rows)}</tbody>
 </table>
 </body>
 </html>
@@ -206,4 +202,3 @@ def write_hybrid_artifacts(
         )
         artifacts["json"] = json_path
     return artifacts
-

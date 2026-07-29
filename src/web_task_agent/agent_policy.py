@@ -9,7 +9,12 @@ from web_task_agent.agent_models import (
 
 
 class DeterministicAgentPolicy:
-    def __init__(self, *, text_confidence_threshold: float = 0.6, max_url_attempts: int = 2) -> None:
+    def __init__(
+        self,
+        *,
+        text_confidence_threshold: float = 0.6,
+        max_url_attempts: int = 2,
+    ) -> None:
         self.text_confidence_threshold = text_confidence_threshold
         self.max_url_attempts = max_url_attempts
 
@@ -43,7 +48,10 @@ class DeterministicAgentPolicy:
         ):
             return self._decision(
                 AgentAction.EXTRACT_VISUAL,
-                "Text extraction confidence is low, so the visual extractor is the next recovery tool.",
+                (
+                    "Text extraction confidence is low, so the visual extractor is the "
+                    "next recovery tool."
+                ),
                 target=state.current_url,
             )
 
@@ -126,7 +134,10 @@ class DeterministicAgentPolicy:
                     "Text extraction failed and a visual recovery tool is available.",
                     target=state.current_url,
                 )
-            next_url = self._next_candidate(state, exclude={state.current_url} if state.current_url else set())
+            next_url = self._next_candidate(
+                state,
+                exclude={state.current_url} if state.current_url else set(),
+            )
             if next_url:
                 return self._decision(
                     AgentAction.OPEN_PAGE,
@@ -156,7 +167,10 @@ class DeterministicAgentPolicy:
             if next_url:
                 return self._decision(
                     AgentAction.OPEN_PAGE,
-                    "Verifier rejection cannot recover on this page, so continue with the next candidate.",
+                    (
+                        "Verifier rejection cannot recover on this page, so continue with "
+                        "the next candidate."
+                    ),
                     target=next_url,
                 )
 

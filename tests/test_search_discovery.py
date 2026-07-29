@@ -42,4 +42,3 @@ def test_discovery_resolves_relative_job_links():
     assert discover_job_links(html, base_url="https://careers.example.com/search") == [
         "https://careers.example.com/jobs/ai-agent-intern"
     ]
-

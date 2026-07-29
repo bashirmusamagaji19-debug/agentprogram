@@ -15,8 +15,7 @@ from web_task_agent.agent_tools import AgentToolRegistry
 
 
 class AgentPlanner(Protocol):
-    async def decide(self, state: DecisionAgentState) -> AgentDecision:
-        ...
+    async def decide(self, state: DecisionAgentState) -> AgentDecision: ...
 
 
 class HybridAgentRuntime:
@@ -145,4 +144,3 @@ class HybridAgentRuntime:
 
     async def _finish_node(self, state: DecisionAgentState) -> DecisionAgentState:
         return state
-
