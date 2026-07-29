@@ -8,7 +8,7 @@ from web_task_agent.agent_models import (
     ToolObservation,
 )
 from web_task_agent.agent_policy import DeterministicAgentPolicy
-from web_task_agent.models import JobPosting, UserProfile
+from web_task_agent.models import BrowserPage, JobPosting, UserProfile
 
 
 def _state(**updates) -> DecisionAgentState:
@@ -177,3 +177,29 @@ def test_policy_moves_to_next_candidate_when_verifier_cannot_recover():
 
     assert decision.action is AgentAction.OPEN_PAGE
     assert decision.target == next_url
+
+
+def test_policy_extracts_new_current_page_instead_of_reusing_previous_job():
+    previous_url = "https://example.com/jobs/rejected"
+    current_url = "https://example.com/jobs/valid"
+    state = _state(
+        candidate_urls=[previous_url, current_url],
+        current_url=current_url,
+        current_page=BrowserPage(
+            url=current_url,
+            title="AI Intern",
+            content="Title: AI Intern",
+        ),
+        visited_urls={previous_url, current_url},
+        extracted_jobs=[_job(previous_url)],
+        last_observation=ToolObservation(
+            tool_name=AgentAction.OPEN_PAGE,
+            success=True,
+            summary="opened next candidate",
+        ),
+    )
+
+    decision = DeterministicAgentPolicy().decide(state)
+
+    assert decision.action is AgentAction.EXTRACT_TEXT
+    assert decision.target == current_url
