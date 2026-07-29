@@ -134,6 +134,32 @@ class DeterministicAgentPolicy:
                     target=next_url,
                 )
 
+        if last.tool_name is AgentAction.VERIFY_JOB:
+            used_text = any(
+                observation.tool_name is AgentAction.EXTRACT_TEXT
+                for observation in state.observation_history
+            )
+            used_visual = any(
+                observation.tool_name is AgentAction.EXTRACT_VISUAL
+                for observation in state.observation_history
+            )
+            if state.visual_available and used_text and not used_visual:
+                return self._decision(
+                    AgentAction.EXTRACT_VISUAL,
+                    "Verifier rejected the text result, so retry with visual evidence.",
+                    target=state.current_url,
+                )
+            next_url = self._next_candidate(
+                state,
+                exclude={state.current_url} if state.current_url else set(),
+            )
+            if next_url:
+                return self._decision(
+                    AgentAction.OPEN_PAGE,
+                    "Verifier rejection cannot recover on this page, so continue with the next candidate.",
+                    target=next_url,
+                )
+
         return None
 
     @staticmethod
@@ -166,4 +192,3 @@ class DeterministicAgentPolicy:
             arguments=arguments or {},
             source=DecisionSource.POLICY,
         )
-

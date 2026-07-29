@@ -125,3 +125,55 @@ def test_policy_starts_with_search_when_no_candidates_exist():
     assert decision.action is AgentAction.SEARCH_JOBS
     assert decision.source is DecisionSource.POLICY
 
+
+def test_policy_routes_verifier_rejection_to_visual_recovery():
+    url = "https://example.com/jobs/1"
+    state = _state(
+        candidate_urls=[url],
+        current_url=url,
+        extracted_jobs=[_job(url)],
+        visual_available=True,
+        observation_history=[
+            ToolObservation(
+                tool_name=AgentAction.EXTRACT_TEXT,
+                success=True,
+                payload={"confidence": 0.4},
+            )
+        ],
+        last_observation=ToolObservation(
+            tool_name=AgentAction.VERIFY_JOB,
+            success=False,
+            error_category="verification_filtered",
+            error_message="missing requirements",
+            recoverable=True,
+        ),
+    )
+
+    decision = DeterministicAgentPolicy().decide(state)
+
+    assert decision.action is AgentAction.EXTRACT_VISUAL
+    assert decision.target == url
+
+
+def test_policy_moves_to_next_candidate_when_verifier_cannot_recover():
+    current = "https://example.com/jobs/1"
+    next_url = "https://example.com/jobs/2"
+    state = _state(
+        candidate_urls=[current, next_url],
+        current_url=current,
+        visited_urls={current},
+        extracted_jobs=[_job(current)],
+        visual_available=False,
+        last_observation=ToolObservation(
+            tool_name=AgentAction.VERIFY_JOB,
+            success=False,
+            error_category="verification_filtered",
+            error_message="not relevant",
+            recoverable=True,
+        ),
+    )
+
+    decision = DeterministicAgentPolicy().decide(state)
+
+    assert decision.action is AgentAction.OPEN_PAGE
+    assert decision.target == next_url
