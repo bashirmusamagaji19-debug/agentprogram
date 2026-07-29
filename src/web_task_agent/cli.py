@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from time import perf_counter
 
 from dotenv import load_dotenv
 
@@ -15,6 +16,19 @@ from web_task_agent import __version__
 # __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from web_task_agent.action_plan import ActionPlanWriter
+from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
+from web_task_agent.agent_planner import build_configured_agent_planner
+from web_task_agent.benchmark import (
+    BenchmarkProviderResult,
+    build_real_site_benchmark_v2_cases,
+    parse_benchmark_providers,
+    run_benchmark_matrix,
+    write_benchmark_artifacts,
+)
+from web_task_agent.benchmark_explainer import (
+    generate_benchmark_insights,
+    write_benchmark_explanation_artifact,
+)
 from web_task_agent.browser import (
     BrowserConfigurationError,
     HttpPageLoader,
@@ -46,6 +60,11 @@ from web_task_agent.skill_gap import summarize_skill_gaps
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
+from web_task_agent.visual_extractor import DemoVisualJobExtractor
+from web_task_agent.visual_provider import (
+    VisualProviderConfigurationError,
+    build_configured_visual_extractor,
+)
 from web_task_agent.workflow import WebTaskWorkflow
 
 
@@ -105,6 +124,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the main workflow through LangGraph nodes.",
     )
     parser.add_argument(
+        "--hybrid-agent",
+        action="store_true",
+        help="Run the bounded decision/tool/recovery Agent runtime.",
+    )
+    parser.add_argument(
+        "--agent-max-steps",
+        type=int,
+        default=12,
+        help="Maximum non-terminal tool steps for the hybrid Agent.",
+    )
+    parser.add_argument(
+        "--agent-planner-provider",
+        choices=["deepseek", "qwen"],
+        help="Optional structured LLM planner; deterministic policy is the fallback.",
+    )
+    parser.add_argument(
+        "--agent-planner-model",
+        help="Override the hybrid Agent planner model.",
+    )
+    parser.add_argument(
         "--llm-extractor-demo",
         action="store_true",
         help="Use a deterministic LLM-style structured extractor demo.",
@@ -136,6 +175,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--llm-match-demo",
         action="store_true",
         help="Use a deterministic LLM-style semantic matching demo.",
+    )
+    parser.add_argument(
+        "--visual-extractor-demo",
+        action="store_true",
+        help="Use deterministic screenshot-style visual job extraction for seed URL experiments.",
+    )
+    parser.add_argument(
+        "--visual-extractor-provider",
+        choices=["qwen-vl"],
+        help="Use a configured external visual extractor provider (requires visual-web-agent).",
+    )
+    parser.add_argument(
+        "--visual-extractor-model",
+        help="Override the visual provider model, such as qwen-vl-plus.",
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--action-plan-dir", default="action-plans")
@@ -198,6 +251,32 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run in interactive multi-turn mode: adjust search parameters and re-run.",
     )
+    parser.add_argument(
+        "--benchmark-v2",
+        action="store_true",
+        help="Run the real-site benchmark v2 provider matrix.",
+    )
+    parser.add_argument(
+        "--benchmark-providers",
+        default="baseline,llm-demo",
+        help="Comma-separated providers: baseline,llm-demo,deepseek,qwen,qwen-vl.",
+    )
+    parser.add_argument(
+        "--benchmark-limit",
+        type=int,
+        default=8,
+        help="Limit benchmark v2 cases.",
+    )
+    parser.add_argument(
+        "--benchmark-dashboard",
+        action="store_true",
+        help="Write a benchmark v2 HTML summary.",
+    )
+    parser.add_argument(
+        "--benchmark-explain",
+        action="store_true",
+        help="Write a Chinese explanation artifact for benchmark v2 results.",
+    )
     return parser
 
 
@@ -232,8 +311,9 @@ async def _run(args: argparse.Namespace) -> int:
     if args.compare_llm_extractor:
         try:
             result = await run_llm_extractor_comparison(args)
-        except LlmExtractorConfigurationError as exc:
-            print(f"LLM extractor is not configured: {exc}")
+        except (LlmExtractorConfigurationError, VisualProviderConfigurationError) as exc:
+            err_type = "LLM extractor" if isinstance(exc, LlmExtractorConfigurationError) else "Visual extractor"
+            print(f"{err_type} is not configured: {exc}")
             return 2
         print("LLM extractor comparison")
         print(
@@ -248,6 +328,18 @@ async def _run(args: argparse.Namespace) -> int:
             provider_result = result[args.llm_extractor_provider]
             print(
                 f"{args.llm_extractor_provider}: "
+                f"{provider_result['completed_tasks']}/{provider_result['total_tasks']}"
+            )
+        if args.visual_extractor_demo:
+            visual_result = result["visual_demo"]
+            print(
+                f"visual-demo: "
+                f"{visual_result['completed_tasks']}/{visual_result['total_tasks']}"
+            )
+        if args.visual_extractor_provider:
+            provider_result = result[args.visual_extractor_provider]
+            print(
+                f"{args.visual_extractor_provider}: "
                 f"{provider_result['completed_tasks']}/{provider_result['total_tasks']}"
             )
         print(f"Comparison report written to: {result['report_path']}")
@@ -278,6 +370,41 @@ async def _run(args: argparse.Namespace) -> int:
         if args.json_output:
             json_path = write_mapping_json_output(result, args.json_output)
             print(f"Comparison JSON written to: {json_path}")
+        return 0
+
+    if args.benchmark_v2:
+        try:
+            providers = parse_benchmark_providers(args.benchmark_providers)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        try:
+            result = await run_cli_benchmark_v2(
+                args, providers=providers, explain=args.benchmark_explain
+            )
+        except (LlmExtractorConfigurationError, VisualProviderConfigurationError) as exc:
+            err_type = (
+                "LLM extractor"
+                if isinstance(exc, LlmExtractorConfigurationError)
+                else "Visual extractor"
+            )
+            print(f"Benchmark {err_type} is not configured: {exc}")
+            return 2
+        print("Real site benchmark v2")
+        for provider in result.providers:
+            print(
+                f"{provider.provider}: "
+                f"{provider.completed_tasks}/{provider.total_tasks} "
+                f"success_rate={provider.success_rate:.2f}"
+            )
+        if args.benchmark_explain:
+            insight = generate_benchmark_insights(result)
+            explanation_path = write_benchmark_explanation_artifact(
+                result=result,
+                insight=insight,
+                output_dir=args.evaluation_dir,
+            )
+            print(f"Benchmark explanation written to: {explanation_path}")
         return 0
 
     if args.history:
@@ -400,6 +527,27 @@ async def _run(args: argparse.Namespace) -> int:
         print("--keyword is required unless --evaluate is used.")
         return 2
 
+    if args.demo and args.visual_extractor_provider:
+        print(
+            "Error: --demo and --visual-extractor-provider cannot be used together.\n"
+            "The visual provider uses its own Playwright browser to fetch real URLs;\n"
+            "demo pages are fake URLs that a real browser cannot reach.\n"
+            "Use --visual-extractor-demo for deterministic demo fixtures, or\n"
+            "remove --demo and use --visual-extractor-provider with real seed URLs."
+        )
+        return 2
+    if args.visual_extractor_demo and not args.seed_url:
+        print(
+            "Warning: --visual-extractor-demo is intended for use with --seed-url. "
+            "Without seed URLs the visual extractor may have no matching fixtures "
+            "and will fall back to text extraction."
+        )
+    if args.visual_extractor_provider and not args.seed_url:
+        print(
+            "Warning: --visual-extractor-provider requires --seed-url. "
+            "The visual provider fetches pages on its own and cannot be used "
+            "in search mode."
+        )
     browser = build_browser(demo=args.demo)
     try:
         llm_field_extractor = build_cli_llm_field_extractor(args)
@@ -407,12 +555,18 @@ async def _run(args: argparse.Namespace) -> int:
     except LlmExtractorConfigurationError as exc:
         print(f"LLM extractor is not configured: {exc}")
         return 2
+    try:
+        visual_extractor = build_cli_visual_extractor(args)
+    except VisualProviderConfigurationError as exc:
+        print(f"Visual extractor is not configured: {exc}")
+        return 2
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
         report_dir=args.report_dir,
         llm_field_extractor=llm_field_extractor,
         llm_matcher=llm_matcher,
+        visual_extractor=visual_extractor,
     )
     if llm_matcher is not None:
         mode = f"llm-match-{args.llm_match_provider or 'demo'}"
@@ -431,6 +585,33 @@ async def _run(args: argparse.Namespace) -> int:
             resume_text=resume_text,
             seed_urls=args.seed_url,
         )
+        if args.hybrid_agent:
+            planner = None
+            if args.agent_planner_provider:
+                planner = build_configured_agent_planner(
+                    provider=args.agent_planner_provider,
+                    model=args.agent_planner_model,
+                )
+            runtime = build_hybrid_runtime(workflow, planner=planner)
+            agent_state = await workflow.run_with_hybrid_agent(
+                user,
+                runtime=runtime,
+                max_steps=args.agent_max_steps,
+            )
+            artifacts = write_hybrid_artifacts(
+                agent_state,
+                report_dir=args.report_dir,
+                dashboard_dir=args.dashboard_dir,
+                write_dashboard=args.dashboard,
+                json_output=args.json_output,
+            )
+            print("Hybrid Decision Agent: enabled")
+            print(f"Terminal status: {agent_state.terminal_status}")
+            print(f"Terminal reason: {agent_state.terminal_reason}")
+            print(f"Verified jobs: {len(agent_state.verified_jobs)}")
+            for artifact_name, artifact_path in artifacts.items():
+                print(f"{artifact_name.title()} written to: {artifact_path}")
+            return 0 if agent_state.terminal_status == "completed" else 2
         if args.langgraph:
             state = await workflow.run_with_langgraph(user)
         else:
@@ -439,6 +620,9 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"Real browser-use mode is not configured: {exc}")
         print("Use --demo for the deterministic local demo path.")
         return 2
+    finally:
+        if visual_extractor is not None and hasattr(visual_extractor, "close"):
+            await visual_extractor.close()
     valid_jobs = state.metrics.valid_jobs if state.metrics else 0
     if args.langgraph:
         print("LangGraph workflow: enabled")
@@ -451,8 +635,19 @@ async def _run(args: argparse.Namespace) -> int:
         state.metadata["extractor_mode"] = "llm-provider"
         state.metadata["llm_provider"] = args.llm_extractor_provider
         state.metadata["llm_model"] = model
+    if args.visual_extractor_demo:
+        print("Visual extractor demo: enabled")
+        state.metadata["extractor_mode"] = "visual-demo"
+    if args.visual_extractor_provider:
+        model = getattr(visual_extractor, "model", args.visual_extractor_model or "")
+        print(f"Visual extractor provider: {args.visual_extractor_provider}")
+        state.metadata["extractor_mode"] = "visual-provider"
+        state.metadata["visual_provider"] = args.visual_extractor_provider
+        state.metadata["visual_model"] = model
     print(f"Report written to: {state.report_path}")
     print(f"Valid jobs: {valid_jobs}")
+    if args.visual_extractor_provider and valid_jobs == 0:
+        _print_visual_provider_diagnostics(state)
     artifact_links = {}
     if args.action_plan and state.metrics:
         plan_path = ActionPlanWriter(args.action_plan_dir).write_plan(
@@ -506,7 +701,28 @@ async def _run(args: argparse.Namespace) -> int:
     if args.json_output:
         json_path = write_json_output(state, args.json_output)
         print(f"JSON output written to: {json_path}")
+    if _visual_provider_run_failed(args, valid_jobs):
+        print(
+            "Visual provider produced no valid jobs. "
+            "Treating this provider smoke run as failed; "
+            "inspect diagnostics and JSON output."
+        )
+        return 2
     return 0
+
+
+def _visual_provider_run_failed(args: argparse.Namespace, valid_jobs: int) -> bool:
+    """Real provider smoke run that produced zero valid jobs should fail.
+
+    Comparison and evaluation paths are excluded — their purpose is
+    side-by-side measurement, not single-provider validation.
+    """
+    return (
+        bool(args.visual_extractor_provider)
+        and not args.compare_llm_extractor
+        and not args.evaluate
+        and valid_jobs == 0
+    )
 
 
 # ── Interactive multi-turn mode ───────────────────────────────────────
@@ -525,6 +741,13 @@ async def run_interactive(args: argparse.Namespace) -> int:
     """
     from uuid import uuid4
 
+    if args.demo and args.visual_extractor_provider:
+        print(
+            "Error: --demo and --visual-extractor-provider cannot be used together.\n"
+            "The visual provider uses its own Playwright browser to fetch real URLs."
+        )
+        return 2
+
     print("=== Web Task Agent — Interactive Mode ===")
     print("Commands: more | more:N | skill:X | keyword:X | location:X | status | done")
     print()
@@ -538,12 +761,18 @@ async def run_interactive(args: argparse.Namespace) -> int:
         print(f"LLM config error: {exc}")
         return 2
 
+    try:
+        visual_extractor = build_cli_visual_extractor(args)
+    except VisualProviderConfigurationError as exc:
+        print(f"Visual extractor is not configured: {exc}")
+        return 2
     workflow = build_workflow(
         browser=browser,
         db_path=args.db_path,
         report_dir=args.report_dir,
         llm_field_extractor=llm_field_extractor,
         llm_matcher=llm_matcher,
+        visual_extractor=visual_extractor,
     )
     try:
         resume_text = load_resume_text(args.resume_text, args.resume_file)
@@ -584,6 +813,8 @@ async def run_interactive(args: argparse.Namespace) -> int:
         except BrowserConfigurationError as exc:
             print(f"  Browser error: {exc}")
             print("  Try --demo for deterministic local pages.")
+            if visual_extractor is not None and hasattr(visual_extractor, "close"):
+                await visual_extractor.close()
             return 2
 
         round_states.append(state)
@@ -713,6 +944,8 @@ async def run_interactive(args: argparse.Namespace) -> int:
             json_path = write_json_output(state, args.json_output)
             print(f"JSON written to: {json_path}")
 
+    if visual_extractor is not None and hasattr(visual_extractor, "close"):
+        await visual_extractor.close()
     return 0
 
 
@@ -750,6 +983,98 @@ def write_model_json_output(model, output_path: str) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+async def run_cli_benchmark_v2(
+    args: argparse.Namespace,
+    *,
+    providers: list[str],
+    explain: bool = False,
+) -> BenchmarkMatrixResult:
+    """Run the benchmark v2 provider matrix from CLI configuration."""
+    cases = build_real_site_benchmark_v2_cases()[: args.benchmark_limit]
+
+    async def run_provider(provider, tasks, output_dir, cli_args):
+        start = perf_counter()
+        if provider == "baseline":
+            eval_result = await EvaluationRunner(
+                output_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+            ).run(tasks=tasks)
+        elif provider == "llm-demo":
+            eval_result = await EvaluationRunner(
+                output_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+                extractor_factory=lambda task: PageExtractor(
+                    llm_field_extractor=DemoLlmFieldExtractor()
+                ),
+            ).run(tasks=tasks)
+        elif provider in {"deepseek", "qwen"}:
+            provider_args = argparse.Namespace(**vars(cli_args))
+            provider_args.llm_extractor_provider = provider
+            eval_result = await EvaluationRunner(
+                output_dir,
+                browser_factory=lambda task: BrowserUseClient(
+                    page_loader=HttpPageLoader()
+                ),
+                extractor_factory=lambda task: PageExtractor(
+                    llm_field_extractor=build_cli_llm_field_extractor(provider_args)
+                ),
+            ).run(tasks=tasks)
+        elif provider == "qwen-vl":
+            visual_provider = build_configured_visual_extractor(
+                provider="qwen-vl",
+                model=cli_args.visual_extractor_model,
+            )
+            try:
+                eval_result = await EvaluationRunner(
+                    output_dir,
+                    browser_factory=lambda task: BrowserUseClient(
+                        page_loader=HttpPageLoader()
+                    ),
+                    extractor_factory=lambda task: PageExtractor(),
+                    visual_extractor_factory=lambda task: visual_provider,
+                ).run(tasks=tasks)
+            finally:
+                await visual_provider.close()
+        else:
+            raise ValueError(f"Unsupported benchmark provider: {provider}")
+        return BenchmarkProviderResult.from_evaluation(
+            provider=provider,
+            result=eval_result,
+            elapsed_seconds=perf_counter() - start,
+        )
+
+    result = await run_benchmark_matrix(
+        cases=cases,
+        providers=providers,
+        output_dir=args.evaluation_dir,
+        args=args,
+        run_provider=run_provider,
+    )
+    insight = generate_benchmark_insights(result) if explain else None
+    json_path, md_path = write_benchmark_artifacts(
+        result=result,
+        output_dir=args.evaluation_dir,
+    )
+    print(f"Benchmark Markdown written to: {md_path}")
+    print(f"Benchmark JSON written to: {json_path}")
+    if args.benchmark_dashboard:
+        dashboard_dir = HtmlDashboard(args.dashboard_dir).output_dir
+        dashboard_dir.mkdir(parents=True, exist_ok=True)
+        dashboard_path = dashboard_dir / "benchmark-v2.html"
+        dashboard_path.write_text(
+            HtmlDashboard(args.dashboard_dir).render_benchmark_summary(
+                result, insight=insight
+            ),
+            encoding="utf-8",
+        )
+        print(f"Benchmark dashboard written to: {dashboard_path}")
+    return result
 
 
 def write_mapping_json_output(payload: dict, output_path: str) -> Path:
@@ -792,10 +1117,35 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
             llm_field_extractor=DemoLlmFieldExtractor(),
         ),
     ).run(tasks=tasks)
-    extractors = {
+    extractors: dict[str, dict] = {
         "baseline": baseline.model_dump(mode="json"),
         "llm_demo": llm_demo.model_dump(mode="json"),
     }
+    if args.visual_extractor_demo:
+        visual_demo = await EvaluationRunner(
+            args.evaluation_dir,
+            browser_factory=browser_factory,
+            extractor_factory=lambda task: PageExtractor(),
+            visual_extractor_factory=lambda task: DemoVisualJobExtractor(),
+        ).run(tasks=tasks)
+        extractors["visual_demo"] = visual_demo.model_dump(mode="json")
+    if args.visual_extractor_provider:
+        try:
+            provider = build_cli_visual_extractor(args)
+        except VisualProviderConfigurationError as exc:
+            print(f"Visual extractor is not configured: {exc}")
+            raise
+        try:
+            provider_eval = await EvaluationRunner(
+                args.evaluation_dir,
+                browser_factory=browser_factory,
+                extractor_factory=lambda task: PageExtractor(),
+                visual_extractor_factory=lambda task: provider,
+            ).run(tasks=tasks)
+            extractors[args.visual_extractor_provider] = provider_eval.model_dump(mode="json")
+        finally:
+            if hasattr(provider, "close"):
+                await provider.close()
     if args.llm_extractor_provider:
         provider_result = await EvaluationRunner(
             args.evaluation_dir,
@@ -820,6 +1170,10 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
     }
     if args.llm_extractor_provider:
         result[args.llm_extractor_provider] = extractors[args.llm_extractor_provider]
+    if args.visual_extractor_demo:
+        result["visual_demo"] = extractors["visual_demo"]
+    if args.visual_extractor_provider:
+        result[args.visual_extractor_provider] = extractors[args.visual_extractor_provider]
     return result
 
 
@@ -1117,6 +1471,35 @@ def print_demo_script() -> None:
             r".\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites "
             r"--json-output evaluations\fixture-result.json"
         ),
+        (
+            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r'"https://example.com/jobs/visual-ai-intern" --demo '
+            r"--target-count 1 --visual-extractor-demo "
+            r"--json-output outputs\visual-demo.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --compare-llm-extractor "
+            r"--seed-url https://example.com/jobs/visual-ai-intern "
+            r"--visual-extractor-demo "
+            r"--json-output evaluations\visual-comparison.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --seed-url "
+            r'"https://job-boards.greenhouse.io/anthropic/jobs/5116927008" '
+            r"--target-count 1 --visual-extractor-provider qwen-vl "
+            r"--json-output outputs\visual-provider.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --compare-llm-extractor "
+            r"--real-site-sample --evaluation-count 4 "
+            r"--visual-extractor-provider qwen-vl "
+            r"--json-output evaluations\visual-provider-comparison.json"
+        ),
+        (
+            r".\.venv\Scripts\web-task-agent.exe --benchmark-v2 "
+            r"--benchmark-providers baseline,llm-demo,deepseek "
+            r"--benchmark-limit 8 --benchmark-dashboard --benchmark-explain"
+        ),
     ]
     for index, command in enumerate(commands, start=1):
         print(f"{index}. {command}")
@@ -1140,6 +1523,7 @@ def build_workflow(
     report_dir: str,
     llm_field_extractor=None,
     llm_matcher=None,
+    visual_extractor=None,
 ) -> WebTaskWorkflow:
     repo = JobRepository(db_path)
     repo.initialize()
@@ -1150,6 +1534,7 @@ def build_workflow(
         verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
         repository=repo,
         reporter=MarkdownReporter(report_dir),
+        visual_extractor=visual_extractor,
     )
 
 
@@ -1186,6 +1571,58 @@ def build_cli_llm_matcher(args: argparse.Namespace):
         # --llm-match without --llm-match-provider defaults to demo
         from web_task_agent.llm_extractor import DemoLlmMatcher
         return DemoLlmMatcher()
+    return None
+
+
+def _print_visual_provider_diagnostics(state) -> None:
+    """Print diagnostic info when real visual provider produces no valid jobs."""
+    visual_stats = state.metadata.get("visual_extraction", {})
+    successes = visual_stats.get("successes", 0)
+    failures = visual_stats.get("failures", 0)
+    errors = visual_stats.get("errors", [])
+
+    print("  Visual provider diagnostics:")
+    print(f"    extraction attempts: {successes + failures}")
+    print(f"    visual successes: {successes}")
+    print(f"    visual failures (fell back to text): {failures}")
+
+    if errors:
+        for err in errors[:3]:
+            print(f"    error: {err.get('url', '-')} → {err.get('error', '-')[:120]}")
+
+    # Check if verifier filtered the extracted jobs
+    filtered = state.metadata.get("filtered_jobs", [])
+    if filtered:
+        print(f"    verifier filtered {len(filtered)} jobs:")
+        for item in filtered[:5]:
+            reasons = ", ".join(item.get("reasons", []))
+            print(
+                f"      {item.get('title', '-')[:50]} @ {item.get('company', '-')[:30]}"
+                f" → {reasons}"
+            )
+
+    # Check for empty extractions (visual "succeeded" but produced garbage)
+    jobs_found = state.metadata.get("jobs_found", 0)
+    if jobs_found == 0 and successes == 0 and failures > 0:
+        print(
+            "    All visual extractions failed and text fallback produced nothing. "
+            "Check that the seed URLs are real, publicly accessible pages."
+        )
+
+
+def build_cli_visual_extractor(args: argparse.Namespace):
+    """Build a visual extractor from CLI args.
+
+    Priority: demo > provider.  When both flags are passed, demo wins
+    to keep the deterministic path predictable.
+    """
+    if args.visual_extractor_demo:
+        return DemoVisualJobExtractor()
+    if args.visual_extractor_provider:
+        return build_configured_visual_extractor(
+            provider=args.visual_extractor_provider,
+            model=args.visual_extractor_model,
+        )
     return None
 
 

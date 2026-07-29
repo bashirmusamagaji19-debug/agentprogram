@@ -34,6 +34,9 @@ $env:DEEPSEEK_API_KEY="..."
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 .\.venv\Scripts\web-task-agent.exe --export-graph
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --demo --hybrid-agent --target-count 1 --agent-max-steps 8 --db-path ":memory:" --json-output outputs\hybrid-agent-demo.json
+.\.venv\Scripts\python.exe -m web_task_agent.agent_evaluation --output-dir docs\results
+.\.venv\Scripts\python.exe -m ruff check src\web_task_agent\agent_*.py src\web_task_agent\search_discovery.py tests\test_agent_*.py tests\test_search_discovery.py
 Get-ChildItem -Path reports -Filter *.md
 Get-ChildItem -Path dashboards -Filter *.html
 Get-Content -LiteralPath evaluations\evaluation-report.md -Encoding UTF8
@@ -48,7 +51,10 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- `.\.venv\Scripts\python.exe -m pytest -q` 通过，结果为 `144 passed`。
+- 2026-07-29 Hybrid Agent 聚焦验证为 `44 passed`，Ruff 聚焦检查为 `All checks passed`。
+- 本机全量 pytest 收集 253 项，其中 `169 passed, 84 errors`；84 项均在 pytest 创建 `tmp_path` 时被 Windows 沙箱以 `WinError 5` 拒绝，未观察到业务断言失败。Python 3.11 GitHub Actions 负责运行全量套件与 70% coverage 门禁。
+- 稳定 Hybrid demo 终止状态为 `completed / target_reached`，动作序列为 `search_jobs -> open_page -> extract_text -> verify_job -> finish`，工具成功率 1.0。
+- `hybrid-agent-deterministic-v1` 生成 10 个合成确定性场景证据：8/10 达到业务目标、10/10 正常终止、工具成功率 88.46%；该结果验证编排与恢复，不代表真实网站抽取泛化。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、虚拟环境状态、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。
@@ -94,8 +100,8 @@ print(jobs[0].title if jobs else "no jobs")
 
 - 当前可演示路径使用内置 demo 页面，不依赖真实招聘网站。
 - 真实 `browser-use` session adapter 已接入，可通过 `BrowserUseClient` 打开页面并读取标题和正文；当前 demo/evaluation 仍使用内置页面保证可复现。
-- 当前匹配模块基于技能标签和简历文本进行规则匹配，还不是 LLM 语义匹配。
-- 当前 Dashboard 是静态 HTML 文件，不需要启动服务；交互式筛选属于下一阶段。
+- 匹配模块支持规则优先和可选 LLM 语义匹配；语义质量仍需要人工标注的多画像评测。
+- Dashboard 是静态 HTML 文件，不需要启动服务，已支持搜索、筛选和排序。
 - 当前评测集使用内置 demo 页面，因此指标代表确定性 MVP 闭环，不代表真实招聘网站表现。
 
 ## 环境备注

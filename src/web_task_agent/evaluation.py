@@ -59,6 +59,7 @@ class EvaluationResult(BaseModel):
 
 BrowserFactory = Callable[[EvaluationTask], BrowserClient]
 ExtractorFactory = Callable[[EvaluationTask], PageExtractor]
+VisualExtractorFactory = Callable[[EvaluationTask], object]  # AsyncVisualJobExtractor
 
 
 class EvaluationRunner:
@@ -67,10 +68,12 @@ class EvaluationRunner:
         output_dir: str | Path = "evaluations",
         browser_factory: BrowserFactory | None = None,
         extractor_factory: ExtractorFactory | None = None,
+        visual_extractor_factory: VisualExtractorFactory | None = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.browser_factory = browser_factory or self._default_browser_factory
         self.extractor_factory = extractor_factory or self._default_extractor_factory
+        self.visual_extractor_factory = visual_extractor_factory
 
     def _default_browser_factory(self, task: EvaluationTask) -> BrowserClient:
         return FakeBrowserClient(DEMO_JOB_PAGES)
@@ -93,6 +96,11 @@ class EvaluationRunner:
                 verifier=JobVerifier(required_keywords=task.required_keywords),
                 repository=repo,
                 reporter=MarkdownReporter(run_dir / "reports"),
+                visual_extractor=(
+                    self.visual_extractor_factory(task)
+                    if self.visual_extractor_factory is not None
+                    else None
+                ),
             )
             try:
                 state = await workflow.run(

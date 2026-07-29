@@ -76,7 +76,9 @@ def test_cli_prints_demo_script(capsys) -> None:
     assert "--llm-extractor-provider deepseek" in captured.out
     assert "--history" in captured.out
     assert "--evaluate --fixture-sites" in captured.out
-    assert "9. " in captured.out
+    assert "--benchmark-v2" in captured.out
+    assert "--benchmark-providers baseline,llm-demo,deepseek" in captured.out
+    assert "--benchmark-explain" in captured.out
 
 
 def test_format_top_action_gaps_handles_empty_and_ranked_gaps() -> None:
@@ -1419,3 +1421,393 @@ class _FakeInput:
             self._index += 1
             return value
         return "done"
+
+
+def test_cli_seed_url_can_use_visual_extractor_demo(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--visual-extractor-demo replaces text extraction with visual fixtures for seed URLs."""
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--target-count",
+                "1",
+                "--demo",
+                "--visual-extractor-demo",
+                "--json-output",
+                "outputs/visual-demo.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Visual extractor demo: enabled" in captured.out
+    assert "Valid jobs: 1" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "visual-demo.json").read_text(encoding="utf-8")
+    )
+    assert payload["metadata"]["extractor_mode"] == "visual-demo"
+    assert payload["metadata"]["visual_extraction"]["successes"] == 1
+    assert payload["jobs"][0]["title"] == "Visual AI Intern"
+    assert payload["jobs"][0]["company"] == "Example Vision"
+
+
+def test_cli_compare_extractor_can_include_visual_demo(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--compare-llm-extractor + --visual-extractor-demo adds a visual_demo row."""
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--visual-extractor-demo",
+                "--json-output",
+                "evaluations/visual-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "visual-demo: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "visual-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["visual_demo"]["completed_tasks"] == 1
+    report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
+    assert "| visual_demo | 1 | 1 | 1.00 |" in report
+
+
+def test_cli_seed_url_can_use_visual_extractor_provider(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--visual-extractor-provider qwen-vl routes through the real provider bridge."""
+    monkeypatch.chdir(tmp_path)
+
+    class FakeProviderAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult, VisualJobFields
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Real Visual AI Intern",
+                    company="Example Vision",
+                    location="Remote",
+                    requirements="Python, Playwright, Qwen-VL",
+                    responsibilities="Extract fields from screenshots",
+                    skills=["Python", "Playwright", "Qwen-VL"],
+                    confidence=0.9,
+                ),
+            )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: FakeProviderAdapter(),
+    )
+
+    assert (
+        main(
+            [
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--target-count",
+                "1",
+                "--visual-extractor-provider",
+                "qwen-vl",
+                "--json-output",
+                "outputs/visual-provider.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "Visual extractor provider: qwen-vl" in captured.out
+    payload = json.loads(
+        (tmp_path / "outputs" / "visual-provider.json").read_text(encoding="utf-8")
+    )
+    assert payload["metadata"]["extractor_mode"] == "visual-provider"
+    assert payload["metadata"]["visual_provider"] == "qwen-vl"
+    assert payload["jobs"][0]["title"] == "Real Visual AI Intern"
+
+
+def test_cli_compare_extractor_can_include_visual_provider(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--compare-llm-extractor + --visual-extractor-provider adds a qwen-vl row."""
+    monkeypatch.chdir(tmp_path)
+
+    class FakeProviderAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult, VisualJobFields
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=True,
+                fields=VisualJobFields(
+                    title="Real Visual AI Intern",
+                    company="Example Vision",
+                    location="Remote",
+                    requirements="Python, Playwright, Qwen-VL",
+                    responsibilities="Extract fields from screenshots",
+                    skills=["Python", "Playwright", "Qwen-VL"],
+                    confidence=0.9,
+                ),
+            )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: FakeProviderAdapter(),
+    )
+
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--seed-url",
+                "https://example.com/jobs/visual-ai-intern",
+                "--visual-extractor-provider",
+                "qwen-vl",
+                "--json-output",
+                "evaluations/visual-provider-comparison.json",
+            ]
+        )
+        == 0
+    )
+
+    captured = capsys.readouterr()
+    assert "qwen-vl: 1/1" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "visual-provider-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 1
+    report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
+    assert "| qwen-vl | 1 | 1 | 1.00 |" in report
+
+
+def test_cli_demo_and_visual_provider_are_mutually_exclusive(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """--demo and --visual-extractor-provider cannot be used together."""
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main(
+        [
+            "--seed-url",
+            "https://example.com/jobs/visual-ai-intern",
+            "--target-count",
+            "1",
+            "--demo",
+            "--visual-extractor-provider",
+            "qwen-vl",
+            "--json-output",
+            "outputs/should-not-exist.json",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "cannot be used together" in captured.out
+    assert not (tmp_path / "outputs" / "should-not-exist.json").exists()
+
+
+def test_cli_compare_visual_provider_zero_valid_jobs_stays_comparison_success(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """Comparison stays exit 0 even when the provider row fails — it's a measurement."""
+    monkeypatch.chdir(tmp_path)
+
+    class EmptyProviderAdapter:
+        provider = "qwen-vl"
+        model = "qwen-vl-plus"
+        uses_own_browser = True
+        closed = False
+
+        async def extract(self, page):
+            from web_task_agent.visual_extractor import VisualExtractionResult
+
+            return VisualExtractionResult(
+                url=page.url,
+                success=False,
+                fields=None,
+                error="visual extraction produced empty or placeholder fields",
+            )
+
+        async def close(self):
+            self.closed = True
+
+    adapter = EmptyProviderAdapter()
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_configured_visual_extractor",
+        lambda *, provider, model=None: adapter,
+    )
+
+    exit_code = main(
+        [
+            "--compare-llm-extractor",
+            "--seed-url",
+            "https://example.com/jobs/visual-ai-intern",
+            "--visual-extractor-provider",
+            "qwen-vl",
+            "--json-output",
+            "evaluations/visual-provider-empty-comparison.json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert adapter.closed is True
+    captured = capsys.readouterr()
+    assert "qwen-vl: 0/1" in captured.out
+    assert "Comparison JSON written to:" in captured.out
+    payload = json.loads(
+        (tmp_path / "evaluations" / "visual-provider-empty-comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 0
+
+
+def test_cli_benchmark_v2_prints_provider_matrix(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--benchmark-v2 runs provider matrix and prints per-provider results."""
+    monkeypatch.chdir(tmp_path)
+
+    from web_task_agent.benchmark import (
+        BenchmarkMatrixResult,
+        BenchmarkProviderResult,
+        build_real_site_benchmark_v2_cases,
+    )
+
+    async def fake_run_cli_benchmark_v2(args, *, providers, explain=False):
+        return BenchmarkMatrixResult(
+            cases=build_real_site_benchmark_v2_cases()[:1],
+            providers=[
+                BenchmarkProviderResult(
+                    provider=provider,
+                    total_tasks=1,
+                    completed_tasks=1 if provider != "qwen-vl" else 0,
+                    success_rate=1.0 if provider != "qwen-vl" else 0.0,
+                    total_valid_jobs=1 if provider != "qwen-vl" else 0,
+                    average_pages_visited=1.0,
+                    failure_counts={}
+                    if provider != "qwen-vl"
+                    else {"verification_filtered": 1},
+                    elapsed_seconds=0.01,
+                    report_path=f"evaluations/{provider}/evaluation-report.md",
+                )
+                for provider in providers
+            ],
+        )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.run_cli_benchmark_v2",
+        fake_run_cli_benchmark_v2,
+    )
+
+    exit_code = main(
+        [
+            "--benchmark-v2",
+            "--benchmark-providers",
+            "baseline,llm-demo,qwen-vl",
+            "--benchmark-limit",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "Real site benchmark v2" in captured.out
+    assert "baseline: 1/1 success_rate=1.00" in captured.out
+    assert "llm-demo: 1/1 success_rate=1.00" in captured.out
+    assert "qwen-vl: 0/1 success_rate=0.00" in captured.out
+
+
+def test_cli_benchmark_v2_can_write_explanation(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    """--benchmark-explain writes benchmark-v2-explained.md."""
+    monkeypatch.chdir(tmp_path)
+
+    from web_task_agent.benchmark import (
+        BenchmarkMatrixResult,
+        BenchmarkProviderResult,
+        build_real_site_benchmark_v2_cases,
+    )
+
+    async def fake_run_cli_benchmark_v2(args, *, providers, explain=False):
+        return BenchmarkMatrixResult(
+            cases=build_real_site_benchmark_v2_cases()[:1],
+            providers=[
+                BenchmarkProviderResult(
+                    provider=provider,
+                    total_tasks=1,
+                    completed_tasks=1,
+                    success_rate=1.0,
+                    total_valid_jobs=1,
+                    average_pages_visited=1.0,
+                    failure_counts={},
+                    elapsed_seconds=0.01,
+                    report_path=f"evaluations/{provider}/evaluation-report.md",
+                )
+                for provider in providers
+            ],
+        )
+
+    monkeypatch.setattr(
+        "web_task_agent.cli.run_cli_benchmark_v2",
+        fake_run_cli_benchmark_v2,
+    )
+
+    exit_code = main(
+        [
+            "--benchmark-v2",
+            "--benchmark-providers",
+            "baseline,deepseek",
+            "--benchmark-limit",
+            "1",
+            "--benchmark-explain",
+        ]
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / "evaluations" / "benchmark-v2-explained.md").exists()
+    captured = capsys.readouterr()
+    assert "Benchmark explanation written to:" in captured.out

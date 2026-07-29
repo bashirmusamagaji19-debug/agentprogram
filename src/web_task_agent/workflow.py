@@ -5,13 +5,19 @@ from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 
+from web_task_agent.agent_models import AgentBudget, DecisionAgentState
+from web_task_agent.agent_runtime import HybridAgentRuntime
 from web_task_agent.browser import BrowserClient
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import RunMetrics, UserProfile, WorkflowState
+from web_task_agent.models import BrowserPage, RunMetrics, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
+from web_task_agent.visual_extractor import (
+    AsyncVisualJobExtractor,
+    job_from_visual_fields,
+)
 
 
 class WebTaskWorkflow:
@@ -24,9 +30,11 @@ class WebTaskWorkflow:
         verifier: JobVerifier,
         repository: JobRepository,
         reporter: MarkdownReporter,
+        visual_extractor: AsyncVisualJobExtractor | None = None,
     ) -> None:
         self.browser = browser
         self.extractor = extractor
+        self.visual_extractor = visual_extractor
         self.matcher = matcher
         self.verifier = verifier
         self.repository = repository
@@ -42,11 +50,26 @@ class WebTaskWorkflow:
         state.metrics = RunMetrics(run_id=run_id or f"run-{uuid4().hex[:8]}")
         state = await self._plan_node(state)
         state = await self._browser_node(state)
-        state = self._extractor_node(state)
+        state = await self._extractor_node(state)
         state = self._verifier_node(state)
         state = self._matcher_node(state)
         state = self._reporter_node(state)
         return state
+
+    async def run_with_hybrid_agent(
+        self,
+        user: UserProfile,
+        *,
+        runtime: HybridAgentRuntime,
+        max_steps: int = 12,
+    ) -> DecisionAgentState:
+        state = DecisionAgentState(
+            user=user,
+            budget=AgentBudget(max_steps=max_steps),
+            candidate_urls=list(user.seed_urls),
+            visual_available=self.visual_extractor is not None,
+        )
+        return await runtime.run(state)
 
     async def run_with_langgraph(
         self,
@@ -99,6 +122,25 @@ class WebTaskWorkflow:
     async def _browser_node(self, state: WorkflowState) -> WorkflowState:
         pages_before = len(state.pages)
         failures_before = len(state.failed_urls)
+
+        # When the visual extractor fetches pages on its own (real provider),
+        # create placeholder BrowserPages directly — no workflow browser call.
+        if (
+            state.candidate_urls
+            and self.visual_extractor is not None
+            and getattr(self.visual_extractor, "uses_own_browser", False)
+        ):
+            for url in state.candidate_urls:
+                state.pages.append(
+                    BrowserPage(url=url, title="", content="", source="visual-provider")
+                )
+            self._record_trace(
+                state,
+                "browser",
+                f"deferred {len(state.candidate_urls)} seed URLs to visual provider",
+            )
+            return state
+
         if state.candidate_urls:
             failed_url_errors = state.metadata.setdefault("failed_url_errors", [])
             for url in state.candidate_urls:
@@ -134,11 +176,41 @@ class WebTaskWorkflow:
         )
         return state
 
-    def _extractor_node(self, state: WorkflowState) -> WorkflowState:
+    async def _extractor_node(self, state: WorkflowState) -> WorkflowState:
         state.candidate_urls = [page.url for page in state.pages]
-        state.metadata["extracted_jobs"] = [
-            self.extractor.extract(page) for page in state.pages
-        ]
+        extracted_jobs: list = []
+        visual_stats: dict[str, object] = {
+            "successes": 0,
+            "failures": 0,
+            "errors": [],
+        }
+        for page in state.pages:
+            if self.visual_extractor is not None:
+                visual_result = await self.visual_extractor.extract(page)
+                if visual_result.success and visual_result.fields is not None:
+                    extracted_jobs.append(
+                        job_from_visual_fields(page=page, fields=visual_result.fields)
+                    )
+                    visual_stats["successes"] = int(visual_stats["successes"]) + 1
+                    continue
+                visual_stats["failures"] = int(visual_stats["failures"]) + 1
+                visual_stats["errors"].append(  # type: ignore[union-attr]
+                    {"url": page.url, "error": visual_result.error}
+                )
+            extracted_jobs.append(self.extractor.extract(page))
+        state.metadata["extracted_jobs"] = extracted_jobs
+        if self.visual_extractor is not None:
+            state.metadata["extractor_mode"] = "visual-demo"
+            state.metadata["visual_extraction"] = visual_stats
+            self._record_trace(
+                state,
+                "extractor",
+                (
+                    f"visual extracted {visual_stats['successes']} job candidates; "
+                    f"fell back {visual_stats['failures']} times"
+                ),
+            )
+            return state
         self._record_trace(
             state,
             "extractor",

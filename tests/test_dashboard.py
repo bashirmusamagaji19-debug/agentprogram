@@ -324,3 +324,82 @@ def test_dashboard_renders_evaluation_summary_with_failure_counts():
     assert "0.33" in html
     assert "verification_filtered" in html
     assert "jobs_found=1; valid_jobs=0" in html
+
+
+def test_dashboard_renders_benchmark_v2_summary():
+    from web_task_agent.benchmark import (
+        BenchmarkMatrixResult,
+        BenchmarkProviderResult,
+        build_real_site_benchmark_v2_cases,
+    )
+
+    result = BenchmarkMatrixResult(
+        cases=build_real_site_benchmark_v2_cases()[:1],
+        providers=[
+            BenchmarkProviderResult(
+                provider="baseline",
+                total_tasks=1,
+                completed_tasks=0,
+                success_rate=0.0,
+                total_valid_jobs=0,
+                average_pages_visited=1.0,
+                failure_counts={"verification_filtered": 1},
+                elapsed_seconds=0.1,
+                report_path="evaluations/baseline/evaluation-report.md",
+            ),
+            BenchmarkProviderResult(
+                provider="deepseek",
+                total_tasks=1,
+                completed_tasks=1,
+                success_rate=1.0,
+                total_valid_jobs=1,
+                average_pages_visited=1.0,
+                failure_counts={},
+                elapsed_seconds=0.2,
+                report_path="evaluations/deepseek/evaluation-report.md",
+            ),
+        ],
+    )
+
+    html = HtmlDashboard().render_benchmark_summary(result)
+
+    assert "<!doctype html>" in html.lower()
+    assert "Real Site Benchmark V2" in html
+    assert "baseline" in html
+    assert "deepseek" in html
+    assert "verification_filtered=1" in html
+    assert "anthropic-claude-evangelist" in html
+
+
+def test_dashboard_renders_benchmark_explanation_summary():
+    from web_task_agent.benchmark import (
+        BenchmarkMatrixResult,
+        BenchmarkProviderResult,
+        build_real_site_benchmark_v2_cases,
+    )
+    from web_task_agent.benchmark_explainer import generate_benchmark_insights
+
+    result = BenchmarkMatrixResult(
+        cases=build_real_site_benchmark_v2_cases()[:1],
+        providers=[
+            BenchmarkProviderResult(
+                provider="deepseek",
+                total_tasks=1,
+                completed_tasks=1,
+                success_rate=1.0,
+                total_valid_jobs=1,
+                average_pages_visited=1.0,
+                failure_counts={},
+                elapsed_seconds=0.2,
+                report_path="evaluations/deepseek/evaluation-report.md",
+            ),
+        ],
+    )
+    insight = generate_benchmark_insights(result)
+
+    html = HtmlDashboard().render_benchmark_summary(result, insight=insight)
+
+    assert "结果解释" in html
+    assert "一句话结论" in html
+    assert "deepseek" in html
+    assert "为什么这不是 prompt demo" in html

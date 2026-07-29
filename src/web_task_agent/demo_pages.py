@@ -41,4 +41,16 @@ DEMO_JOB_PAGES = [
         ),
         source="demo-unstructured",
     ),
+    BrowserPage(
+        url="https://example.com/jobs/visual-ai-intern",
+        title="Visual AI Intern at Example Vision",
+        content=(
+            "Title: Visual AI Intern\n"
+            "Company: Example Vision\n"
+            "Location: Remote\n"
+            "Requirements: Python, Playwright, Qwen-VL\n"
+            "Responsibilities: Extract job fields from screenshots using VLM.\n"
+        ),
+        source="demo",
+    ),
 ]

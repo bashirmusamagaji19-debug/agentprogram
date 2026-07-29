@@ -11,6 +11,7 @@ from urllib import request
 from html.parser import HTMLParser
 
 from web_task_agent.models import BrowserPage
+from web_task_agent.search_discovery import discover_job_links
 
 
 PageLoader = Callable[[str], Awaitable[BrowserPage]]
@@ -87,7 +88,23 @@ class BrowserUseClient:
             return []
 
         search_url = f"https://www.google.com/search?q={quote_plus(query)}"
-        return [await self.open_url(search_url)]
+        page = await self.open_url(search_url)
+        raw_links = page.metadata.get("raw_links", [])
+        candidate_urls = discover_job_links(
+            page.content,
+            base_url=search_url,
+            raw_links=raw_links if isinstance(raw_links, list) else [],
+        )
+        return [
+            page.model_copy(
+                update={
+                    "metadata": {
+                        **page.metadata,
+                        "candidate_urls": candidate_urls[:target_count],
+                    }
+                }
+            )
+        ]
 
     async def open_url(self, url: str) -> BrowserPage:
         try:
@@ -108,12 +125,16 @@ class BrowserUseClient:
             page = await session.new_page(url)
             title = await self._read_title(page)
             content = await self._read_body_text(page)
+            raw_links = await self._read_links(page) if "google.com/search" in url else []
+            metadata = {"timeout_seconds": self.default_timeout_seconds}
+            if raw_links:
+                metadata["raw_links"] = raw_links
             return BrowserPage(
                 url=url,
                 title=title,
                 content=content,
                 source="browser-use",
-                metadata={"timeout_seconds": self.default_timeout_seconds},
+                metadata=metadata,
             )
         except Exception as exc:
             raise BrowserConfigurationError(
@@ -168,6 +189,20 @@ class BrowserUseClient:
                 )
             )
         return ""
+
+    async def _read_links(self, page: Any) -> list[str]:
+        if not hasattr(page, "evaluate"):
+            return []
+        try:
+            links = await self._call(
+                page.evaluate,
+                "() => Array.from(document.querySelectorAll('a[href]')).map(a => a.href)",
+            )
+        except Exception:
+            return []
+        if not isinstance(links, list):
+            return []
+        return [str(link) for link in links if str(link).strip()]
 
     async def _call(self, func: Any, *args: Any) -> Any:
         result = func(*args)

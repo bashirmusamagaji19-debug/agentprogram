@@ -2,7 +2,7 @@
 
 ## 一句话介绍
 
-这是一个面向 AI 工程 / AI 应用实习的 Web 自动任务 Agent。系统可以自动发现 AI 实习岗位，抽取结构化 JD，验证岗位有效性，结合用户技能和简历文本生成匹配分析，并输出 Markdown 报告、本地 HTML Dashboard、行动计划、输入轨迹和 20 任务评测报告；抽取层已提供可替换的 deterministic LLM demo 边界和 DeepSeek/Qwen OpenAI-compatible provider 边界。
+这是一个面向 AI 工程 / AI 应用实习的 Web 自动任务 Agent。系统通过 Hybrid Decision Agent 动态选择搜索、浏览、文本/视觉抽取、验证、匹配和持久化工具；可选 LLM 规划器负责语义判断，确定性策略负责安全、重试、预算和 fallback，并输出 JSON、Markdown、HTML 决策轨迹与版本化评测证据。
 
 ## 项目背景
 
@@ -14,6 +14,8 @@
 
 - Web 任务执行边界：通过 `BrowserClient` 抽象隔离 fake browser 和真实 `browser-use` session adapter。
 - Agent 工作流：将任务拆成规划、浏览、抽取、验证、匹配、保存和报告生成，并提供 sequential / LangGraph 两种编排模式、LangGraph 节点路径和 Agent 执行轨迹。
+- Hybrid 决策：LLM 只提交白名单内的结构化 `AgentDecision`，策略层强制执行步数预算、URL 重试上限和终止条件。
+- 动态恢复：页面失败后重试或换 URL；文本低置信度或 verifier 拒绝后转视觉抽取；规划器异常时走确定性 fallback。
 - 结构化信息抽取：从页面内容中抽取岗位标题、公司、地点、技能、职责、发布时间和链接，并提供可注入 LLM 风格抽取器 demo 与 DeepSeek/Qwen provider。
 - 岗位有效性验证：根据置信度、JD 完整性、关键词相关性和重复规则过滤岗位。
 - 简历匹配分析：根据用户技能标签和简历文本计算匹配分数、缺失技能、优先级和建议动作。
@@ -26,15 +28,14 @@
 
 ```mermaid
 flowchart LR
-    A["UserProfile<br/>关键词 / 地点 / 技能 / 简历文本"] --> B["Planner<br/>生成搜索查询"]
-    B --> C["BrowserClient<br/>FakeBrowser / BrowserUse adapter"]
-    C --> D["PageExtractor<br/>页面到 JobPosting"]
-    D --> E["JobVerifier<br/>完整性 / 相关性 / 去重"]
-    E --> F["JobMatcher<br/>匹配分数 / 缺失技能 / 优先级"]
-    F --> G["JobRepository<br/>SQLite 持久化"]
-    F --> H["MarkdownReporter<br/>报告输出"]
-    F --> I["HtmlDashboard<br/>本地可视化"]
-    H --> J["EvaluationRunner<br/>20 任务评测"]
+    A["UserProfile + AgentBudget"] --> B["decide<br/>LLM planner / policy"]
+    B --> C["execute_tool<br/>8 typed tools"]
+    C --> D["observe<br/>ToolObservation"]
+    D --> E{"guard<br/>terminal?"}
+    E -->|continue| B
+    E -->|finish| F["trace + metrics + artifacts"]
+    P["Deterministic policy<br/>safety / retry / fallback"] --> B
+    P --> E
 ```
 
 ## 模块职责
@@ -53,6 +54,12 @@ flowchart LR
 | `dashboard.py` | 输出静态 HTML Dashboard | 面试演示更直观，不依赖前端服务 |
 | `evaluation.py` | 运行 20 任务评测集 | 用指标证明 Agent 工作流稳定性 |
 | `workflow.py` | 串联完整 Agent 流程 | 展示任务编排、状态流和模块解耦 |
+| `agent_models.py` | 定义决策、观察、预算、指标和状态契约 | Pydantic 验证阻止未知动作和无类型失败 |
+| `agent_policy.py` | 确定性安全与恢复策略 | 规则拥有重试、预算、fallback 和终止控制权 |
+| `agent_tools.py` | 将既有能力包装成 8 个类型化工具 | 外部异常统一转成 `ToolObservation` |
+| `agent_runtime.py` | LangGraph 条件决策循环 | 根据观察动态路由，而不是固定顺序链 |
+| `agent_planner.py` | DeepSeek/Qwen 结构化规划器 | 只发送紧凑状态，不发送简历正文或完整页面 |
+| `agent_evaluation.py` | 10 场景 Agent 专项评测 | 分离完成率、终止率、恢复率和字段准确率 |
 
 ## Agent 工作流
 
@@ -72,12 +79,26 @@ flowchart LR
 
 | 指标 | 结果 |
 |---|---:|
-| 自动化测试 | ~160 passed |
+| Hybrid Agent 聚焦测试（本机） | 44 passed |
 | 评测任务数 | 20 |
 | 完成任务数 | 20 |
 | 任务成功率 | 1.00 |
 | 有效岗位总数 | 40 |
 | 平均访问页面数 | 2.00 |
+
+### Hybrid Agent 确定性评测（2026-07-29）
+
+版本 `hybrid-agent-deterministic-v1` 使用 10 个合成、确定性故障场景，不调用外部 API。它验证编排与恢复行为，不代表真实网页泛化效果。
+
+| 指标 | 结果 | 定义 |
+|---|---:|---|
+| 业务目标完成率 | 8/10 (80%) | 终止原因为 `target_reached` |
+| 循环终止率 | 10/10 (100%) | 状态不再是 `running` |
+| 工具成功率 | 88.46% | 成功工具调用 / 全部工具调用 |
+| 恢复成功率 | 50% | 恢复后成功调用 / 恢复尝试；包含预期失败场景 |
+| 综合字段准确率 | 95.83% | 仅对带显式 ground truth 的 fixture 字段计算 |
+
+完整逐场景动作序列见 `docs/results/hybrid-agent-benchmark.md`。历史 8 页真实站点评测继续作为 provider 抽取完成率证据，不能与此处字段准确率混用。
 
 ### 真实站点 LLM 抽取器对比评测（8 个真实招聘 URL，覆盖 4 家公司）
 
@@ -167,13 +188,11 @@ $env:DASHSCOPE_API_KEY="..."
 
 ## 简历写法
 
-推荐写法：
+推荐拆成三条：
 
-> 基于 Python 构建 Web 自动任务 Agent，实现 AI 实习岗位发现、指定 JD 打开、结构化 JD 抽取、岗位有效性验证、简历匹配分析、行动计划生成、SQLite 持久化和报告生成。设计 `BrowserClient` 抽象隔离 `browser-use` session adapter 与 deterministic fake browser，并将工作流拆分为 Planner、Browser、Extractor、Verifier、Matcher、Reporter、Dashboard 和 Evaluation 模块；提供 LangGraph 节点编排路径，并为低置信度页面提供 deterministic LLM demo 和 DeepSeek/Qwen OpenAI-compatible 抽取边界。构建 20 任务评测集，统计任务成功率、有效岗位数和平均访问页面数；当前 demo 评测中 20/20 任务完成，任务成功率 1.00。
-
-如果简历空间更短：
-
-> 构建 Web 自动任务 Agent，完成 AI 实习岗位搜索、指定 JD 打开、JD 抽取、匹配分析和可视化报告；设计可测试的浏览器执行边界、20 任务评测集、公开招聘页 fixture、seed URL 评测和真实浏览器 smoke 评测，输出任务成功率、有效岗位数、平均访问页面数、失败原因分布和 URL 级错误明细等指标。
+- 基于 Python、LangGraph 与 Pydantic 构建 Hybrid Decision Agent，将岗位搜索、页面访问、文本/视觉抽取、验证、匹配和持久化封装为 8 个类型化工具，实现 `decide -> execute -> observe -> guard` 条件决策循环。
+- 设计“LLM 语义规划 + 确定性安全策略”架构，支持 DeepSeek/Qwen 结构化决策；以代码强制执行步数预算、URL 重试上限、未知动作拒绝和 fallback，并实现页面失败换链与 verifier 拒绝后的视觉恢复。
+- 构建 10 场景确定性 Agent benchmark 与 JSON/Markdown/HTML 可观测轨迹，记录工具成功率、恢复率、fallback、延迟和终止原因；当前 fixture 结果为 8/10 目标完成、10/10 正常终止。
 
 ## 面试讲述重点
 
@@ -183,7 +202,7 @@ $env:DASHSCOPE_API_KEY="..."
 
 ### 项目里哪里体现 Agent？
 
-Agent 不只是调用 LLM，而是把开放任务拆成可恢复、可观测的状态流。本项目中，搜索计划、页面读取、信息抽取、结果验证、匹配分析、报告生成和评测统计都是独立节点，每个节点都有明确的数据契约；同一组节点可以 sequential 方式运行，也可以通过 LangGraph 编排运行，报告和 JSON 会记录编排模式与每个节点的执行摘要，方便面试现场解释工作流不是黑盒。
+Agent 不只是调用 LLM，而是根据环境观察动态决定下一步。这里每次决策都是经过 Pydantic 校验的 `AgentDecision`，工具返回统一的 `ToolObservation`；LangGraph 会根据失败类型、抽取置信度、verifier 结果和剩余预算回到 `decide` 或结束。LLM 可以提高语义选择能力，但没有权限绕过工具白名单、重试上限和终止规则。
 
 ### 项目里哪里体现工程能力？
 
@@ -193,7 +212,7 @@ Agent 不只是调用 LLM，而是把开放任务拆成可恢复、可观测的�
 - SQLite 保存运行结果，便于复盘和评测。
 - CLI、Markdown、HTML Dashboard 和评测报告构成完整可演示闭环。
 - Markdown 报告会沉淀面试讲述要点，把 BrowserClient 边界、编排模式、Agent 执行轨迹和评测闭环直接转成可讲项目叙事。
-- 144 个自动化测试覆盖模型、浏览器边界、规则抽取、LLM demo 抽取边界、LLM demo 对比评测、验证、匹配、行动计划、行动缺口 CLI 摘要、简历项目改写要点、7 天执行节奏、技能缺口汇总、简历输入、seed URL、JSON 导出、Agent 执行轨迹、编排模式记录、面试讲述要点、评测 JSON 导出、LLM demo 评测路径、运行历史、CLI 版本入口、环境自检、虚拟环境状态检查、fixture URL 列表、demo script、存储、报告、报告产物相对链接、Dashboard 交互、Dashboard 产物链接与相对路径、Dashboard 执行轨迹、输入轨迹、workflow、LangGraph 编排、图导出、公开招聘页 fixture、失败分类和 URL 级错误明细。
+- 本轮 44 个 Hybrid Agent 聚焦测试覆盖模型契约、策略、工具、运行时、规划器授权、搜索发现、CLI trace 和评测；GitHub Actions 在 Python 3.11 执行全量测试与覆盖率门禁。
 
 ## 当前限制
 

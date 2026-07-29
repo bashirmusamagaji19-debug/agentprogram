@@ -1,6 +1,6 @@
 # Web 自动任务 Agent
 
-这是一个面向 AI 工程 / AI 应用实习的 Agent 项目。第一版目标是基于 `browser-use` 和 `LangGraph` 构建 Web 自动任务工作流，自动发现 AI 实习岗位，抽取结构化 JD，验证结果并生成 Markdown 报告。
+这是一个面向 AI 工程 / AI 应用实习的 Agent 项目。当前版本在 `browser-use` 与 `LangGraph` 工作流之上增加了 Hybrid Decision Agent：可选 DeepSeek/Qwen 结构化规划器负责语义选择，确定性策略负责安全、预算、重试和降级；Agent 根据观察结果动态选择工具，并输出可审计的决策与恢复轨迹。
 
 ## MVP 能力
 
@@ -15,6 +15,10 @@
 - 低置信度页面可通过可替换的 LLM 抽取边界恢复结构化字段，支持 deterministic demo、DeepSeek 和 Qwen OpenAI-compatible provider。
 - 运行内置 20 任务评测集，统计任务成功率、有效岗位数、平均访问页面数和失败原因分布。
 - 用测试中的 fake browser 保证端到端流程可复现。
+- Hybrid Agent 提供 8 个类型化工具：搜索、打开页面、文本抽取、视觉抽取、验证、匹配、保存和结束。
+- LangGraph 使用 `decide -> execute_tool -> observe -> guard` 条件循环；步数预算、URL 重试上限和终止条件由代码策略强制执行。
+- 搜索结果会解析为真实候选 JD 链接，不再把 Google 搜索页误当作岗位页。
+- 规划器输出无效、页面打开失败、低置信度抽取或 verifier 拒绝时，自动走确定性 fallback、换 URL 或 text-to-visual 恢复。
 
 ## 本地运行
 
@@ -24,6 +28,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check src\web_task_agent\agent_*.py src\web_task_agent\search_discovery.py tests\test_agent_*.py tests\test_search_discovery.py
 .\.venv\Scripts\web-task-agent.exe --version
 .\.venv\Scripts\web-task-agent.exe --doctor
 .\.venv\Scripts\web-task-agent.exe --list-fixture-urls
@@ -56,6 +61,10 @@ $env:DEEPSEEK_API_KEY="..."
 .\.venv\Scripts\web-task-agent.exe --evaluate --fixture-sites --dashboard
 .\.venv\Scripts\web-task-agent.exe --evaluate --real-smoke
 .\.venv\Scripts\web-task-agent.exe --export-graph
+# 稳定的 Hybrid Agent 演示（无 API key）
+.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" --demo --hybrid-agent --target-count 1 --agent-max-steps 8 --db-path ":memory:" --json-output outputs\hybrid-agent-demo.json
+# 生成版本化的 10 场景评测证据
+.\.venv\Scripts\python.exe -m web_task_agent.agent_evaluation --output-dir docs\results
 ```
 
 如果 Windows PowerShell 显示中文乱码，请使用 UTF-8 终端或执行 chcp 65001 后再查看。
@@ -92,7 +101,18 @@ $env:DEEPSEEK_API_KEY="..."
 
 使用 `--compare-llm-extractor` 可以对比同一批 seed URL 在规则抽取、deterministic LLM demo 和可选真实 provider 下的评测表现；默认 seed 的当前 baseline 为 `0/1`，LLM demo 为 `1/1`。传入多个 `--seed-url` 后会逐个 URL 生成评测任务，并写出 `evaluations/llm-extractor-comparison.md` 和可选 JSON。
 
-使用 `--real-site-sample` 可以切换到一组固定的真实招聘页样本，便于做更接近真实页面的 `--evaluate` 和 `--compare-llm-extractor` 对比；该模式保留真实 URL，但内容采集走 HTTP loader，默认保留规则抽取、deterministic LLM demo 和可选 DeepSeek/Qwen provider 的同批对比。当前 8 样本正式 benchmark 已验证 DeepSeek 88% 完成率，并会把 verifier 过滤原因写回报告和 JSON。
+使用 `--real-site-sample` 可以切换到一组固定的真实招聘页样本，便于做更接近真实页面的 `--evaluate` 和 `--compare-llm-extractor` 对比；该模式保留真实 URL，但内容采集走 HTTP loader，默认保留规则抽取、deterministic LLM demo 和可选 DeepSeek/Qwen provider 的同批对比。历史 2026-06-22 的 8 页固定样本结果为 DeepSeek 7/8 任务完成（88%）；这是完成率而非字段准确率，真实页面漂移后必须重新运行。
+
+## Hybrid Decision Agent
+
+Hybrid 模式不是让 LLM 直接控制浏览器。LLM 只能从白名单动作中提出结构化决策；`DeterministicAgentPolicy` 对目标数量、剩余步数、每 URL 重试次数和终止原因拥有最终控制权。未配置 API key 时仍可完整运行确定性策略；配置 `--agent-planner-provider deepseek|qwen` 后才启用语义规划。
+
+两条可演示的恢复链：
+
+1. `open_page` 失败后在重试预算内重试，耗尽后选择下一个候选 URL。
+2. 文本抽取低置信度或 verifier 拒绝后，若视觉工具可用则转向 `extract_visual`；否则跳过当前页面。
+
+公开证据位于 `docs/results/hybrid-agent-benchmark.md`。`hybrid-agent-deterministic-v1` 包含 10 个合成确定性场景：业务目标完成率 80%、循环终止率 100%、工具成功率 88.46%。字段准确率只针对带显式 ground truth 的 fixture 计算，不代表真实网站泛化能力。
 
 项目叙述和 benchmark 归纳见 `docs/interview-benchmark-story.md`。
 
@@ -101,6 +121,63 @@ $env:DEEPSEEK_API_KEY="..."
 ## 真实 browser-use adapter 状态
 
 非 `--demo` 模式会走 `BrowserUseClient`，通过 `browser_use.BrowserSession` 打开搜索页并读取页面标题和正文。这个路径用于下一阶段真实网页接入；当前推荐演示和评测仍使用 `--demo`，因为它不依赖登录、验证码、反爬策略或外部网页结构变化。
+
+## Visual extractor demo
+
+视觉抽取路径是一个实验性的 seed URL 模式，用截图/VLM 风格的确定性 fixture 替代文本抽取，用于验证 visual-web-agent 思路在 Agent 工作流中的表现，不改变默认文本抽取路径。
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://example.com/jobs/visual-ai-intern" --demo --target-count 1 --visual-extractor-demo --json-output outputs\visual-demo.json
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/visual-ai-intern" --visual-extractor-demo --json-output evaluations\visual-comparison.json
+```
+
+当前范围：
+
+- 使用确定性 visual fixture 做可复现的本地验证。
+- 产出标准 `JobPosting`，verifier、matcher、reports、dashboards 和 JSON 输出不受影响。
+- 视觉抽取失败时回退到文本抽取，不破坏现有闭环。
+
+### Real visual provider（需安装 sibling package）
+
+真实 Qwen-VL 视觉抽取链路位于同级 `visual-web-agent` 仓库。先安装到同一个 virtualenv：
+
+```powershell
+python -m pip install -e "..\visual-web-agent"
+```
+
+**Provider smoke 命令**（需要真实、可公开访问的招聘 URL）：
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --seed-url "https://job-boards.greenhouse.io/anthropic/jobs/5116927008" --target-count 1 --visual-extractor-provider qwen-vl --json-output outputs\visual-provider.json
+```
+
+Provider smoke 如果 `Valid jobs: 0`，会在写入诊断信息和 JSON 后返回退出码 `2`，防止空抽取看起来像验证通过。
+
+**对比评测命令**（comparison 始终返回退出码 `0`，即使某条 provider 行失败——对比评测是做横向测量）：
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --compare-llm-extractor --seed-url "https://example.com/jobs/visual-ai-intern" --visual-extractor-provider qwen-vl --json-output evaluations\visual-provider-comparison.json
+```
+
+真实 provider 自带 Playwright 浏览器，workflow 不会对 seed URL 重复获取——`_browser_node` 检测到 `uses_own_browser` 后跳过 workflow browser，直接创建占位 `BrowserPage`，由 provider 自己截图抽取。VLM 调用成功但返回空字段（`Unknown Title`、空 body、零置信度）时，adapter 质量门将其计为抽取失败，不污染 `visual_extraction.successes` 计数。
+
+## Real Site Benchmark V2
+
+`--benchmark-v2` 在真实站点评测目录上运行 provider matrix，是面试展示"不只是 demo"的核心 artifact。
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --benchmark-v2 --benchmark-providers baseline,llm-demo,deepseek --benchmark-limit 8 --benchmark-dashboard --benchmark-explain
+```
+
+产出物：
+
+- `evaluations/benchmark-v2.json`：机器可读的 case catalog 和 provider matrix。
+- `evaluations/benchmark-v2.md`：Markdown 报告（provider 成功率 + 失败分类）。
+- `evaluations/benchmark-v2-explained.md`：中文解释层（一句话结论、provider 解读、失败分析、面试讲法）。面试时用这个。
+- `dashboards/benchmark-v2.html`：本地 HTML 摘要（面试演示用）。
+- `evaluations/<provider>/evaluation-report.md`：每个 provider 的逐任务详情。
+
+当相关 API key 和 `visual-web-agent` sibling package 已配置时，可使用完整 provider 集：`--benchmark-providers baseline,llm-demo,deepseek,qwen,qwen-vl`。真实 URL 可能漂移，失败以 `failure_counts` 记录而非隐藏。
 
 ## 已验证的评测命令
 
