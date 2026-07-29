@@ -16,6 +16,8 @@ from web_task_agent import __version__
 # __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from web_task_agent.action_plan import ActionPlanWriter
+from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
+from web_task_agent.agent_planner import build_configured_agent_planner
 from web_task_agent.benchmark import (
     BenchmarkProviderResult,
     build_real_site_benchmark_v2_cases,
@@ -120,6 +122,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--langgraph",
         action="store_true",
         help="Run the main workflow through LangGraph nodes.",
+    )
+    parser.add_argument(
+        "--hybrid-agent",
+        action="store_true",
+        help="Run the bounded decision/tool/recovery Agent runtime.",
+    )
+    parser.add_argument(
+        "--agent-max-steps",
+        type=int,
+        default=12,
+        help="Maximum non-terminal tool steps for the hybrid Agent.",
+    )
+    parser.add_argument(
+        "--agent-planner-provider",
+        choices=["deepseek", "qwen"],
+        help="Optional structured LLM planner; deterministic policy is the fallback.",
+    )
+    parser.add_argument(
+        "--agent-planner-model",
+        help="Override the hybrid Agent planner model.",
     )
     parser.add_argument(
         "--llm-extractor-demo",
@@ -563,6 +585,33 @@ async def _run(args: argparse.Namespace) -> int:
             resume_text=resume_text,
             seed_urls=args.seed_url,
         )
+        if args.hybrid_agent:
+            planner = None
+            if args.agent_planner_provider:
+                planner = build_configured_agent_planner(
+                    provider=args.agent_planner_provider,
+                    model=args.agent_planner_model,
+                )
+            runtime = build_hybrid_runtime(workflow, planner=planner)
+            agent_state = await workflow.run_with_hybrid_agent(
+                user,
+                runtime=runtime,
+                max_steps=args.agent_max_steps,
+            )
+            artifacts = write_hybrid_artifacts(
+                agent_state,
+                report_dir=args.report_dir,
+                dashboard_dir=args.dashboard_dir,
+                write_dashboard=args.dashboard,
+                json_output=args.json_output,
+            )
+            print("Hybrid Decision Agent: enabled")
+            print(f"Terminal status: {agent_state.terminal_status}")
+            print(f"Terminal reason: {agent_state.terminal_reason}")
+            print(f"Verified jobs: {len(agent_state.verified_jobs)}")
+            for artifact_name, artifact_path in artifacts.items():
+                print(f"{artifact_name.title()} written to: {artifact_path}")
+            return 0 if agent_state.terminal_status == "completed" else 2
         if args.langgraph:
             state = await workflow.run_with_langgraph(user)
         else:
