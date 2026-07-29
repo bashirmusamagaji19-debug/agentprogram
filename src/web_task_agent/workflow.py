@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
@@ -70,6 +70,22 @@ class WebTaskWorkflow:
             visual_available=self.visual_extractor is not None,
         )
         return await runtime.run(state)
+
+    async def start_with_hybrid_agent_hitl(
+        self,
+        user: UserProfile,
+        *,
+        runtime: HybridAgentRuntime,
+        thread_id: str,
+        max_steps: int = 12,
+    ):
+        state = DecisionAgentState(
+            user=user,
+            budget=AgentBudget(max_steps=max_steps),
+            candidate_urls=list(user.seed_urls),
+            visual_available=self.visual_extractor is not None,
+        )
+        return await runtime.start_hitl(state, thread_id=thread_id)
 
     async def run_with_langgraph(
         self,
@@ -264,7 +280,7 @@ class WebTaskWorkflow:
                 if state.jobs
                 else 0.0
             )
-            metrics.finished_at = datetime.now(timezone.utc)
+            metrics.finished_at = datetime.now(UTC)
         self._record_trace(
             state,
             "matcher",

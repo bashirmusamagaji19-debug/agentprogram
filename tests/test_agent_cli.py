@@ -7,6 +7,7 @@ import pytest
 
 from web_task_agent import cli as cli_module
 from web_task_agent.agent_cli import (
+    build_hybrid_runtime,
     hybrid_state_payload,
     render_hybrid_html,
     render_hybrid_markdown,
@@ -73,6 +74,22 @@ def test_parser_accepts_hybrid_agent_flags():
     assert args.agent_max_steps == 9
     assert args.agent_planner_provider == "deepseek"
     assert args.agent_planner_model == "deepseek-chat"
+
+
+def test_build_hybrid_runtime_injects_checkpointer():
+    checkpointer = object()
+    workflow = SimpleNamespace(
+        browser=object(),
+        extractor=object(),
+        matcher=object(),
+        verifier=object(),
+        repository=object(),
+        visual_extractor=None,
+    )
+
+    runtime = build_hybrid_runtime(workflow, checkpointer=checkpointer)
+
+    assert runtime.checkpointer is checkpointer
 
 
 def test_parser_accepts_planner_benchmark_flags():

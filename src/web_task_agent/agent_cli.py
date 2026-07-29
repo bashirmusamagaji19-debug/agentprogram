@@ -21,7 +21,12 @@ from web_task_agent.agent_tools import (
 )
 
 
-def build_hybrid_runtime(workflow, *, planner=None) -> HybridAgentRuntime:
+def build_hybrid_runtime(
+    workflow,
+    *,
+    planner=None,
+    checkpointer=None,
+) -> HybridAgentRuntime:
     tools = [
         SearchJobsTool(workflow.browser),
         OpenPageTool(workflow.browser),
@@ -37,6 +42,7 @@ def build_hybrid_runtime(workflow, *, planner=None) -> HybridAgentRuntime:
         registry=AgentToolRegistry(tools),
         policy=DeterministicAgentPolicy(),
         planner=planner,
+        checkpointer=checkpointer,
     )
 
 

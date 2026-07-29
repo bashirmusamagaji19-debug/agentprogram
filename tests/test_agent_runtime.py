@@ -4,6 +4,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from web_task_agent.agent_approval import (
+    ApprovalDecision,
+    ApprovalOutcome,
+    HitlRunStatus,
+    HitlRuntimeError,
+)
+from web_task_agent.agent_checkpoint import open_sqlite_checkpointer
 from web_task_agent.agent_models import (
     AgentAction,
     AgentBudget,
@@ -26,7 +33,8 @@ from web_task_agent.agent_tools import (
 )
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import BrowserPage, UserProfile
+from web_task_agent.models import BrowserPage, JobPosting, UserProfile
+from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
 
@@ -76,6 +84,52 @@ class ExternalUrlPlanner:
 class InMemoryRepository:
     def save_jobs_once(self, jobs, *, idempotency_key):
         return SimpleNamespace(saved_jobs=len(jobs), reused=False)
+
+
+def _verified_job() -> JobPosting:
+    return JobPosting(
+        title="AI Engineering Intern",
+        company="Example AI",
+        location="Remote",
+        source="fixture",
+        url="https://example.com/jobs/1",
+        requirements="Python, LangGraph",
+        responsibilities="Build AI agents",
+        skills=["Python", "LangGraph"],
+        confidence=0.9,
+    )
+
+
+def _target_ready_state() -> DecisionAgentState:
+    return DecisionAgentState(
+        user=UserProfile(
+            keyword="AI intern",
+            target_count=1,
+            skills=["Python", "LangGraph"],
+        ),
+        budget=AgentBudget(max_steps=6),
+        verified_jobs=[_verified_job()],
+    )
+
+
+def _hitl_runtime(repository, checkpointer) -> HybridAgentRuntime:
+    return HybridAgentRuntime(
+        registry=AgentToolRegistry(
+            [
+                ScoreMatchTool(JobMatcher()),
+                SaveResultsTool(repository),
+                FinishTool(),
+            ]
+        ),
+        policy=DeterministicAgentPolicy(),
+        checkpointer=checkpointer,
+    )
+
+
+def _initialized_repository(path) -> JobRepository:
+    repository = JobRepository(path)
+    repository.initialize()
+    return repository
 
 
 def _registry(browser) -> AgentToolRegistry:
@@ -246,12 +300,150 @@ def test_langgraph_contains_decision_observation_loop_nodes():
     }.issubset(node_ids)
 
 
+@pytest.mark.asyncio
+async def test_hitl_pauses_before_save_without_side_effect(tmp_path):
+    checkpoint_path = tmp_path / "checkpoints.sqlite"
+    repository = _initialized_repository(tmp_path / "jobs.sqlite")
+
+    async with open_sqlite_checkpointer(checkpoint_path) as saver:
+        result = await _hitl_runtime(repository, saver).start_hitl(
+            _target_ready_state(),
+            thread_id="thread-pause",
+        )
+
+    assert result.status is HitlRunStatus.AWAITING_APPROVAL
+    assert result.approval is not None
+    assert result.approval.action == "save_results"
+    assert result.state.budget.consumed_steps == 1
+    assert [item.action for item in result.state.decision_history] == [
+        AgentAction.SCORE_MATCH,
+        AgentAction.SAVE_RESULTS,
+    ]
+    assert repository.list_jobs() == []
+
+
+@pytest.mark.asyncio
+async def test_hitl_approve_resumes_from_another_runtime_once(tmp_path):
+    checkpoint_path = tmp_path / "checkpoints.sqlite"
+    repository = _initialized_repository(tmp_path / "jobs.sqlite")
+
+    async with open_sqlite_checkpointer(checkpoint_path) as saver:
+        paused = await _hitl_runtime(repository, saver).start_hitl(
+            _target_ready_state(),
+            thread_id="thread-approve",
+        )
+
+    async with open_sqlite_checkpointer(checkpoint_path) as saver:
+        completed = await _hitl_runtime(repository, saver).resume_hitl(
+            thread_id="thread-approve",
+            decision=ApprovalDecision(
+                approval_id=paused.approval.approval_id,
+                outcome=ApprovalOutcome.APPROVE,
+            ),
+        )
+
+    assert completed.status is HitlRunStatus.COMPLETED
+    assert completed.state.terminal_reason == "target_reached"
+    assert len(repository.list_jobs()) == 1
+    save_observation = next(
+        item
+        for item in completed.state.observation_history
+        if item.tool_name is AgentAction.SAVE_RESULTS
+    )
+    assert save_observation.payload == {"saved_jobs": 1, "reused": False}
+    assert [event.event for event in completed.state.approval_audit] == [
+        "requested",
+        "resolved",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_hitl_reject_never_executes_save(tmp_path):
+    checkpoint_path = tmp_path / "checkpoints.sqlite"
+    repository = _initialized_repository(tmp_path / "jobs.sqlite")
+
+    async with open_sqlite_checkpointer(checkpoint_path) as saver:
+        runtime = _hitl_runtime(repository, saver)
+        paused = await runtime.start_hitl(
+            _target_ready_state(),
+            thread_id="thread-reject",
+        )
+        rejected = await runtime.resume_hitl(
+            thread_id="thread-reject",
+            decision=ApprovalDecision(
+                approval_id=paused.approval.approval_id,
+                outcome=ApprovalOutcome.REJECT,
+                note="Do not persist",
+            ),
+        )
+
+    assert rejected.status is HitlRunStatus.REJECTED
+    assert rejected.state.terminal_status == "rejected"
+    assert rejected.state.terminal_reason == "human_denied"
+    assert repository.list_jobs() == []
+    assert all(
+        item.tool_name is not AgentAction.SAVE_RESULTS
+        for item in rejected.state.observation_history
+    )
+
+
+@pytest.mark.asyncio
+async def test_hitl_rejects_missing_mismatched_and_duplicate_resume(tmp_path):
+    checkpoint_path = tmp_path / "checkpoints.sqlite"
+    repository = _initialized_repository(tmp_path / "jobs.sqlite")
+
+    async with open_sqlite_checkpointer(checkpoint_path) as saver:
+        runtime = _hitl_runtime(repository, saver)
+        with pytest.raises(HitlRuntimeError, match="was not found"):
+            await runtime.resume_hitl(
+                thread_id="missing",
+                decision=ApprovalDecision(
+                    approval_id="approval-missing",
+                    outcome=ApprovalOutcome.APPROVE,
+                ),
+            )
+
+        paused = await runtime.start_hitl(
+            _target_ready_state(),
+            thread_id="thread-errors",
+        )
+        with pytest.raises(HitlRuntimeError, match="does not match"):
+            await runtime.resume_hitl(
+                thread_id="thread-errors",
+                decision=ApprovalDecision(
+                    approval_id="approval-wrong",
+                    outcome=ApprovalOutcome.APPROVE,
+                ),
+            )
+
+        await runtime.resume_hitl(
+            thread_id="thread-errors",
+            decision=ApprovalDecision(
+                approval_id=paused.approval.approval_id,
+                outcome=ApprovalOutcome.APPROVE,
+            ),
+        )
+        with pytest.raises(HitlRuntimeError, match="no pending approval"):
+            await runtime.resume_hitl(
+                thread_id="thread-errors",
+                decision=ApprovalDecision(
+                    approval_id=paused.approval.approval_id,
+                    outcome=ApprovalOutcome.APPROVE,
+                ),
+            )
+
+
 class CapturingRuntime:
     def __init__(self):
         self.state = None
 
     async def run(self, state):
         self.state = state
+        return state
+
+    async def start_hitl(self, state, *, thread_id):
+        self.state = state
+        self.thread_id = thread_id
         return state
 
 
@@ -282,3 +474,32 @@ async def test_workflow_exposes_hybrid_agent_entry_without_changing_baseline():
     assert result.candidate_urls == user.seed_urls
     assert result.budget.max_steps == 7
     assert result.visual_available is True
+
+
+@pytest.mark.asyncio
+async def test_workflow_exposes_hitl_hybrid_agent_entry():
+    workflow = WebTaskWorkflow(
+        browser=object(),
+        extractor=object(),
+        matcher=object(),
+        verifier=object(),
+        repository=object(),
+        reporter=object(),
+    )
+    runtime = CapturingRuntime()
+    user = UserProfile(
+        keyword="AI intern",
+        seed_urls=["https://example.com/jobs/1"],
+    )
+
+    result = await workflow.start_with_hybrid_agent_hitl(
+        user,
+        runtime=runtime,
+        thread_id="thread-1",
+        max_steps=9,
+    )
+
+    assert result is runtime.state
+    assert runtime.thread_id == "thread-1"
+    assert result.candidate_urls == user.seed_urls
+    assert result.budget.max_steps == 9
