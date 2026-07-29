@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +24,7 @@ class JobRepository:
 
     def initialize(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -66,7 +68,7 @@ class JobRepository:
             )
 
     def save_jobs(self, jobs: list[JobPosting]) -> None:
-        with self._connect() as conn:
+        with self._connection() as conn:
             self._save_jobs_with_connection(conn, jobs)
 
     def save_jobs_once(
@@ -78,7 +80,7 @@ class JobRepository:
         key = idempotency_key.strip()
         if not key:
             raise ValueError("idempotency_key must not be blank")
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
             existing = conn.execute(
                 "SELECT saved_jobs FROM save_receipts WHERE idempotency_key = ?",
@@ -97,7 +99,7 @@ class JobRepository:
         return SaveReceipt(key, len(jobs), False)
 
     def list_jobs(self) -> list[JobPosting]:
-        with self._connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(
                 """
                 SELECT title, company, location, source, url, requirements,
@@ -124,7 +126,7 @@ class JobRepository:
         ]
 
     def save_run_metrics(self, metrics: RunMetrics) -> None:
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO run_metrics (
@@ -149,7 +151,7 @@ class JobRepository:
             )
 
     def get_run_metrics(self, run_id: str) -> RunMetrics | None:
-        with self._connect() as conn:
+        with self._connection() as conn:
             row = conn.execute(
                 "SELECT * FROM run_metrics WHERE run_id = ?",
                 (run_id,),
@@ -160,7 +162,7 @@ class JobRepository:
         return self._run_metrics_from_row(row)
 
     def list_run_metrics(self, limit: int = 10) -> list[RunMetrics]:
-        with self._connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(
                 """
                 SELECT * FROM run_metrics
@@ -223,3 +225,12 @@ class JobRepository:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        conn = self._connect()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()

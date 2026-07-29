@@ -77,6 +77,18 @@ def test_save_jobs_once_rejects_blank_idempotency_key(tmp_path):
         raise AssertionError("blank idempotency key was accepted")
 
 
+def test_repository_releases_sqlite_file_after_each_operation(tmp_path):
+    db_path = tmp_path / "agent.db"
+    repo = JobRepository(db_path)
+    repo.initialize()
+    repo.save_jobs_once([make_job()], idempotency_key="approval-1")
+    repo.list_jobs()
+
+    db_path.unlink()
+
+    assert not db_path.exists()
+
+
 def test_repository_saves_run_metrics(tmp_path):
     repo = JobRepository(tmp_path / "agent.db")
     repo.initialize()
