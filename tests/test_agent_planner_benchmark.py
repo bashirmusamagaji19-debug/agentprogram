@@ -183,6 +183,7 @@ async def test_run_planner_benchmark_executes_identical_cases_for_each_provider(
     assert matrix.providers[0].planner_calls == 0
     assert matrix.providers[1].planner_calls > 0
     assert len(created) == 1
+    assert not (tmp_path / "_runs").exists()
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from time import perf_counter
 
 from pydantic import BaseModel, Field
@@ -286,6 +287,7 @@ async def run_planner_benchmark(
     planner_factory: PlannerFactory | None = None,
 ) -> PlannerBenchmarkMatrix:
     destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
     factory = planner_factory or (
         lambda provider: build_configured_agent_planner(provider=provider)
     )
@@ -333,37 +335,41 @@ async def _run_scenario(
     planner,
     output_dir: Path,
 ) -> PlannerBenchmarkCaseResult:
-    run_dir = output_dir / "_runs" / provider / scenario.case_id
-    repository = JobRepository(run_dir / "agent.db")
-    repository.initialize()
-    workflow = WebTaskWorkflow(
-        browser=_ScenarioBrowser(scenario),
-        extractor=PageExtractor(),
-        matcher=JobMatcher(),
-        verifier=JobVerifier(),
-        repository=repository,
-        reporter=MarkdownReporter(run_dir / "reports"),
-    )
-    runtime = build_hybrid_runtime(workflow, planner=planner)
-    user = UserProfile(
-        keyword=scenario.keyword,
-        location=scenario.location,
-        target_count=scenario.target_count,
-        skills=["Python", "LangGraph"],
-        seed_urls=scenario.seed_urls,
-    )
-    started = perf_counter()
-    state = await workflow.run_with_hybrid_agent(
-        user,
-        runtime=runtime,
-        max_steps=scenario.max_steps,
-    )
-    return PlannerBenchmarkCaseResult.from_state(
-        case_id=scenario.case_id,
-        scenario=scenario.scenario,
-        state=state,
-        runtime_latency_ms=(perf_counter() - started) * 1000,
-    )
+    with TemporaryDirectory(
+        prefix=f"planner-benchmark-{provider}-{scenario.case_id}-",
+        dir=output_dir,
+    ) as temporary_dir:
+        run_dir = Path(temporary_dir)
+        repository = JobRepository(run_dir / "agent.db")
+        repository.initialize()
+        workflow = WebTaskWorkflow(
+            browser=_ScenarioBrowser(scenario),
+            extractor=PageExtractor(),
+            matcher=JobMatcher(),
+            verifier=JobVerifier(),
+            repository=repository,
+            reporter=MarkdownReporter(run_dir / "reports"),
+        )
+        runtime = build_hybrid_runtime(workflow, planner=planner)
+        user = UserProfile(
+            keyword=scenario.keyword,
+            location=scenario.location,
+            target_count=scenario.target_count,
+            skills=["Python", "LangGraph"],
+            seed_urls=scenario.seed_urls,
+        )
+        started = perf_counter()
+        state = await workflow.run_with_hybrid_agent(
+            user,
+            runtime=runtime,
+            max_steps=scenario.max_steps,
+        )
+        return PlannerBenchmarkCaseResult.from_state(
+            case_id=scenario.case_id,
+            scenario=scenario.scenario,
+            state=state,
+            runtime_latency_ms=(perf_counter() - started) * 1000,
+        )
 
 
 def _skipped_provider(provider: str, error: str) -> PlannerBenchmarkProviderResult:
