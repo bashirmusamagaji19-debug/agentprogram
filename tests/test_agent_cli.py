@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 
 from web_task_agent import cli as cli_module
@@ -72,6 +75,22 @@ def test_parser_accepts_hybrid_agent_flags():
     assert args.agent_planner_model == "deepseek-chat"
 
 
+def test_parser_accepts_planner_benchmark_flags():
+    args = build_parser().parse_args(
+        [
+            "--agent-planner-benchmark",
+            "--agent-planner-benchmark-providers",
+            "deterministic,deepseek",
+            "--agent-planner-benchmark-output-dir",
+            "outputs/planner",
+        ]
+    )
+
+    assert args.agent_planner_benchmark is True
+    assert args.agent_planner_benchmark_providers == "deterministic,deepseek"
+    assert args.agent_planner_benchmark_output_dir == "outputs/planner"
+
+
 def test_hybrid_payload_contains_decisions_observations_metrics_and_budget():
     payload = hybrid_state_payload(_completed_state())
 
@@ -131,3 +150,66 @@ async def test_cli_runs_deterministic_hybrid_agent_demo(monkeypatch):
     assert exit_code == 0
     assert captured["state"].terminal_status == "completed"
     assert captured["state"].decision_history
+
+
+@pytest.mark.asyncio
+async def test_cli_runs_planner_benchmark_and_writes_artifacts(monkeypatch, capsys):
+    captured = {}
+
+    async def fake_run_planner_benchmark(*, providers, output_dir):
+        captured["providers"] = providers
+        captured["output_dir"] = output_dir
+        return SimpleNamespace(
+            providers=[
+                SimpleNamespace(
+                    provider="deterministic",
+                    status="executed",
+                    completed_cases=4,
+                    total_cases=5,
+                    terminated_cases=5,
+                    fallback_rate=0.0,
+                    total_tokens=0,
+                    error="",
+                )
+            ]
+        )
+
+    def fake_write_artifacts(matrix, output_dir):
+        captured["matrix"] = matrix
+        captured["artifact_dir"] = output_dir
+        return {
+            "json": Path(output_dir) / "planner-benchmark.json",
+            "markdown": Path(output_dir) / "planner-benchmark.md",
+        }
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_planner_benchmark",
+        fake_run_planner_benchmark,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "write_planner_benchmark_artifacts",
+        fake_write_artifacts,
+    )
+    args = build_parser().parse_args(
+        [
+            "--agent-planner-benchmark",
+            "--agent-planner-benchmark-providers",
+            "deterministic,deepseek",
+            "--agent-planner-benchmark-output-dir",
+            "outputs/planner",
+        ]
+    )
+
+    exit_code = await cli_module._run(args)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert captured["providers"] == ["deterministic", "deepseek"]
+    assert captured["output_dir"] == "outputs/planner"
+    assert captured["artifact_dir"] == "outputs/planner"
+    assert "Planner benchmark" in output
+    assert "deterministic: executed" in output
+    assert "4/5" in output
+    assert "planner-benchmark.json" in output
