@@ -3,9 +3,11 @@ from __future__ import annotations
 from enum import StrEnum
 from math import isfinite
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from web_task_agent.agent_approval import ApprovalAuditEvent, ApprovalRequest
 from web_task_agent.models import BrowserPage, JobPosting, MatchResult, UserProfile
 
 
@@ -128,6 +130,7 @@ class AgentMetrics(BaseModel):
 
 class DecisionAgentState(BaseModel):
     user: UserProfile
+    execution_id: str = Field(default_factory=lambda: uuid4().hex)
     budget: AgentBudget = Field(default_factory=AgentBudget)
     candidate_urls: list[str] = Field(default_factory=list)
     visited_urls: set[str] = Field(default_factory=set)
@@ -145,5 +148,9 @@ class DecisionAgentState(BaseModel):
     retry_counts: dict[str, int] = Field(default_factory=dict)
     metrics: AgentMetrics = Field(default_factory=AgentMetrics)
     recovery_in_progress: bool = False
+    hitl_enabled: bool = False
+    thread_id: str = ""
+    pending_approval: ApprovalRequest | None = None
+    approval_audit: list[ApprovalAuditEvent] = Field(default_factory=list)
     terminal_status: str = "running"
     terminal_reason: str = ""

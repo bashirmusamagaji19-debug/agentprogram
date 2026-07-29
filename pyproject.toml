@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 dependencies = [
   "browser-use>=0.1.40",
   "langgraph>=0.2.60",
+  "langgraph-checkpoint-sqlite>=3.1,<4",
   "pydantic>=2.7",
   "python-dotenv>=1.0",
 ]
