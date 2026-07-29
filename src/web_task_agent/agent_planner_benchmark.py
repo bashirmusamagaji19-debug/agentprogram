@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 from time import perf_counter
@@ -391,3 +392,99 @@ def _skipped_provider(provider: str, error: str) -> PlannerBenchmarkProviderResu
         completion_tokens=0,
         total_tokens=0,
     )
+
+
+def render_planner_benchmark_markdown(matrix: PlannerBenchmarkMatrix) -> str:
+    lines = [
+        "# 真实 Planner 对照评测",
+        "",
+        f"- Benchmark version: `{matrix.benchmark_version}`",
+        f"- Date: `{matrix.benchmark_date}`",
+        f"- Scope: `{matrix.scope}`",
+        "",
+        "本评测让 deterministic、DeepSeek 和 Qwen 在同一批受控、可复现的运行时场景中决策。",
+        "它衡量 Planner 决策、授权 fallback 与循环终止，不代表真实招聘网页的抽取泛化能力。",
+        "",
+        "## Provider 对照",
+        "",
+        (
+            "| Provider | Model | 状态 | 任务完成率 | 循环终止率 | 工具成功率 | "
+            "Fallback 率 | 非法决策率 | 平均步数 | Planner 延迟 ms | Total Token |"
+        ),
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for provider in matrix.providers:
+        lines.append(
+            f"| {provider.provider} | {provider.model or '-'} | {provider.status} | "
+            f"{provider.completed_cases}/{provider.total_cases} "
+            f"({provider.task_completion_rate:.2%}) | "
+            f"{provider.terminated_cases}/{provider.total_cases} "
+            f"({provider.loop_termination_rate:.2%}) | "
+            f"{provider.tool_success_rate:.2%} | {provider.fallback_rate:.2%} | "
+            f"{provider.invalid_action_rate:.2%} | {provider.average_steps:.2f} | "
+            f"{provider.planner_latency_ms:.2f} | {provider.total_tokens} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 场景明细",
+            "",
+            "| Provider | Case | 终态 | 终止原因 | 完成 | 步数 | Planner calls | Fallback |",
+            "|---|---|---|---|---|---:|---:|---:|",
+        ]
+    )
+    for provider in matrix.providers:
+        for case in provider.cases:
+            lines.append(
+                f"| {provider.provider} | {case.case_id} | {case.terminal_status} | "
+                f"{case.terminal_reason} | {'yes' if case.completed else 'no'} | "
+                f"{case.consumed_steps} | {case.planner_calls} | "
+                f"{case.fallback_decisions} |"
+            )
+        if provider.error:
+            lines.append(f"\n- `{provider.provider}`: {provider.error}")
+
+    lines.extend(
+        [
+            "",
+            "## 指标口径",
+            "",
+            "- 任务完成率：达到 `target_reached` 的场景比例。",
+            "- 循环终止率：进入非 `running` 终态的场景比例，不能替代任务完成率。",
+            "- Fallback 率与非法决策率：分母均为 Hybrid runtime 实际调用 Planner 的次数。",
+            (
+                "- Token：只记录 provider 返回的 prompt/completion/total 数字，"
+                "不保存 prompt 或响应正文；不硬编码货币价格。"
+            ),
+            "",
+            "## 面试表达",
+            "",
+            "我把 deterministic policy、DeepSeek 和 Qwen 放进同一个五场景 Hybrid Agent runtime。",
+            "模型只负责正常状态下的语义选择，URL 白名单、失败恢复、重试预算和终止仍由代码控制。",
+            (
+                "因此我能分别报告任务完成、循环终止、非法决策、fallback、延迟与 Token，"
+                "而不是只展示一次成功调用。"
+            ),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def write_planner_benchmark_artifacts(
+    matrix: PlannerBenchmarkMatrix,
+    output_dir: str | Path,
+) -> dict[str, Path]:
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    json_path = destination / "planner-benchmark.json"
+    markdown_path = destination / "planner-benchmark.md"
+    json_path.write_text(
+        json.dumps(matrix.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    markdown_path.write_text(
+        render_planner_benchmark_markdown(matrix),
+        encoding="utf-8",
+    )
+    return {"json": json_path, "markdown": markdown_path}

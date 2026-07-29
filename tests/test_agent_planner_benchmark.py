@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from web_task_agent.agent_models import AgentBudget, AgentMetrics, DecisionAgentState
@@ -9,8 +11,10 @@ from web_task_agent.agent_planner_benchmark import (
     PlannerBenchmarkMatrix,
     build_planner_benchmark_scenarios,
     parse_planner_benchmark_providers,
+    render_planner_benchmark_markdown,
     run_planner_benchmark,
     summarize_planner_provider,
+    write_planner_benchmark_artifacts,
 )
 from web_task_agent.agent_policy import DeterministicAgentPolicy
 from web_task_agent.models import UserProfile
@@ -198,3 +202,36 @@ async def test_run_planner_benchmark_skips_unconfigured_provider_without_abortin
     assert qwen.status == "skipped"
     assert qwen.total_cases == 0
     assert qwen.error == "qwen API key is missing"
+
+
+@pytest.mark.asyncio
+async def test_planner_benchmark_artifacts_explain_scope_and_exclude_secrets(tmp_path):
+    matrix = await run_planner_benchmark(
+        providers=["deterministic"],
+        output_dir=tmp_path / "runs",
+    )
+
+    markdown = render_planner_benchmark_markdown(matrix)
+    paths = write_planner_benchmark_artifacts(matrix, tmp_path / "public")
+    payload = json.loads(paths["json"].read_text(encoding="utf-8"))
+    serialized = json.dumps(payload, ensure_ascii=False)
+
+    assert "真实 Planner 对照评测" in markdown
+    assert "受控、可复现" in markdown
+    assert "任务完成率" in markdown
+    assert "循环终止率" in markdown
+    assert "Token" in markdown
+    assert "面试表达" in markdown
+    assert payload["benchmark_version"] == "hybrid-agent-planner-controlled-v1"
+    assert payload["scope"] == "controlled replayable runtime scenarios"
+    assert payload["providers"][0]["cases"][0]["terminal_reason"] == "target_reached"
+    assert paths["markdown"].read_text(encoding="utf-8") == markdown
+    for forbidden in [
+        "Authorization",
+        "Bearer ",
+        "PRIVATE RESUME CONTENT",
+        "api_key",
+        "messages",
+        "response_content",
+    ]:
+        assert forbidden not in serialized
