@@ -18,6 +18,11 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
 from web_task_agent.agent_planner import build_configured_agent_planner
+from web_task_agent.agent_planner_benchmark import (
+    parse_planner_benchmark_providers,
+    run_planner_benchmark,
+    write_planner_benchmark_artifacts,
+)
 from web_task_agent.benchmark import (
     BenchmarkProviderResult,
     build_real_site_benchmark_v2_cases,
@@ -142,6 +147,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--agent-planner-model",
         help="Override the hybrid Agent planner model.",
+    )
+    parser.add_argument(
+        "--agent-planner-benchmark",
+        action="store_true",
+        help="Compare deterministic, DeepSeek, and Qwen planners on controlled scenarios.",
+    )
+    parser.add_argument(
+        "--agent-planner-benchmark-providers",
+        default="deterministic,deepseek,qwen",
+        help="Comma-separated planner benchmark providers.",
+    )
+    parser.add_argument(
+        "--agent-planner-benchmark-output-dir",
+        default="docs/results/planner-benchmark",
+        help="Directory for planner benchmark JSON and Markdown artifacts.",
     )
     parser.add_argument(
         "--llm-extractor-demo",
@@ -307,6 +327,37 @@ async def _run(args: argparse.Namespace) -> int:
     if args.print_demo_script:
         print_demo_script()
         return 0
+
+    if args.agent_planner_benchmark:
+        try:
+            providers = parse_planner_benchmark_providers(
+                args.agent_planner_benchmark_providers
+            )
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        matrix = await run_planner_benchmark(
+            providers=providers,
+            output_dir=args.agent_planner_benchmark_output_dir,
+        )
+        artifacts = write_planner_benchmark_artifacts(
+            matrix,
+            args.agent_planner_benchmark_output_dir,
+        )
+        print("Planner benchmark")
+        for provider in matrix.providers:
+            print(
+                f"{provider.provider}: {provider.status} "
+                f"completion={provider.completed_cases}/{provider.total_cases} "
+                f"termination={provider.terminated_cases}/{provider.total_cases} "
+                f"fallback={provider.fallback_rate:.2f} "
+                f"tokens={provider.total_tokens}"
+            )
+            if provider.error:
+                print(f"  error: {provider.error}")
+        for name, path in artifacts.items():
+            print(f"{name.title()} written to: {path}")
+        return 0 if any(item.status == "executed" for item in matrix.providers) else 2
 
     if args.compare_llm_extractor:
         try:

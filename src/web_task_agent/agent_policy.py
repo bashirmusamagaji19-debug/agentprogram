@@ -73,7 +73,10 @@ class DeterministicAgentPolicy:
                 },
             )
 
-        if state.current_page is not None and not state.extracted_jobs:
+        current_page_extracted = state.current_page is not None and any(
+            job.url == state.current_page.url for job in state.extracted_jobs
+        )
+        if state.current_page is not None and not current_page_extracted:
             return self._decision(
                 AgentAction.EXTRACT_TEXT,
                 "The current page has not been converted into a structured job.",
