@@ -5,8 +5,10 @@ import pytest
 from web_task_agent.agent_models import (
     AgentAction,
     AgentBudget,
+    AgentDecision,
     DecisionAgentState,
     DecisionSource,
+    ToolObservation,
 )
 from web_task_agent.agent_policy import DeterministicAgentPolicy
 from web_task_agent.agent_runtime import HybridAgentRuntime
@@ -51,6 +53,19 @@ class RecoveringBrowser:
 class InvalidPlanner:
     async def decide(self, state):
         return {"action": "delete_files", "reason": "invalid tool"}
+
+
+class ExternalUrlPlanner:
+    def __init__(self):
+        self.calls = 0
+
+    async def decide(self, state):
+        self.calls += 1
+        return AgentDecision(
+            action=AgentAction.OPEN_PAGE,
+            reason="Open a URL outside the discovered candidate set.",
+            target="https://attacker.example/jobs/1",
+        )
 
 
 def _registry(browser) -> AgentToolRegistry:
@@ -116,6 +131,65 @@ async def test_runtime_falls_back_after_invalid_planner_action():
     assert result.metrics.fallback_decisions >= 1
     assert result.decision_history[0].source is DecisionSource.FALLBACK
     assert result.terminal_reason == "budget_exhausted"
+
+
+@pytest.mark.asyncio
+async def test_runtime_rejects_planner_url_outside_candidate_allowlist():
+    browser = RecoveringBrowser()
+    allowed = "https://example.com/jobs/working"
+    state = DecisionAgentState(
+        user=UserProfile(keyword="AI intern", target_count=1),
+        budget=AgentBudget(max_steps=8),
+        candidate_urls=[allowed],
+    )
+    planner = ExternalUrlPlanner()
+    runtime = HybridAgentRuntime(
+        registry=_registry(browser),
+        policy=DeterministicAgentPolicy(),
+        planner=planner,
+    )
+
+    result = await runtime.run(state)
+
+    assert browser.opened == [allowed]
+    assert result.decision_history[0].source is DecisionSource.FALLBACK
+    assert result.metrics.invalid_actions >= 1
+    assert result.metrics.fallback_decisions >= 1
+
+
+@pytest.mark.asyncio
+async def test_runtime_policy_owns_recovery_after_tool_failure():
+    broken = "https://example.com/jobs/broken"
+    working = "https://example.com/jobs/working"
+    planner = ExternalUrlPlanner()
+    state = DecisionAgentState(
+        user=UserProfile(keyword="AI intern", target_count=1),
+        budget=AgentBudget(max_steps=8),
+        candidate_urls=[broken, working],
+        current_url=broken,
+        visited_urls={broken},
+        retry_counts={broken: 2},
+        last_observation=ToolObservation(
+            tool_name=AgentAction.OPEN_PAGE,
+            success=False,
+            error_category="timeout",
+            error_message="timed out",
+            recoverable=True,
+        ),
+    )
+    runtime = HybridAgentRuntime(
+        registry=_registry(RecoveringBrowser()),
+        policy=DeterministicAgentPolicy(),
+        planner=planner,
+    )
+
+    updated = await runtime._decide_node(state)
+
+    assert planner.calls == 0
+    assert updated.last_decision.action is AgentAction.OPEN_PAGE
+    assert updated.last_decision.target == working
+    assert updated.last_decision.source is DecisionSource.POLICY
+    assert updated.metrics.recovery_attempts == 1
 
 
 @pytest.mark.asyncio

@@ -79,7 +79,7 @@ flowchart LR
 
 | 指标 | 结果 |
 |---|---:|
-| Hybrid Agent 聚焦测试（本机） | 42 passed |
+| Hybrid Agent 聚焦测试（本机） | 44 passed |
 | 评测任务数 | 20 |
 | 完成任务数 | 20 |
 | 任务成功率 | 1.00 |
@@ -212,7 +212,7 @@ Agent 不只是调用 LLM，而是根据环境观察动态决定下一步。这�
 - SQLite 保存运行结果，便于复盘和评测。
 - CLI、Markdown、HTML Dashboard 和评测报告构成完整可演示闭环。
 - Markdown 报告会沉淀面试讲述要点，把 BrowserClient 边界、编排模式、Agent 执行轨迹和评测闭环直接转成可讲项目叙事。
-- 本轮 42 个 Hybrid Agent 聚焦测试覆盖模型契约、策略、工具、运行时、规划器、搜索发现、CLI trace 和评测；GitHub Actions 在 Python 3.11 执行全量测试与覆盖率门禁。
+- 本轮 44 个 Hybrid Agent 聚焦测试覆盖模型契约、策略、工具、运行时、规划器授权、搜索发现、CLI trace 和评测；GitHub Actions 在 Python 3.11 执行全量测试与覆盖率门禁。
 
 ## 当前限制
 

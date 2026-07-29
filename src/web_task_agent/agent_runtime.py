@@ -65,12 +65,7 @@ class HybridAgentRuntime:
 
     async def _decide_node(self, state: DecisionAgentState) -> DecisionAgentState:
         policy_decision = self.policy.decide(state)
-        terminal_reason = policy_decision.arguments.get("terminal_reason")
-        if policy_decision.action is AgentAction.FINISH and terminal_reason in {
-            "target_reached",
-            "budget_exhausted",
-            "no_action_available",
-        }:
+        if self._policy_must_control(state, policy_decision):
             decision = policy_decision
         elif self.planner is None:
             decision = policy_decision
@@ -81,6 +76,12 @@ class HybridAgentRuntime:
                 decision = AgentDecision.model_validate(raw_decision).model_copy(
                     update={"source": DecisionSource.LLM}
                 )
+                if not self._planner_decision_is_authorized(
+                    state,
+                    decision,
+                    policy_decision,
+                ):
+                    raise ValueError("planner decision is not authorized for the current state")
             except Exception:
                 state.metrics.invalid_actions += 1
                 state.metrics.fallback_decisions += 1
@@ -105,6 +106,64 @@ class HybridAgentRuntime:
         state.last_decision = decision
         state.decision_history.append(decision)
         return state
+
+    def _policy_must_control(
+        self,
+        state: DecisionAgentState,
+        policy_decision: AgentDecision,
+    ) -> bool:
+        terminal_reason = policy_decision.arguments.get("terminal_reason")
+        if policy_decision.action is AgentAction.FINISH and terminal_reason in {
+            "target_reached",
+            "budget_exhausted",
+            "no_action_available",
+        }:
+            return True
+        if state.last_observation is not None and not state.last_observation.success:
+            return True
+        return (
+            policy_decision.action is AgentAction.EXTRACT_VISUAL
+            and state.last_observation is not None
+            and state.last_observation.tool_name is AgentAction.EXTRACT_TEXT
+        )
+
+    def _planner_decision_is_authorized(
+        self,
+        state: DecisionAgentState,
+        decision: AgentDecision,
+        policy_decision: AgentDecision,
+    ) -> bool:
+        if decision.action is AgentAction.FINISH:
+            return False
+
+        if decision.action is AgentAction.OPEN_PAGE:
+            target = decision.target or decision.arguments.get("url")
+            return bool(
+                target
+                and target in state.candidate_urls
+                and state.retry_counts.get(target, 0) < self.policy.max_url_attempts
+            )
+
+        if decision.action in {AgentAction.EXTRACT_TEXT, AgentAction.EXTRACT_VISUAL}:
+            if state.current_page is None:
+                return False
+            if decision.action is AgentAction.EXTRACT_VISUAL and not state.visual_available:
+                return False
+            target = decision.target or decision.arguments.get("url")
+            if target and target != state.current_page.url:
+                return False
+            return policy_decision.action in {
+                AgentAction.EXTRACT_TEXT,
+                AgentAction.EXTRACT_VISUAL,
+            }
+
+        if decision.action is not policy_decision.action:
+            return False
+        return not (
+            policy_decision.target
+            and decision.target
+            and decision.target != policy_decision.target
+        )
 
     async def _execute_tool_node(self, state: DecisionAgentState) -> DecisionAgentState:
         decision = state.last_decision

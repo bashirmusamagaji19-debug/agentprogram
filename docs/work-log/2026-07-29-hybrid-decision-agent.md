@@ -28,6 +28,7 @@ guard -> finish when terminal
 6. CLI 增加 `--hybrid-agent`、`--agent-max-steps`、`--agent-planner-provider` 和 `--agent-planner-model`，JSON/Markdown/HTML 展示完整决策轨迹。
 7. 新增 10 场景 `hybrid-agent-deterministic-v1` 与 `docs/results/` 公开证据。
 8. 新增 Python 3.11 GitHub Actions、Ruff 聚焦门禁和 70% coverage 门禁。
+9. 新增 planner state authorization：外部 URL 不在候选白名单时拒绝执行；工具失败后的恢复与终止由 policy 强制接管。
 
 ## 关键调试事件
 
@@ -49,7 +50,7 @@ guard -> finish when terminal
 
 ## 验证记录
 
-- Hybrid Agent 聚焦测试：`42 passed`。
+- Hybrid Agent 聚焦测试：`44 passed`。
 - Ruff 聚焦检查：`All checks passed`。
 - 稳定 demo：`completed / target_reached`，动作链为 `search_jobs -> open_page -> extract_text -> verify_job -> finish`。
 - 全量本地 pytest：`169 passed, 84 errors`。84 个错误均来自 Windows 沙箱拒绝 pytest `tmp_path` 创建，错误为 `PermissionError: [WinError 5]`；没有观察到业务断言失败。

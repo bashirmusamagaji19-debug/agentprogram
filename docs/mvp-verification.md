@@ -51,7 +51,7 @@ print(jobs[0].title if jobs else "no jobs")
 
 ## 验证结果
 
-- 2026-07-29 Hybrid Agent 聚焦验证为 `42 passed`，Ruff 聚焦检查为 `All checks passed`。
+- 2026-07-29 Hybrid Agent 聚焦验证为 `44 passed`，Ruff 聚焦检查为 `All checks passed`。
 - 本机全量 pytest 收集 253 项，其中 `169 passed, 84 errors`；84 项均在 pytest 创建 `tmp_path` 时被 Windows 沙箱以 `WinError 5` 拒绝，未观察到业务断言失败。Python 3.11 GitHub Actions 负责运行全量套件与 70% coverage 门禁。
 - 稳定 Hybrid demo 终止状态为 `completed / target_reached`，动作序列为 `search_jobs -> open_page -> extract_text -> verify_job -> finish`，工具成功率 1.0。
 - `hybrid-agent-deterministic-v1` 生成 10 个合成确定性场景证据：8/10 达到业务目标、10/10 正常终止、工具成功率 88.46%；该结果验证编排与恢复，不代表真实网站抽取泛化。
