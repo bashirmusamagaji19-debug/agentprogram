@@ -106,6 +106,30 @@ async def test_browser_use_client_search_loads_search_url_with_injected_loader()
     assert opened_urls == [
         "https://www.google.com/search?q=AI+intern",
     ]
+    assert pages[0].metadata["candidate_urls"] == []
+
+
+@pytest.mark.asyncio
+async def test_browser_use_search_discovers_job_links_from_metadata():
+    async def loader(url: str) -> BrowserPage:
+        return BrowserPage(
+            url=url,
+            title="Search results",
+            content="AI intern search results",
+            source="browser-use",
+            metadata={
+                "raw_links": [
+                    "https://example.com/about",
+                    "https://job-boards.greenhouse.io/acme/jobs/123",
+                ]
+            },
+        )
+
+    pages = await BrowserUseClient(page_loader=loader).search("AI intern", target_count=2)
+
+    assert pages[0].metadata["candidate_urls"] == [
+        "https://job-boards.greenhouse.io/acme/jobs/123"
+    ]
 
 
 @pytest.mark.asyncio

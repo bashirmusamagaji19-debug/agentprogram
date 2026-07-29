@@ -161,6 +161,27 @@ async def test_search_tool_enqueues_candidate_urls():
 
 
 @pytest.mark.asyncio
+async def test_search_tool_does_not_enqueue_search_page_when_discovery_is_empty():
+    class EmptyDiscoveryBrowser:
+        async def search(self, query: str, target_count: int):
+            return [
+                BrowserPage(
+                    url="https://www.google.com/search?q=AI+intern",
+                    title="Search results",
+                    content="No job links",
+                    metadata={"candidate_urls": []},
+                )
+            ]
+
+    state = _state()
+    observation = await SearchJobsTool(EmptyDiscoveryBrowser()).execute(state, {})
+
+    assert observation.success is False
+    assert observation.error_category == "no_candidates"
+    assert state.candidate_urls == []
+
+
+@pytest.mark.asyncio
 async def test_visual_verify_match_save_and_finish_tools_share_state():
     url = "https://example.com/jobs/visual-ai-intern"
     state = _state().model_copy(

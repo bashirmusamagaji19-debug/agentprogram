@@ -87,8 +87,11 @@ class SearchJobsTool:
 
         candidates: list[str] = []
         for page in pages:
-            metadata_urls = page.metadata.get("candidate_urls", [])
-            urls = metadata_urls if isinstance(metadata_urls, list) and metadata_urls else [page.url]
+            if "candidate_urls" in page.metadata:
+                metadata_urls = page.metadata.get("candidate_urls", [])
+                urls = metadata_urls if isinstance(metadata_urls, list) else []
+            else:
+                urls = [page.url]
             for url in urls:
                 value = str(url).strip()
                 if value and value not in candidates:
@@ -372,4 +375,3 @@ def _failed(
         error_message=f"{type(exc).__name__}: {exc}",
         recoverable=recoverable,
     )
-
