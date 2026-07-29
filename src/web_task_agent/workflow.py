@@ -5,6 +5,8 @@ from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 
+from web_task_agent.agent_models import AgentBudget, DecisionAgentState
+from web_task_agent.agent_runtime import HybridAgentRuntime
 from web_task_agent.browser import BrowserClient
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
@@ -53,6 +55,21 @@ class WebTaskWorkflow:
         state = self._matcher_node(state)
         state = self._reporter_node(state)
         return state
+
+    async def run_with_hybrid_agent(
+        self,
+        user: UserProfile,
+        *,
+        runtime: HybridAgentRuntime,
+        max_steps: int = 12,
+    ) -> DecisionAgentState:
+        state = DecisionAgentState(
+            user=user,
+            budget=AgentBudget(max_steps=max_steps),
+            candidate_urls=list(user.seed_urls),
+            visual_available=self.visual_extractor is not None,
+        )
+        return await runtime.run(state)
 
     async def run_with_langgraph(
         self,

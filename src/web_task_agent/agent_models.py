@@ -146,6 +146,6 @@ class DecisionAgentState(BaseModel):
     observation_history: list[ToolObservation] = Field(default_factory=list)
     retry_counts: dict[str, int] = Field(default_factory=dict)
     metrics: AgentMetrics = Field(default_factory=AgentMetrics)
+    recovery_in_progress: bool = False
     terminal_status: str = "running"
     terminal_reason: str = ""
-
