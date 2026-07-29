@@ -60,6 +60,8 @@ class PlannerBenchmarkCaseResult(BaseModel):
     invalid_actions: int = Field(ge=0)
     tool_latency_ms: float = Field(ge=0)
     runtime_latency_ms: float = Field(ge=0)
+    action_sequence: list[str] = Field(default_factory=list)
+    decision_sources: list[str] = Field(default_factory=list)
     error: str = ""
 
     @classmethod
@@ -92,6 +94,8 @@ class PlannerBenchmarkCaseResult(BaseModel):
             invalid_actions=metrics.invalid_actions,
             tool_latency_ms=metrics.total_latency_ms,
             runtime_latency_ms=runtime_latency_ms,
+            action_sequence=[decision.action.value for decision in state.decision_history],
+            decision_sources=[decision.source.value for decision in state.decision_history],
         )
 
 
@@ -436,8 +440,11 @@ def render_planner_benchmark_markdown(matrix: PlannerBenchmarkMatrix) -> str:
             "",
             "## 场景明细",
             "",
-            "| Provider | Case | 终态 | 终止原因 | 完成 | 步数 | Planner calls | Fallback |",
-            "|---|---|---|---|---|---:|---:|---:|",
+            (
+                "| Provider | Case | 终态 | 终止原因 | 完成 | 步数 | Planner calls | "
+                "Fallback | 动作序列 | 决策来源 |"
+            ),
+            "|---|---|---|---|---|---:|---:|---:|---|---|",
         ]
     )
     for provider in matrix.providers:
@@ -446,7 +453,8 @@ def render_planner_benchmark_markdown(matrix: PlannerBenchmarkMatrix) -> str:
                 f"| {provider.provider} | {case.case_id} | {case.terminal_status} | "
                 f"{case.terminal_reason} | {'yes' if case.completed else 'no'} | "
                 f"{case.consumed_steps} | {case.planner_calls} | "
-                f"{case.fallback_decisions} |"
+                f"{case.fallback_decisions} | {' -> '.join(case.action_sequence)} | "
+                f"{' -> '.join(case.decision_sources)} |"
             )
         if provider.error:
             lines.append(f"\n- `{provider.provider}`: {provider.error}")

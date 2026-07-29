@@ -4,7 +4,14 @@ import json
 
 import pytest
 
-from web_task_agent.agent_models import AgentBudget, AgentMetrics, DecisionAgentState
+from web_task_agent.agent_models import (
+    AgentAction,
+    AgentBudget,
+    AgentDecision,
+    AgentMetrics,
+    DecisionAgentState,
+    DecisionSource,
+)
 from web_task_agent.agent_planner import PlannerTelemetry
 from web_task_agent.agent_planner_benchmark import (
     PlannerBenchmarkCaseResult,
@@ -123,6 +130,37 @@ def test_summarize_planner_provider_separates_completion_from_termination():
     assert result.prompt_tokens == 100
     assert result.completion_tokens == 20
     assert result.total_tokens == 120
+
+
+def test_case_result_keeps_auditable_action_and_source_sequences():
+    state = _state(
+        status="completed",
+        reason="target_reached",
+        consumed_steps=1,
+        metrics=AgentMetrics(tool_calls=2, successful_tool_calls=2),
+    )
+    state.decision_history = [
+        AgentDecision(
+            action=AgentAction.OPEN_PAGE,
+            reason="Open an authorized candidate.",
+            source=DecisionSource.LLM,
+        ),
+        AgentDecision(
+            action=AgentAction.FINISH,
+            reason="Target reached.",
+            source=DecisionSource.POLICY,
+        ),
+    ]
+
+    result = PlannerBenchmarkCaseResult.from_state(
+        case_id="trace",
+        scenario="Trace decisions without raw prompts.",
+        state=state,
+        runtime_latency_ms=10,
+    )
+
+    assert result.action_sequence == ["open_page", "finish"]
+    assert result.decision_sources == ["llm", "policy"]
 
 
 class PolicyMirroringPlanner:
