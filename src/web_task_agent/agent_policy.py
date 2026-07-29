@@ -19,13 +19,6 @@ class DeterministicAgentPolicy:
         self.max_url_attempts = max_url_attempts
 
     def decide(self, state: DecisionAgentState) -> AgentDecision:
-        if len(state.verified_jobs) >= state.user.target_count:
-            return self._decision(
-                AgentAction.FINISH,
-                "The requested number of verified jobs has been reached.",
-                arguments={"terminal_reason": "target_reached"},
-            )
-
         if state.budget.exhausted:
             return self._decision(
                 AgentAction.FINISH,
@@ -38,6 +31,24 @@ class DeterministicAgentPolicy:
             recovery = self._recover_from_failure(state)
             if recovery is not None:
                 return recovery
+
+        target_reached = len(state.verified_jobs) >= state.user.target_count
+        if target_reached and not state.matches:
+            return self._decision(
+                AgentAction.SCORE_MATCH,
+                "The verified target is ready for profile matching.",
+            )
+        if target_reached and not state.saved:
+            return self._decision(
+                AgentAction.SAVE_RESULTS,
+                "Matched target results are ready for persistence.",
+            )
+        if target_reached:
+            return self._decision(
+                AgentAction.FINISH,
+                "The requested results were verified, matched, and saved.",
+                arguments={"terminal_reason": "target_reached"},
+            )
 
         if (
             last

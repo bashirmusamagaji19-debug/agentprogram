@@ -8,7 +8,7 @@ from web_task_agent.agent_models import (
     ToolObservation,
 )
 from web_task_agent.agent_policy import DeterministicAgentPolicy
-from web_task_agent.models import BrowserPage, JobPosting, UserProfile
+from web_task_agent.models import BrowserPage, JobPosting, MatchResult, UserProfile
 
 
 def _state(**updates) -> DecisionAgentState:
@@ -86,14 +86,42 @@ def test_policy_uses_visual_after_low_confidence_text_extraction():
     assert decision.source is DecisionSource.POLICY
 
 
-def test_policy_finishes_when_target_count_is_reached():
+def test_policy_scores_saves_then_finishes_when_target_count_is_reached():
     state = _state(verified_jobs=[_job()])
 
+    decision = DeterministicAgentPolicy().decide(state)
+
+    assert decision.action is AgentAction.SCORE_MATCH
+
+    state.matches = [
+        MatchResult(
+            job_id=state.verified_jobs[0].url,
+            score=0.9,
+            matched_skills=["Python"],
+        )
+    ]
+    decision = DeterministicAgentPolicy().decide(state)
+
+    assert decision.action is AgentAction.SAVE_RESULTS
+
+    state.saved = True
     decision = DeterministicAgentPolicy().decide(state)
 
     assert decision.action is AgentAction.FINISH
     assert decision.arguments["terminal_reason"] == "target_reached"
     assert decision.reason
+
+
+def test_policy_does_not_claim_target_reached_when_budget_expires_before_save():
+    state = _state(
+        verified_jobs=[_job()],
+        budget=AgentBudget(max_steps=2, consumed_steps=2),
+    )
+
+    decision = DeterministicAgentPolicy().decide(state)
+
+    assert decision.action is AgentAction.FINISH
+    assert decision.arguments["terminal_reason"] == "budget_exhausted"
 
 
 def test_policy_never_retries_a_url_more_than_twice():

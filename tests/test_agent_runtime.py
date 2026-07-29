@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from web_task_agent.agent_models import (
@@ -17,10 +19,13 @@ from web_task_agent.agent_tools import (
     ExtractTextTool,
     FinishTool,
     OpenPageTool,
+    SaveResultsTool,
+    ScoreMatchTool,
     SearchJobsTool,
     VerifyJobTool,
 )
 from web_task_agent.extractor import PageExtractor
+from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import BrowserPage, UserProfile
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
@@ -68,6 +73,11 @@ class ExternalUrlPlanner:
         )
 
 
+class InMemoryRepository:
+    def save_jobs_once(self, jobs, *, idempotency_key):
+        return SimpleNamespace(saved_jobs=len(jobs), reused=False)
+
+
 def _registry(browser) -> AgentToolRegistry:
     return AgentToolRegistry(
         [
@@ -75,6 +85,8 @@ def _registry(browser) -> AgentToolRegistry:
             OpenPageTool(browser),
             ExtractTextTool(PageExtractor()),
             VerifyJobTool(JobVerifier()),
+            ScoreMatchTool(JobMatcher()),
+            SaveResultsTool(InMemoryRepository()),
             FinishTool(),
         ]
     )
@@ -103,6 +115,8 @@ async def test_runtime_recovers_open_failure_with_next_url():
         AgentAction.OPEN_PAGE,
         AgentAction.EXTRACT_TEXT,
         AgentAction.VERIFY_JOB,
+        AgentAction.SCORE_MATCH,
+        AgentAction.SAVE_RESULTS,
         AgentAction.FINISH,
     ]
     assert browser.opened == [broken, broken, working]
