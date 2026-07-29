@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+from time import perf_counter
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from web_task_agent.agent_models import AgentAction, AgentDecision, DecisionAgentState
 from web_task_agent.llm_extractor import (
@@ -10,6 +13,16 @@ from web_task_agent.llm_extractor import (
     LlmTransport,
     build_llm_provider_config,
 )
+
+
+class PlannerTelemetry(BaseModel):
+    calls: int = Field(default=0, ge=0)
+    successful_calls: int = Field(default=0, ge=0)
+    failed_calls: int = Field(default=0, ge=0)
+    total_latency_ms: float = Field(default=0.0, ge=0.0)
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
 
 
 def build_configured_agent_planner(
@@ -43,16 +56,48 @@ class OpenAiCompatibleAgentPlanner:
         self.base_url = (base_url or PROVIDER_DEFAULTS[provider]["base_url"]).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.transport = transport or self._urllib_transport
+        self.telemetry = PlannerTelemetry()
 
     async def decide(self, state: DecisionAgentState) -> AgentDecision:
-        response = self.transport(
-            f"{self.base_url}/chat/completions",
-            self._headers(),
-            self._payload(state),
-            self.timeout_seconds,
+        self.telemetry.calls += 1
+        started = perf_counter()
+        try:
+            response = self.transport(
+                f"{self.base_url}/chat/completions",
+                self._headers(),
+                self._payload(state),
+                self.timeout_seconds,
+            )
+            content = self._response_content(response)
+            decision = AgentDecision.model_validate(
+                json.loads(self._strip_code_fence(content))
+            )
+        except Exception:
+            self.telemetry.failed_calls += 1
+            raise
+        else:
+            self.telemetry.successful_calls += 1
+            self._record_usage(response)
+            return decision
+        finally:
+            self.telemetry.total_latency_ms += (perf_counter() - started) * 1000
+
+    def _record_usage(self, response: dict[str, Any]) -> None:
+        usage = response.get("usage", {})
+        if not isinstance(usage, dict):
+            return
+        self.telemetry.prompt_tokens += self._non_negative_int(usage.get("prompt_tokens"))
+        self.telemetry.completion_tokens += self._non_negative_int(
+            usage.get("completion_tokens")
         )
-        content = self._response_content(response)
-        return AgentDecision.model_validate(json.loads(self._strip_code_fence(content)))
+        self.telemetry.total_tokens += self._non_negative_int(usage.get("total_tokens"))
+
+    @staticmethod
+    def _non_negative_int(value: Any) -> int:
+        try:
+            return max(int(value), 0)
+        except (TypeError, ValueError):
+            return 0
 
     def _headers(self) -> dict[str, str]:
         return {

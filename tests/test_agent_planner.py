@@ -134,3 +134,58 @@ async def test_planner_sends_compact_state_without_resume_or_page_body():
     assert "AI Engineering Intern" in serialized
     assert "remaining_steps" in serialized
     assert "allowed_actions" in serialized
+
+
+@pytest.mark.asyncio
+async def test_planner_records_successful_call_telemetry_and_usage():
+    def transport(url, headers, payload, timeout_seconds):
+        return {
+            "choices": [
+                {"message": {"content": '{"action":"extract_text","reason":"Ready."}'}}
+            ],
+            "usage": {
+                "prompt_tokens": 11,
+                "completion_tokens": 4,
+                "total_tokens": 15,
+            },
+        }
+
+    planner = OpenAiCompatibleAgentPlanner(
+        provider="deepseek",
+        model="deepseek-chat",
+        api_key="test-key",
+        transport=transport,
+    )
+
+    await planner.decide(_state())
+
+    assert planner.telemetry.calls == 1
+    assert planner.telemetry.successful_calls == 1
+    assert planner.telemetry.failed_calls == 0
+    assert planner.telemetry.prompt_tokens == 11
+    assert planner.telemetry.completion_tokens == 4
+    assert planner.telemetry.total_tokens == 15
+    assert planner.telemetry.total_latency_ms >= 0
+
+
+@pytest.mark.asyncio
+async def test_planner_records_failed_call_without_sensitive_payloads():
+    def transport(url, headers, payload, timeout_seconds):
+        raise TimeoutError("provider timeout")
+
+    planner = OpenAiCompatibleAgentPlanner(
+        provider="qwen",
+        model="qwen-plus",
+        api_key="test-key",
+        transport=transport,
+    )
+
+    with pytest.raises(TimeoutError, match="provider timeout"):
+        await planner.decide(_state())
+
+    assert planner.telemetry.calls == 1
+    assert planner.telemetry.successful_calls == 0
+    assert planner.telemetry.failed_calls == 1
+    assert planner.telemetry.total_tokens == 0
+    assert "PRIVATE RESUME CONTENT" not in planner.telemetry.model_dump_json()
+    assert "test-key" not in planner.telemetry.model_dump_json()
