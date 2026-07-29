@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from web_task_agent.agent_models import (
@@ -71,9 +73,15 @@ class StaticBrowser:
 class RecordingRepository:
     def __init__(self):
         self.jobs = []
+        self.idempotency_keys = []
 
     def save_jobs(self, jobs):
         self.jobs = list(jobs)
+
+    def save_jobs_once(self, jobs, *, idempotency_key):
+        self.jobs = list(jobs)
+        self.idempotency_keys.append(idempotency_key)
+        return SimpleNamespace(saved_jobs=len(jobs), reused=False)
 
 
 def _state() -> DecisionAgentState:
@@ -211,3 +219,38 @@ async def test_visual_verify_match_save_and_finish_tools_share_state():
     assert finished.success is True
     assert state.terminal_status == "completed"
     assert state.terminal_reason == "target_reached"
+
+
+@pytest.mark.asyncio
+async def test_save_results_uses_approval_id_as_idempotency_key():
+    repository = RecordingRepository()
+    state = _state()
+    state.verified_jobs = [
+        PageExtractor().extract(await StaticBrowser().open_url("https://example.com/jobs/1"))
+    ]
+
+    observation = await SaveResultsTool(repository).execute(
+        state,
+        {"approval_id": "approval-1"},
+    )
+
+    assert repository.idempotency_keys == ["approval-1"]
+    assert observation.payload == {"saved_jobs": 1, "reused": False}
+    assert state.saved is True
+
+
+@pytest.mark.asyncio
+async def test_save_results_uses_stable_execution_key_without_approval():
+    repository = RecordingRepository()
+    state = _state()
+    state.verified_jobs = [
+        PageExtractor().extract(await StaticBrowser().open_url("https://example.com/jobs/1"))
+    ]
+
+    await SaveResultsTool(repository).execute(state, {})
+    await SaveResultsTool(repository).execute(state, {})
+
+    assert repository.idempotency_keys == [
+        f"auto:{state.execution_id}",
+        f"auto:{state.execution_id}",
+    ]

@@ -296,7 +296,11 @@ class SaveResultsTool:
         arguments: dict[str, Any],
     ) -> ToolObservation:
         try:
-            self.repository.save_jobs(state.verified_jobs)
+            key = str(arguments.get("approval_id") or f"auto:{state.execution_id}")
+            receipt = self.repository.save_jobs_once(
+                state.verified_jobs,
+                idempotency_key=key,
+            )
         except Exception as exc:
             return _failed(
                 self.name,
@@ -309,8 +313,8 @@ class SaveResultsTool:
         return ToolObservation(
             tool_name=self.name,
             success=True,
-            summary=f"Persisted {len(state.verified_jobs)} verified jobs.",
-            payload={"saved_jobs": len(state.verified_jobs)},
+            summary=f"Persisted {receipt.saved_jobs} verified jobs.",
+            payload={"saved_jobs": receipt.saved_jobs, "reused": receipt.reused},
         )
 
 

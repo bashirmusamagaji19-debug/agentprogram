@@ -2,10 +2,18 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from web_task_agent.models import JobPosting, RunMetrics
+
+
+@dataclass(frozen=True)
+class SaveReceipt:
+    idempotency_key: str
+    saved_jobs: int
+    reused: bool
 
 
 class JobRepository:
@@ -47,33 +55,46 @@ class JobRepository:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS save_receipts (
+                    idempotency_key TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    saved_jobs INTEGER NOT NULL
+                )
+                """
+            )
 
     def save_jobs(self, jobs: list[JobPosting]) -> None:
         with self._connect() as conn:
-            conn.executemany(
+            self._save_jobs_with_connection(conn, jobs)
+
+    def save_jobs_once(
+        self,
+        jobs: list[JobPosting],
+        *,
+        idempotency_key: str,
+    ) -> SaveReceipt:
+        key = idempotency_key.strip()
+        if not key:
+            raise ValueError("idempotency_key must not be blank")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            existing = conn.execute(
+                "SELECT saved_jobs FROM save_receipts WHERE idempotency_key = ?",
+                (key,),
+            ).fetchone()
+            if existing is not None:
+                return SaveReceipt(key, int(existing["saved_jobs"]), True)
+            self._save_jobs_with_connection(conn, jobs)
+            conn.execute(
                 """
-                INSERT OR REPLACE INTO jobs (
-                    url, title, company, location, source, requirements,
-                    responsibilities, skills_json, posted_at, confidence
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO save_receipts (idempotency_key, created_at, saved_jobs)
+                VALUES (?, ?, ?)
                 """,
-                [
-                    (
-                        job.url,
-                        job.title,
-                        job.company,
-                        job.location,
-                        job.source,
-                        job.requirements,
-                        job.responsibilities,
-                        json.dumps(job.skills, ensure_ascii=False),
-                        job.posted_at,
-                        job.confidence,
-                    )
-                    for job in jobs
-                ],
+                (key, datetime.now(UTC).isoformat(), len(jobs)),
             )
+        return SaveReceipt(key, len(jobs), False)
 
     def list_jobs(self) -> list[JobPosting]:
         with self._connect() as conn:
@@ -166,6 +187,36 @@ class JobRepository:
             failed_pages=row["failed_pages"],
             avg_steps_per_job=row["avg_steps_per_job"],
             estimated_token_cost=row["estimated_token_cost"],
+        )
+
+    @staticmethod
+    def _save_jobs_with_connection(
+        conn: sqlite3.Connection,
+        jobs: list[JobPosting],
+    ) -> None:
+        conn.executemany(
+            """
+            INSERT OR REPLACE INTO jobs (
+                url, title, company, location, source, requirements,
+                responsibilities, skills_json, posted_at, confidence
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    job.url,
+                    job.title,
+                    job.company,
+                    job.location,
+                    job.source,
+                    job.requirements,
+                    job.responsibilities,
+                    json.dumps(job.skills, ensure_ascii=False),
+                    job.posted_at,
+                    job.confidence,
+                )
+                for job in jobs
+            ],
         )
 
     def _connect(self) -> sqlite3.Connection:
