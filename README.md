@@ -114,6 +114,26 @@ Hybrid 模式不是让 LLM 直接控制浏览器。LLM 只能从白名单动作�
 
 公开证据位于 `docs/results/hybrid-agent-benchmark.md`。`hybrid-agent-deterministic-v1` 包含 10 个合成确定性场景：业务目标完成率 80%、循环终止率 100%、工具成功率 88.46%。字段准确率只针对带显式 ground truth 的 fixture 计算，不代表真实网站泛化能力。
 
+### 真实 Planner 对照评测
+
+下面的命令让 deterministic policy、DeepSeek 和 Qwen 在同一批 5 个受控 runtime 场景中决策：
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --agent-planner-benchmark --agent-planner-benchmark-providers deterministic,deepseek,qwen --agent-planner-benchmark-output-dir docs/results/planner-benchmark
+```
+
+2026-07-29 的真实 API 运行结果：
+
+| Planner | 模型 | 任务完成 | 循环终止 | Planner 调用 | 非法决策 / fallback | 平均步数 | Planner 延迟 | Total Token |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| deterministic | deterministic-policy-v1 | 4/5 | 5/5 | 0 | 0 / 0 | 3.8 | 0 ms | 0 |
+| DeepSeek | deepseek-v4-flash | 4/5 | 5/5 | 15 | 5 / 5 | 3.4 | 50.37 s | 5518 |
+| Qwen | qwen-plus | 4/5 | 5/5 | 16 | 0 / 0 | 3.2 | 28.10 s | 5077 |
+
+Qwen 在 `open-recovery` 中直接选择有效候选 URL，将该场景从 deterministic 的 5 步降至 3 步；DeepSeek 的 5 次未授权决策全部被 runtime 拒绝并转入确定性 fallback，仍保持 5/5 正常终止。这证明 LLM 能优化候选选择，但没有权限绕过 URL 白名单、失败恢复、预算和终止规则。
+
+公开证据位于 [`docs/results/planner-benchmark/planner-benchmark.md`](docs/results/planner-benchmark/planner-benchmark.md) 和对应 JSON。该结果使用真实 DeepSeek/Qwen API，但网页与故障均为受控 fixture，因此衡量 Planner 决策与安全 fallback，不代表真实招聘网站抽取泛化能力；延迟与 Token 也是本次单次运行快照。
+
 项目叙述和 benchmark 归纳见 `docs/interview-benchmark-story.md`。
 
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。

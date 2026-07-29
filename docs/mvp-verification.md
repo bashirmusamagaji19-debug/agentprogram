@@ -55,6 +55,8 @@ print(jobs[0].title if jobs else "no jobs")
 - 本机全量 pytest 收集 253 项，其中 `169 passed, 84 errors`；84 项均在 pytest 创建 `tmp_path` 时被 Windows 沙箱以 `WinError 5` 拒绝，未观察到业务断言失败。Python 3.11 GitHub Actions 负责运行全量套件与 70% coverage 门禁。
 - 稳定 Hybrid demo 终止状态为 `completed / target_reached`，动作序列为 `search_jobs -> open_page -> extract_text -> verify_job -> finish`，工具成功率 1.0。
 - `hybrid-agent-deterministic-v1` 生成 10 个合成确定性场景证据：8/10 达到业务目标、10/10 正常终止、工具成功率 88.46%；该结果验证编排与恢复，不代表真实网站抽取泛化。
+- `hybrid-agent-planner-controlled-v1` 在相同 5 个受控 runtime 场景中完成真实 Planner 对照：deterministic、DeepSeek、Qwen 均为 4/5 目标完成和 5/5 正常终止；DeepSeek 为 15 次调用 / 5 次 fallback / 5518 tokens，Qwen 为 16 次调用 / 0 fallback / 5077 tokens。该结果使用真实模型 API，但不代表真实网站泛化。
+- Planner benchmark JSON/Markdown 记录每个 case 的动作序列与决策来源，不保存 API key、Authorization header、prompt、响应正文、简历或页面正文；敏感字段扫描无匹配。
 - CLI 版本命令成功运行，输出 `web-task-agent 0.1.0`。
 - CLI 环境自检成功运行，输出 Python 路径、虚拟环境状态、依赖 import 状态和输出目录可写性。
 - fixture URL 列表命令成功运行，输出内置 Greenhouse/Lever 风格演示链接。

@@ -100,6 +100,25 @@ flowchart LR
 
 完整逐场景动作序列见 `docs/results/hybrid-agent-benchmark.md`。历史 8 页真实站点评测继续作为 provider 抽取完成率证据，不能与此处字段准确率混用。
 
+### 真实 Planner 对照评测（5 个受控 runtime 场景）
+
+为了单独评估“谁来决定下一步”，我没有直接把实时网页、抽取器和 Planner 同时改变，而是固定页面、失败条件、用户目标与步数预算，只替换 Planner。三种路径都执行真实 Hybrid Agent LangGraph runtime；DeepSeek 和 Qwen 调用真实 OpenAI-compatible API，deterministic 不调用模型。
+
+| Planner | 完成 | 终止 | 调用 | 非法 / fallback | 平均步数 | Planner 延迟 | Token |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| deterministic | 4/5 | 5/5 | 0 | 0 / 0 | 3.8 | 0 ms | 0 |
+| DeepSeek (`deepseek-v4-flash`) | 4/5 | 5/5 | 15 | 5 / 5 | 3.4 | 50.37 s | 5518 |
+| Qwen (`qwen-plus`) | 4/5 | 5/5 | 16 | 0 / 0 | 3.2 | 28.10 s | 5077 |
+
+关键发现：
+
+- 三种路径均为 4/5 目标完成、5/5 正常终止；未完成项是故意设置的 `budget-exhaustion`，不是隐藏失败。
+- Qwen 在 `open-recovery` 直接选择第二个有效 URL，动作序列为 `open_page -> extract_text -> verify_job -> finish`，比 deterministic 少 2 个失败重试步骤。
+- DeepSeek 的 15 次调用中有 5 次决策未通过 runtime 授权，全部进入 deterministic fallback；这说明安全策略实际生效，而不是只写在 prompt 中。
+- Qwen 的平均步数为 3.2，低于 deterministic 的 3.8；但只有 5 个受控场景和一次 API 运行，不能据此宣称模型普遍优于规则策略。
+
+完整动作与决策来源序列见 `docs/results/planner-benchmark/planner-benchmark.json`。该 benchmark 使用真实模型 API，但环境是受控 fixture，只证明 Planner 决策、授权和 fallback，不证明真实网页抽取泛化。
+
 ### 真实站点 LLM 抽取器对比评测（8 个真实招聘 URL，覆盖 4 家公司）
 
 所有 URL 均经 curl 逐个验证 HTTP 200 可访问，来源为 Greenhouse API 获取的真实岗位 ID：
