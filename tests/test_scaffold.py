@@ -1827,3 +1827,30 @@ def test_public_docs_explain_hitl_checkpoint_boundaries():
     assert "human_denied" in combined
     assert "langgraph-checkpoint-sqlite" in combined
     assert "不需要 GPU" in combined
+
+
+def test_portfolio_docs_expose_recruiter_entrypoint_and_evidence():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    interview = (root / "docs" / "interview-benchmark-story.md").read_text(
+        encoding="utf-8"
+    )
+    combined = "\n".join([readme, interview])
+
+    for required in [
+        "--portfolio-demo",
+        "--release-check",
+        "approval_id",
+        "human_denied",
+        "308 passed",
+        "91.17%",
+        "3/3",
+        "简历三条",
+        "60 秒讲法",
+        "不需要 GPU",
+        "deterministic fixture",
+    ]:
+        assert required in combined
+
+    gitignore = (root / ".gitignore").read_text(encoding="utf-8")
+    assert "portfolio-artifacts/" in gitignore

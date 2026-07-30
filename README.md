@@ -2,6 +2,25 @@
 
 这是一个面向 AI 工程 / AI 应用实习的 Agent 项目。当前版本在 `browser-use` 与 `LangGraph` 工作流之上增加了 Hybrid Decision Agent：可选 DeepSeek/Qwen 结构化规划器负责语义选择，确定性策略负责安全、预算、重试和降级；Agent 根据观察结果动态选择工具，并输出可审计的决策与恢复轨迹。
 
+## 简历项目入口
+
+这是一个用 Python、LangGraph、browser-use、Pydantic 和 SQLite 构建的 Hybrid Web Task Agent：LLM 负责受约束的语义选工具，确定性 policy 负责动作白名单、预算、恢复、终止和外部副作用安全。
+
+最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
+
+当前可复核证据：`308 passed`、总覆盖率 `91.17%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+
+```powershell
+# 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
+.\.venv\Scripts\web-task-agent.exe --portfolio-demo `
+  --portfolio-demo-output-dir portfolio-artifacts
+
+# 发布前运行与 GitHub Actions 一致的本地质量门禁
+.\.venv\Scripts\web-task-agent.exe --release-check
+```
+
+Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/replay JSON/Markdown 和阶段汇总。项目故事、简历三条、60 秒讲法见 `docs/interview-benchmark-story.md`；完整实现日志见 `docs/work-log/2026-07-30-resume-portfolio-finish.md`。
+
 ## MVP 能力
 
 - 通过浏览器客户端读取网页内容，已提供 deterministic fake browser 和 `browser-use` session adapter 两条边界。

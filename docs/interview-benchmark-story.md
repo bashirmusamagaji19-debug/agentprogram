@@ -1,12 +1,21 @@
 # Hybrid Decision Agent 面试讲述
 
+## Portfolio 复现
+
+```powershell
+.\.venv\Scripts\web-task-agent.exe --portfolio-demo --portfolio-demo-output-dir portfolio-artifacts
+.\.venv\Scripts\web-task-agent.exe --release-check
+```
+
+两条命令不读取 provider API key，不依赖公网、云服务器或 GPU。前者生成 deterministic Hybrid Agent 和 HITL approve/reject/replay 证据；后者运行 CI 等价的 focused Ruff、pytest/coverage、wheel、doctor、strict msgpack 和 Git 检查。
+
 ## 一句话
 
 这是一个“LLM 做语义选择、确定性策略管安全”的 Web Task Agent：它会根据工具观察动态规划、恢复和终止，并用版本化 benchmark 证明行为边界。
 
 ## 60 秒讲法
 
-我把原先固定顺序的 LangGraph 工作流升级成了 Hybrid Decision Agent。系统有搜索、打开页面、文本和视觉抽取、验证、匹配、保存、结束 8 个类型化工具，每次工具执行都会返回统一的 `ToolObservation`。可选 DeepSeek/Qwen 规划器负责语义选择，但代码策略控制动作白名单、步数预算、URL 重试和终止，所以 LLM 输出无效时不会失控，而是自动 fallback。比如页面连续失败会换候选 URL，文本置信度低或 verifier 拒绝会转视觉抽取。最后我做了 10 个确定性故障场景 benchmark，结果是 8/10 达到业务目标、10/10 正常终止、工具成功率 88.46%，同时把完成率和字段准确率分开统计。
+我把固定 LangGraph 工作流升级成了 Hybrid Decision Agent：8 个类型化工具通过统一 `ToolObservation` 形成决策循环，LLM 只在白名单内做语义选择，确定性 policy 控制预算、恢复和终止。遇到 `save_results` 外部副作用时，我用 LangGraph `interrupt` 做人工审批：checkpoint 按 `thread_id` 跨进程恢复，业务 SQLite 用 `approval_id` receipt 防止 replay 重复保存，reject 以 `human_denied` 结束。最终用 deterministic fixture 验证 10/10 循环终止、HITL 3/3 暂停、拒绝副作用 0、重复副作用 0，并明确这些指标不代表真实网站抽取准确率。
 
 ## 3 分钟讲法
 
@@ -39,12 +48,12 @@ Pipeline completion 不是 extraction accuracy。历史 2026-06-22 的 8 页真�
 ## 简历三条
 
 - 基于 Python、LangGraph 与 Pydantic 构建 Hybrid Decision Agent，将岗位搜索、页面访问、文本/视觉抽取、验证、匹配和持久化封装为 8 个类型化工具，实现条件决策循环与可审计 execution trace。
-- 设计“LLM 语义规划 + 确定性安全策略”架构，接入 DeepSeek/Qwen OpenAI-compatible planner，以代码约束动作白名单、步数预算、URL 重试和 fallback，并实现 URL 换链与 verifier 拒绝后的视觉恢复。
-- 构建 10 场景确定性 Agent benchmark，覆盖无效规划、工具失败、恢复和终止边界；fixture 结果为 8/10 达成目标、10/10 正常终止、88.46% 工具调用成功，并输出版本化 JSON/Markdown 证据。
+- 设计“LLM 语义规划 + 确定性安全策略”架构，并在 `save_results` 前实现 LangGraph Human-in-the-loop：稳定 `thread_id` 支持跨进程恢复，`approval_id` SQLite receipt 保证 replay 不重复写入，reject 以 `human_denied` 结束。
+- 构建版本化 deterministic fixture 评测与离线复现入口：10/10 Agent 循环终止、HITL 3/3 pause、reject/duplicate effects 0；项目当前 `308 passed`、`91.17%` coverage，并提供 `--portfolio-demo` 与 `--release-check`。
 
 ## 诚实边界
 
 - 确定性 benchmark 使用合成 fixture，证明控制流可靠性，不证明真实招聘网站泛化。
 - DeepSeek/Qwen planner 是可选增强；无 API key 时策略模式仍完整可用。
-- 当前 CI 已配置 Python 3.11 全量测试和 70% 覆盖率门禁；本机 Windows 沙箱会因 `tmp_path` ACL 阻止 84 个文件系统测试，因此最终全量结果以 GitHub Actions 为准。
+- 当前 CI 配置 Python 3.11 focused Ruff、全量 pytest 和 70% 覆盖率门禁；本地 `--release-check` 复用相同范围并额外验证 wheel、doctor、strict HITL 和 Git whitespace。
 - 不需要云服务器、GPU、训练或微调。真实 provider 复跑只需要 API key；真实站点若出现 CAPTCHA 或地区限制才需要人工处理。
