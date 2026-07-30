@@ -300,6 +300,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print a copyable local interview demo command script and exit.",
     )
     parser.add_argument(
+        "--portfolio-demo",
+        action="store_true",
+        help="Run the offline Hybrid Agent and HITL portfolio evidence demo.",
+    )
+    parser.add_argument(
+        "--portfolio-demo-output-dir",
+        default="portfolio-artifacts",
+        help="Directory for offline portfolio demo artifacts.",
+    )
+    parser.add_argument(
         "--compare-llm-extractor",
         action="store_true",
         help="Compare rule extraction with the deterministic LLM extractor demo.",
@@ -379,6 +389,13 @@ async def _run(args: argparse.Namespace) -> int:
     if args.print_demo_script:
         print_demo_script()
         return 0
+
+    if args.portfolio_demo:
+        try:
+            return await run_portfolio_demo(args.portfolio_demo_output_dir)
+        except Exception as exc:
+            print(f"Portfolio demo failed: {exc}")
+            return 1
 
     if args.hitl_benchmark:
         result = await run_hitl_evaluation(args.hitl_benchmark_output_dir)
@@ -1664,6 +1681,10 @@ def print_demo_script() -> None:
     print("Demo script")
     commands = [
         r".\.venv\Scripts\web-task-agent.exe --doctor",
+        (
+            r".\.venv\Scripts\web-task-agent.exe --portfolio-demo "
+            r"--portfolio-demo-output-dir portfolio-artifacts"
+        ),
         r".\.venv\Scripts\web-task-agent.exe --list-fixture-urls",
         (
             r'.\.venv\Scripts\web-task-agent.exe --keyword "AI intern" '
@@ -1742,6 +1763,71 @@ def print_demo_script() -> None:
     ]
     for index, command in enumerate(commands, start=1):
         print(f"{index}. {command}")
+
+
+async def run_portfolio_demo(output_dir: str | Path) -> int:
+    root = Path(output_dir)
+    hybrid_dir = root / "hybrid-agent"
+    hitl_dir = root / "hitl-checkpoint"
+    hybrid_json = hybrid_dir / "hybrid-agent.json"
+    hybrid_db = hybrid_dir / "portfolio.sqlite"
+
+    print("Portfolio demo")
+    print("[1/3] Environment doctor")
+    print_doctor_report(
+        report_dir=str(hybrid_dir / "reports"),
+        dashboard_dir=str(hybrid_dir / "dashboards"),
+        action_plan_dir=str(hybrid_dir / "action-plans"),
+        db_path=":memory:",
+    )
+
+    print("[2/3] Deterministic Hybrid Agent")
+    hybrid_args = build_parser().parse_args(
+        [
+            "--keyword",
+            "AI Agent intern",
+            "--skill",
+            "Python",
+            "--skill",
+            "LangGraph",
+            "--target-count",
+            "1",
+            "--agent-max-steps",
+            "8",
+            "--demo",
+            "--hybrid-agent",
+            "--db-path",
+            str(hybrid_db),
+            "--report-dir",
+            str(hybrid_dir / "reports"),
+            "--dashboard-dir",
+            str(hybrid_dir / "dashboards"),
+            "--dashboard",
+            "--json-output",
+            str(hybrid_json),
+        ]
+    )
+    hybrid_args._supplied_options = set()
+    if await _run(hybrid_args) != 0:
+        raise RuntimeError("deterministic Hybrid Agent stage failed")
+    hybrid_payload = json.loads(hybrid_json.read_text(encoding="utf-8"))
+    terminal_reason = hybrid_payload.get("terminal_reason")
+    if terminal_reason != "target_reached":
+        raise RuntimeError(f"unexpected Hybrid Agent terminal reason: {terminal_reason}")
+    print(f"Hybrid Agent: {terminal_reason}")
+    print(f"Hybrid JSON: {hybrid_json}")
+
+    print("[3/3] Durable HITL checkpoint benchmark")
+    hitl_result = await run_hitl_evaluation(hitl_dir)
+    hitl_artifacts = write_hitl_evaluation_artifacts(hitl_result, hitl_dir)
+    print(
+        f"HITL: pause_rate={hitl_result.pause_rate:.2f} "
+        f"rejected_effects={hitl_result.rejected_effects} "
+        f"duplicate_effects={hitl_result.duplicate_effects}"
+    )
+    for name, path in hitl_artifacts.items():
+        print(f"HITL {name}: {path}")
+    return 0
 
 
 def writable_status(path: Path) -> str:

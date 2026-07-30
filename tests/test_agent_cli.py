@@ -150,6 +150,65 @@ def test_parser_defaults_new_benchmarks_to_versioned_directories():
     assert args.hitl_benchmark_output_dir == "docs/results/hitl-checkpoint"
 
 
+def test_parser_accepts_portfolio_demo_flags():
+    args = build_parser().parse_args(
+        [
+            "--portfolio-demo",
+            "--portfolio-demo-output-dir",
+            "demo-artifacts",
+        ]
+    )
+
+    assert args.portfolio_demo is True
+    assert args.portfolio_demo_output_dir == "demo-artifacts"
+
+
+@pytest.mark.asyncio
+async def test_portfolio_demo_writes_offline_agent_evidence(tmp_path, capsys):
+    args = build_parser().parse_args(
+        [
+            "--portfolio-demo",
+            "--portfolio-demo-output-dir",
+            str(tmp_path),
+        ]
+    )
+
+    exit_code = await cli_module._run(args)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "Portfolio demo" in output
+    assert "Hybrid Agent: target_reached" in output
+    assert "HITL: pause_rate=1.00" in output
+    assert (tmp_path / "hybrid-agent" / "hybrid-agent.json").exists()
+    assert (tmp_path / "hitl-checkpoint" / "hitl-checkpoint.json").exists()
+    assert (tmp_path / "hitl-checkpoint" / "hitl-checkpoint.md").exists()
+
+
+@pytest.mark.asyncio
+async def test_portfolio_demo_returns_nonzero_when_hitl_stage_fails(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    async def fail_hitl_evaluation(_output_dir):
+        raise RuntimeError("fixture failed")
+
+    monkeypatch.setattr(cli_module, "run_hitl_evaluation", fail_hitl_evaluation)
+    args = build_parser().parse_args(
+        [
+            "--portfolio-demo",
+            "--portfolio-demo-output-dir",
+            str(tmp_path),
+        ]
+    )
+
+    exit_code = await cli_module._run(args)
+
+    assert exit_code == 1
+    assert "Portfolio demo failed: fixture failed" in capsys.readouterr().out
+
+
 def test_hybrid_payload_contains_decisions_observations_metrics_and_budget():
     payload = hybrid_state_payload(_completed_state())
 
