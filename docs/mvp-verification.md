@@ -98,6 +98,23 @@ print(jobs[0].title if jobs else "no jobs")
 - SQLite 数据库 `agent.db` 中能读取到 2 条岗位记录。
 - `outputs/result.json` 能读取到用户输入、岗位、匹配结果、运行指标、报告路径、`metadata.orchestration_mode` 和 `metadata.execution_trace`；与 `--action-plan` / `--dashboard` 同用时包含 `metadata.action_plan_path`、`metadata.dashboard_path` 和 `metadata.top_action_gaps`。
 
+## HITL checkpoint 验证（2026-07-30）
+
+- 使用 `langgraph-checkpoint-sqlite` 持久化 LangGraph `interrupt`，可由新 runtime 使用同一
+  `thread_id` 跨连接恢复。
+- 暂停发生在 `save_results` 之前；暂停状态的业务数据库为空，审批本身不消耗工具步数。
+- approve 路径执行原保存动作并完成为 `target_reached`；reject 路径不调用保存工具，以
+  `human_denied` 结束。
+- `approval_id` 同时作为 repository receipt 幂等键，重复重放不会覆盖首次结果或增加第二次
+  可见副作用。
+- `LANGGRAPH_STRICT_MSGPACK=true` 下实际运行三场景 benchmark 成功，没有未注册类型警告。
+- `docs/results/hitl-checkpoint/` 中的 `hybrid-agent-hitl-v1` 记录 3/3 暂停、拒绝副作用 0、
+  重复副作用 0；它是 deterministic fixture 证据，不衡量真实站点抽取。
+- 历史 `hybrid-agent-planner-controlled-v1` 文件保持不变。动作序列改变后的新 planner 运行使用
+  `hybrid-agent-planner-controlled-v2` 和 `docs/results/planner-benchmark-v2/`，未实际重跑的
+  DeepSeek/Qwen 指标不会从 v1 复制。
+- 该功能不需要 GPU、云服务器、微调或人工数据标注。
+
 ## 当前限制
 
 - 当前可演示路径使用内置 demo 页面，不依赖真实招聘网站。

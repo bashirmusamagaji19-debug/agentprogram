@@ -1811,3 +1811,19 @@ def test_cli_benchmark_v2_can_write_explanation(
     assert (tmp_path / "evaluations" / "benchmark-v2-explained.md").exists()
     captured = capsys.readouterr()
     assert "Benchmark explanation written to:" in captured.out
+
+
+def test_public_docs_explain_hitl_checkpoint_boundaries():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    story = (root / "docs" / "project-story.md").read_text(encoding="utf-8")
+    verification = (root / "docs" / "mvp-verification.md").read_text(
+        encoding="utf-8"
+    )
+    combined = "\n".join([readme, story, verification])
+
+    assert "Human-in-the-loop" in combined
+    assert "thread_id" in combined
+    assert "human_denied" in combined
+    assert "langgraph-checkpoint-sqlite" in combined
+    assert "不需要 GPU" in combined

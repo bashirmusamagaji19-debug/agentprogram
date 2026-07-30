@@ -155,6 +155,25 @@ flowchart LR
 
 这些指标代表确定性 MVP 闭环的稳定性，不代表真实招聘网站表现。真实网页接入后，需要重新构建真实网页评测集。
 
+## Human-in-the-loop 工程设计
+
+为了让项目体现 Agent 应用开发，而不只是模型调用，我在 `save_results` 这个有外部副作用的
+动作前加入了人工审批边界。`prepare_approval` 先把脱敏请求写入 checkpoint，随后
+`approval_gate` 调用 LangGraph `interrupt`；另一个进程可凭相同 `thread_id` 和
+`approval_id` 使用 `Command(resume=...)` 恢复。
+
+批准与拒绝都由代码控制，LLM planner 无权自行通过审批。批准后执行原保存动作；拒绝则不调用
+保存工具，并以 `human_denied` 终止。checkpoint 解决流程恢复，但不能单独消除“业务提交成功、
+checkpoint 尚未提交”这个崩溃窗口，因此 `JobRepository` 在同一 SQLite 事务中写入唯一
+`approval_id` receipt。这一组合提供可恢复编排和 exactly-once 可见保存效果。
+
+`langgraph-checkpoint-sqlite` 使用显式 msgpack 类型白名单，并已在
+`LANGGRAPH_STRICT_MSGPACK=true` 下通过跨连接恢复验证。它是工作流 checkpoint，不是向量记忆
+或长期语义记忆。整个能力不需要 GPU、云服务器或训练任务。
+
+公开的 `hybrid-agent-hitl-v1` fixture 评测结果为：3/3 场景暂停、拒绝路径副作用 0、重复副作用
+0。该指标只证明审批、恢复和幂等边界，不代表真实网页抽取泛化能力。
+
 ## 演示命令
 
 ```powershell

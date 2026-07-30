@@ -138,6 +138,35 @@ Qwen 在 `open-recovery` 中直接选择有效候选 URL，将该场景从 deter
 
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
 
+## Human-in-the-loop 暂停与恢复
+
+Hybrid Agent 可以在 `save_results` 前通过 LangGraph `interrupt` 暂停。状态由
+`langgraph-checkpoint-sqlite` 持久化，程序退出后仍可使用同一个 `thread_id` 恢复：
+
+```powershell
+# 首次运行：执行到 save_results 前暂停
+.\.venv\Scripts\web-task-agent.exe --demo --hybrid-agent --hitl `
+  --thread-id interview-demo-001 `
+  --checkpoint-db .agent\checkpoints.sqlite `
+  --db-path agent.db --keyword "AI Agent intern" --target-count 1
+
+# 使用首次运行打印的 approval-id 批准
+.\.venv\Scripts\web-task-agent.exe --hybrid-agent --hitl `
+  --thread-id interview-demo-001 `
+  --checkpoint-db .agent\checkpoints.sqlite `
+  --db-path agent.db --approval-id <approval-id> --resume-approval approve
+
+# 也可以把最后一个参数改成 reject；该路径以 human_denied 结束且不保存结果
+```
+
+审批 payload 只包含审批 ID、动作、岗位数量、摘要和时间，不包含简历正文、页面正文或
+API key。批准后使用 `approval_id` 作为业务数据库幂等键；即使 checkpoint 在保存后重放，
+也不会产生第二次可见副作用。JSON、Markdown 和 HTML 输出包含 requested/resolved 审计轨迹。
+
+本地确定性证据位于 `docs/results/hitl-checkpoint/`：3/3 场景成功暂停，拒绝路径副作用为
+0，重复副作用为 0。该评测使用受控 fixture，不衡量真实招聘网站抽取质量。本功能不需要 GPU、
+云服务器或模型训练。
+
 ## 真实 browser-use adapter 状态
 
 非 `--demo` 模式会走 `BrowserUseClient`，通过 `browser_use.BrowserSession` 打开搜索页并读取页面标题和正文。这个路径用于下一阶段真实网页接入；当前推荐演示和评测仍使用 `--demo`，因为它不依赖登录、验证码、反爬策略或外部网页结构变化。
