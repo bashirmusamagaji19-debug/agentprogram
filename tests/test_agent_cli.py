@@ -20,7 +20,7 @@ from web_task_agent.agent_models import (
     DecisionSource,
     ToolObservation,
 )
-from web_task_agent.cli import build_parser
+from web_task_agent.cli import build_parser, validate_hitl_args
 from web_task_agent.models import UserProfile
 
 
@@ -74,6 +74,32 @@ def test_parser_accepts_hybrid_agent_flags():
     assert args.agent_max_steps == 9
     assert args.agent_planner_provider == "deepseek"
     assert args.agent_planner_model == "deepseek-chat"
+
+
+def test_parser_accepts_hitl_checkpoint_flags():
+    args = build_parser().parse_args(
+        [
+            "--hybrid-agent",
+            "--hitl",
+            "--thread-id",
+            "demo-1",
+            "--checkpoint-db",
+            ".agent/checkpoints.sqlite",
+            "--resume-approval",
+            "approve",
+            "--approval-id",
+            "approval-1",
+            "--approval-note",
+            "Reviewed",
+        ]
+    )
+
+    assert args.hitl is True
+    assert args.thread_id == "demo-1"
+    assert args.checkpoint_db == ".agent/checkpoints.sqlite"
+    assert args.resume_approval == "approve"
+    assert args.approval_id == "approval-1"
+    assert args.approval_note == "Reviewed"
 
 
 def test_build_hybrid_runtime_injects_checkpointer():
@@ -167,6 +193,148 @@ async def test_cli_runs_deterministic_hybrid_agent_demo(monkeypatch):
     assert exit_code == 0
     assert captured["state"].terminal_status == "completed"
     assert captured["state"].decision_history
+
+
+@pytest.mark.asyncio
+async def test_cli_hitl_pause_prints_resume_identity(monkeypatch, capsys, tmp_path):
+    captured = {}
+
+    def fake_write_artifacts(state, **kwargs):
+        captured["state"] = state
+        return {}
+
+    monkeypatch.setattr(cli_module, "write_hybrid_artifacts", fake_write_artifacts)
+    args = build_parser().parse_args(
+        [
+            "--demo",
+            "--hybrid-agent",
+            "--hitl",
+            "--thread-id",
+            "demo-1",
+            "--checkpoint-db",
+            str(tmp_path / "checkpoints.sqlite"),
+            "--db-path",
+            str(tmp_path / "jobs.sqlite"),
+            "--keyword",
+            "AI intern",
+            "--target-count",
+            "1",
+            "--agent-max-steps",
+            "8",
+        ]
+    )
+
+    exit_code = await cli_module._run(args)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert captured["state"].pending_approval is not None
+    assert "awaiting_approval" in output
+    assert "Thread ID: demo-1" in output
+    assert "--resume-approval approve" in output
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (["--hitl", "--thread-id", "demo-1"], "requires --hybrid-agent"),
+        (["--hybrid-agent", "--hitl"], "requires --thread-id"),
+        (
+            [
+                "--hybrid-agent",
+                "--hitl",
+                "--thread-id",
+                "demo-1",
+                "--resume-approval",
+                "approve",
+            ],
+            "requires --approval-id",
+        ),
+    ],
+)
+async def test_cli_rejects_invalid_hitl_flag_combinations(arguments, message, capsys):
+    exit_code = await cli_module._run(build_parser().parse_args(arguments))
+
+    assert exit_code == 2
+    assert message in capsys.readouterr().out
+
+
+def test_resume_rejects_explicit_goal_arguments():
+    args = build_parser().parse_args(
+        [
+            "--hybrid-agent",
+            "--hitl",
+            "--thread-id",
+            "demo-1",
+            "--resume-approval",
+            "approve",
+            "--approval-id",
+            "approval-1",
+            "--keyword",
+            "replacement goal",
+        ]
+    )
+    args._supplied_options = {"--keyword"}
+
+    assert validate_hitl_args(args) == "--keyword cannot be used when resuming a HITL thread"
+
+
+@pytest.mark.asyncio
+async def test_cli_approve_resumes_checkpoint_to_completion(monkeypatch, tmp_path):
+    states = []
+
+    def fake_write_artifacts(state, **kwargs):
+        states.append(state)
+        return {}
+
+    monkeypatch.setattr(cli_module, "write_hybrid_artifacts", fake_write_artifacts)
+    checkpoint_path = tmp_path / "checkpoints.sqlite"
+    db_path = tmp_path / "jobs.sqlite"
+    start_args = build_parser().parse_args(
+        [
+            "--demo",
+            "--hybrid-agent",
+            "--hitl",
+            "--thread-id",
+            "demo-approve",
+            "--checkpoint-db",
+            str(checkpoint_path),
+            "--db-path",
+            str(db_path),
+            "--keyword",
+            "AI intern",
+            "--target-count",
+            "1",
+            "--agent-max-steps",
+            "8",
+        ]
+    )
+
+    assert await cli_module._run(start_args) == 0
+    approval_id = states[-1].pending_approval.approval_id
+    resume_args = build_parser().parse_args(
+        [
+            "--hybrid-agent",
+            "--hitl",
+            "--thread-id",
+            "demo-approve",
+            "--checkpoint-db",
+            str(checkpoint_path),
+            "--db-path",
+            str(db_path),
+            "--resume-approval",
+            "approve",
+            "--approval-id",
+            approval_id,
+            "--approval-note",
+            "Reviewed summary",
+        ]
+    )
+
+    assert await cli_module._run(resume_args) == 0
+    assert states[-1].terminal_status == "completed"
+    assert states[-1].terminal_reason == "target_reached"
 
 
 @pytest.mark.asyncio

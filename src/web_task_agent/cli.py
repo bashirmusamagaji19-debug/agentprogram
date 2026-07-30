@@ -16,6 +16,13 @@ from web_task_agent import __version__
 # __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from web_task_agent.action_plan import ActionPlanWriter
+from web_task_agent.agent_approval import (
+    ApprovalDecision,
+    ApprovalOutcome,
+    HitlRunStatus,
+    HitlRuntimeError,
+)
+from web_task_agent.agent_checkpoint import open_sqlite_checkpointer
 from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
 from web_task_agent.agent_planner import build_configured_agent_planner
 from web_task_agent.agent_planner_benchmark import (
@@ -138,6 +145,28 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=12,
         help="Maximum non-terminal tool steps for the hybrid Agent.",
+    )
+    parser.add_argument(
+        "--hitl",
+        action="store_true",
+        help="Pause the Hybrid Agent before persisting results.",
+    )
+    parser.add_argument("--thread-id", help="Stable checkpoint thread identifier.")
+    parser.add_argument(
+        "--checkpoint-db",
+        default=".agent/checkpoints.sqlite",
+        help="SQLite path for LangGraph checkpoints.",
+    )
+    parser.add_argument(
+        "--resume-approval",
+        choices=["approve", "reject"],
+        help="Resume a pending HITL thread with one approval outcome.",
+    )
+    parser.add_argument("--approval-id", help="Pending approval identifier to resume.")
+    parser.add_argument(
+        "--approval-note",
+        default="",
+        help="Public audit note attached to the approval decision.",
     )
     parser.add_argument(
         "--agent-planner-provider",
@@ -302,7 +331,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    args = parser.parse_args(raw_argv)
+    args._supplied_options = {
+        token.partition("=")[0] for token in raw_argv if token.startswith("--")
+    }
     return asyncio.run(_run(args))
 
 
@@ -311,6 +344,11 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    hitl_error = validate_hitl_args(args)
+    if hitl_error:
+        print(f"HITL configuration error: {hitl_error}")
+        return 2
+
     if args.doctor:
         print_doctor_report(
             report_dir=args.report_dir,
@@ -574,7 +612,11 @@ async def _run(args: argparse.Namespace) -> int:
             return 2
         return await run_interactive(args)
 
-    if not args.keyword and not args.seed_url:
+    if (
+        not args.keyword
+        and not args.seed_url
+        and not (args.hitl and args.resume_approval)
+    ):
         print("--keyword is required unless --evaluate is used.")
         return 2
 
@@ -623,11 +665,87 @@ async def _run(args: argparse.Namespace) -> int:
         mode = f"llm-match-{args.llm_match_provider or 'demo'}"
         print(f"LLM match enabled: {mode}")
     try:
+        if args.hybrid_agent and args.hitl:
+            planner = None
+            if args.agent_planner_provider and not args.resume_approval:
+                planner = build_configured_agent_planner(
+                    provider=args.agent_planner_provider,
+                    model=args.agent_planner_model,
+                )
+            async with open_sqlite_checkpointer(args.checkpoint_db) as saver:
+                runtime = build_hybrid_runtime(
+                    workflow,
+                    planner=planner,
+                    checkpointer=saver,
+                )
+                if args.resume_approval:
+                    hitl_result = await runtime.resume_hitl(
+                        thread_id=args.thread_id,
+                        decision=ApprovalDecision(
+                            approval_id=args.approval_id,
+                            outcome=ApprovalOutcome(args.resume_approval),
+                            note=args.approval_note,
+                        ),
+                    )
+                else:
+                    resume_text = load_resume_text(args.resume_text, args.resume_file)
+                    user = UserProfile(
+                        keyword=args.keyword or "seed URLs",
+                        location=args.location,
+                        target_count=args.target_count,
+                        skills=args.skill,
+                        resume_text=resume_text,
+                        seed_urls=args.seed_url,
+                    )
+                    hitl_result = await workflow.start_with_hybrid_agent_hitl(
+                        user,
+                        runtime=runtime,
+                        thread_id=args.thread_id,
+                        max_steps=args.agent_max_steps,
+                    )
+            agent_state = hitl_result.state
+            artifacts = write_hybrid_artifacts(
+                agent_state,
+                report_dir=args.report_dir,
+                dashboard_dir=args.dashboard_dir,
+                write_dashboard=args.dashboard,
+                json_output=args.json_output,
+            )
+            print("Hybrid Decision Agent HITL: enabled")
+            print(f"HITL status: {hitl_result.status.value}")
+            print(f"Thread ID: {args.thread_id}")
+            print(f"Terminal reason: {agent_state.terminal_reason}")
+            print(f"Verified jobs: {len(agent_state.verified_jobs)}")
+            if hitl_result.status is HitlRunStatus.AWAITING_APPROVAL:
+                approval = hitl_result.approval
+                if approval is None:
+                    raise HitlRuntimeError("paused run has no approval request")
+                print(f"Approval ID: {approval.approval_id}")
+                print(f"Pending action: {approval.action}")
+                print(f"Summary: {approval.summary}")
+                base = (
+                    "web-task-agent --hybrid-agent --hitl "
+                    f"--thread-id {args.thread_id} "
+                    f'--checkpoint-db "{args.checkpoint_db}" '
+                    f'--db-path "{args.db_path}" '
+                    f"--approval-id {approval.approval_id}"
+                )
+                print(f"Approve: {base} --resume-approval approve")
+                print(f"Reject: {base} --resume-approval reject")
+            for artifact_name, artifact_path in artifacts.items():
+                print(f"{artifact_name.title()} written to: {artifact_path}")
+            return (
+                0
+                if hitl_result.status
+                in {
+                    HitlRunStatus.AWAITING_APPROVAL,
+                    HitlRunStatus.COMPLETED,
+                    HitlRunStatus.REJECTED,
+                }
+                else 2
+            )
+
         resume_text = load_resume_text(args.resume_text, args.resume_file)
-    except FileNotFoundError as exc:
-        print(f"Resume file not found: {exc.filename}")
-        return 2
-    try:
         user = UserProfile(
             keyword=args.keyword or "seed URLs",
             location=args.location,
@@ -667,6 +785,15 @@ async def _run(args: argparse.Namespace) -> int:
             state = await workflow.run_with_langgraph(user)
         else:
             state = await workflow.run(user)
+    except FileNotFoundError as exc:
+        print(f"Resume file not found: {exc.filename}")
+        return 2
+    except HitlRuntimeError as exc:
+        print(f"HITL runtime error: {exc}")
+        return 2
+    except OSError as exc:
+        print(f"HITL checkpoint error: {type(exc).__name__}: {exc}")
+        return 2
     except BrowserConfigurationError as exc:
         print(f"Real browser-use mode is not configured: {exc}")
         print("Use --demo for the deterministic local demo path.")
@@ -760,6 +887,39 @@ async def _run(args: argparse.Namespace) -> int:
         )
         return 2
     return 0
+
+
+def validate_hitl_args(args: argparse.Namespace) -> str | None:
+    if args.hitl and not args.hybrid_agent:
+        return "--hitl requires --hybrid-agent"
+    if args.hitl and not str(args.thread_id or "").strip():
+        return "--hitl requires --thread-id"
+    if args.resume_approval and not args.hitl:
+        return "--resume-approval requires --hitl"
+    if args.resume_approval and not str(args.approval_id or "").strip():
+        return "--resume-approval requires --approval-id"
+    if args.approval_id and not args.resume_approval:
+        return "--approval-id requires --resume-approval"
+    if args.approval_note and not args.resume_approval:
+        return "--approval-note requires --resume-approval"
+    if args.resume_approval:
+        supplied = getattr(args, "_supplied_options", set())
+        initial_only = (
+            "--keyword",
+            "--location",
+            "--target-count",
+            "--skill",
+            "--seed-url",
+            "--resume-text",
+            "--resume-file",
+            "--agent-max-steps",
+            "--agent-planner-provider",
+            "--agent-planner-model",
+        )
+        for option in initial_only:
+            if option in supplied:
+                return f"{option} cannot be used when resuming a HITL thread"
+    return None
 
 
 def _visual_provider_run_failed(args: argparse.Namespace, valid_jobs: int) -> bool:
