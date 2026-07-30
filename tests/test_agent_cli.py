@@ -163,6 +163,12 @@ def test_parser_accepts_portfolio_demo_flags():
     assert args.portfolio_demo_output_dir == "demo-artifacts"
 
 
+def test_parser_accepts_release_check_flag():
+    args = build_parser().parse_args(["--release-check"])
+
+    assert args.release_check is True
+
+
 @pytest.mark.asyncio
 async def test_portfolio_demo_writes_offline_agent_evidence(tmp_path, capsys):
     args = build_parser().parse_args(

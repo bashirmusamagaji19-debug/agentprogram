@@ -34,6 +34,7 @@ from web_task_agent.agent_planner_benchmark import (
     run_planner_benchmark,
     write_planner_benchmark_artifacts,
 )
+from web_task_agent.agent_release_check import run_release_checks
 from web_task_agent.benchmark import (
     BenchmarkProviderResult,
     build_real_site_benchmark_v2_cases,
@@ -310,6 +311,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory for offline portfolio demo artifacts.",
     )
     parser.add_argument(
+        "--release-check",
+        action="store_true",
+        help="Run the CI-equivalent local release checks.",
+    )
+    parser.add_argument(
         "--compare-llm-extractor",
         action="store_true",
         help="Compare rule extraction with the deterministic LLM extractor demo.",
@@ -396,6 +402,16 @@ async def _run(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"Portfolio demo failed: {exc}")
             return 1
+
+    if args.release_check:
+        result = run_release_checks(repo_root=Path(__file__).resolve().parents[2])
+        print("Release check")
+        for stage in result.stages:
+            label = "PASS" if stage.passed else "FAIL"
+            print(f"[{label}] {stage.name}")
+            if not stage.passed and stage.output:
+                print(stage.output)
+        return 0 if result.passed else 1
 
     if args.hitl_benchmark:
         result = await run_hitl_evaluation(args.hitl_benchmark_output_dir)
