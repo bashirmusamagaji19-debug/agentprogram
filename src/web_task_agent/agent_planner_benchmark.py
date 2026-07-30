@@ -25,7 +25,7 @@ from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
 
 SUPPORTED_PLANNER_BENCHMARK_PROVIDERS = ("deterministic", "deepseek", "qwen")
-PLANNER_BENCHMARK_VERSION = "hybrid-agent-planner-controlled-v1"
+PLANNER_BENCHMARK_VERSION = "hybrid-agent-planner-controlled-v2"
 PLANNER_BENCHMARK_SCOPE = "controlled replayable runtime scenarios"
 
 PlannerFactory = Callable[[str], OpenAiCompatibleAgentPlanner]

@@ -23,6 +23,10 @@ from web_task_agent.agent_approval import (
     HitlRuntimeError,
 )
 from web_task_agent.agent_checkpoint import open_sqlite_checkpointer
+from web_task_agent.agent_hitl_evaluation import (
+    run_hitl_evaluation,
+    write_hitl_evaluation_artifacts,
+)
 from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
 from web_task_agent.agent_planner import build_configured_agent_planner
 from web_task_agent.agent_planner_benchmark import (
@@ -189,8 +193,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--agent-planner-benchmark-output-dir",
-        default="docs/results/planner-benchmark",
+        default="docs/results/planner-benchmark-v2",
         help="Directory for planner benchmark JSON and Markdown artifacts.",
+    )
+    parser.add_argument(
+        "--hitl-benchmark",
+        action="store_true",
+        help="Run deterministic HITL checkpoint and idempotency scenarios.",
+    )
+    parser.add_argument(
+        "--hitl-benchmark-output-dir",
+        default="docs/results/hitl-checkpoint",
+        help="Directory for HITL checkpoint benchmark artifacts.",
     )
     parser.add_argument(
         "--llm-extractor-demo",
@@ -364,6 +378,20 @@ async def _run(args: argparse.Namespace) -> int:
 
     if args.print_demo_script:
         print_demo_script()
+        return 0
+
+    if args.hitl_benchmark:
+        result = await run_hitl_evaluation(args.hitl_benchmark_output_dir)
+        artifacts = write_hitl_evaluation_artifacts(
+            result,
+            args.hitl_benchmark_output_dir,
+        )
+        print("HITL checkpoint benchmark")
+        print(f"pause_rate={result.pause_rate:.2f}")
+        print(f"rejected_effects={result.rejected_effects}")
+        print(f"duplicate_effects={result.duplicate_effects}")
+        for name, path in artifacts.items():
+            print(f"{name.title()} written to: {path}")
         return 0
 
     if args.agent_planner_benchmark:

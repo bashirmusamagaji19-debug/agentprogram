@@ -142,6 +142,14 @@ def test_parser_accepts_planner_benchmark_flags():
     assert args.agent_planner_benchmark_output_dir == "outputs/planner"
 
 
+def test_parser_defaults_new_benchmarks_to_versioned_directories():
+    args = build_parser().parse_args([])
+
+    assert args.agent_planner_benchmark_output_dir == "docs/results/planner-benchmark-v2"
+    assert args.hitl_benchmark is False
+    assert args.hitl_benchmark_output_dir == "docs/results/hitl-checkpoint"
+
+
 def test_hybrid_payload_contains_decisions_observations_metrics_and_budget():
     payload = hybrid_state_payload(_completed_state())
 
@@ -454,3 +462,53 @@ async def test_cli_runs_planner_benchmark_and_writes_artifacts(monkeypatch, caps
     assert "deterministic: executed" in output
     assert "4/5" in output
     assert "planner-benchmark.json" in output
+
+
+@pytest.mark.asyncio
+async def test_cli_runs_hitl_benchmark_and_writes_artifacts(monkeypatch, capsys):
+    captured = {}
+
+    async def fake_run_hitl_evaluation(output_dir):
+        captured["run_output_dir"] = output_dir
+        return SimpleNamespace(
+            pause_rate=1.0,
+            rejected_effects=0,
+            duplicate_effects=0,
+        )
+
+    def fake_write_hitl_evaluation_artifacts(result, output_dir):
+        captured["result"] = result
+        captured["artifact_output_dir"] = output_dir
+        return {
+            "json": Path(output_dir) / "hitl-checkpoint.json",
+            "markdown": Path(output_dir) / "hitl-checkpoint.md",
+        }
+
+    monkeypatch.setattr(
+        cli_module,
+        "run_hitl_evaluation",
+        fake_run_hitl_evaluation,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "write_hitl_evaluation_artifacts",
+        fake_write_hitl_evaluation_artifacts,
+    )
+    args = build_parser().parse_args(
+        [
+            "--hitl-benchmark",
+            "--hitl-benchmark-output-dir",
+            "outputs/hitl",
+        ]
+    )
+
+    exit_code = await cli_module._run(args)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert captured["run_output_dir"] == "outputs/hitl"
+    assert captured["artifact_output_dir"] == "outputs/hitl"
+    assert "HITL checkpoint benchmark" in output
+    assert "pause_rate=1.00" in output
+    assert "hitl-checkpoint.json" in output

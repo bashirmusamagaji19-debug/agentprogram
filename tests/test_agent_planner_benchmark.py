@@ -209,7 +209,7 @@ async def test_run_planner_benchmark_executes_identical_cases_for_each_provider(
     )
 
     assert isinstance(matrix, PlannerBenchmarkMatrix)
-    assert matrix.benchmark_version == "hybrid-agent-planner-controlled-v1"
+    assert matrix.benchmark_version == "hybrid-agent-planner-controlled-v2"
     assert [provider.provider for provider in matrix.providers] == [
         "deterministic",
         "deepseek",
@@ -261,7 +261,7 @@ async def test_planner_benchmark_artifacts_explain_scope_and_exclude_secrets(tmp
     assert "循环终止率" in markdown
     assert "Token" in markdown
     assert "面试表达" in markdown
-    assert payload["benchmark_version"] == "hybrid-agent-planner-controlled-v1"
+    assert payload["benchmark_version"] == "hybrid-agent-planner-controlled-v2"
     assert payload["scope"] == "controlled replayable runtime scenarios"
     assert payload["providers"][0]["cases"][0]["terminal_reason"] == "target_reached"
     assert paths["markdown"].read_text(encoding="utf-8") == markdown
