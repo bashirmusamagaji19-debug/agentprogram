@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
+from web_task_agent.agent_approval import ApprovalStatus
 from web_task_agent.agent_models import DecisionAgentState
 from web_task_agent.agent_policy import DeterministicAgentPolicy
 from web_task_agent.agent_runtime import HybridAgentRuntime
@@ -64,8 +65,24 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
             }
         )
     metrics = state.metrics
+    hitl_status = state.terminal_status
+    if (
+        state.pending_approval is not None
+        and state.pending_approval.status is ApprovalStatus.PENDING
+    ):
+        hitl_status = "awaiting_approval"
     return {
         "orchestration_mode": "hybrid-agent",
+        "thread_id": state.thread_id or None,
+        "hitl_status": hitl_status,
+        "pending_approval": (
+            state.pending_approval.public_payload()
+            if state.pending_approval is not None
+            else None
+        ),
+        "approval_audit": [
+            event.model_dump(mode="json") for event in state.approval_audit
+        ],
         "goal": {
             "keyword": state.user.keyword,
             "location": state.user.location,
@@ -125,6 +142,23 @@ def render_hybrid_markdown(state: DecisionAgentState) -> str:
             f"| {item['step']} | {item['action']} | {item['source']} | "
             f"{reason} | {summary} | {observation.get('latency_ms', 0):.2f} |"
         )
+    if payload["approval_audit"]:
+        lines.extend(
+            [
+                "",
+                "## Approval Audit",
+                "",
+                "| Event | Action | Outcome | Note | UTC time |",
+                "|---|---|---|---|---|",
+            ]
+        )
+        for event in payload["approval_audit"]:
+            note = str(event.get("note", "")).replace("|", "\\|")
+            outcome = event.get("outcome") or ""
+            lines.append(
+                f"| {event['event']} | {event['action']} | {outcome} | "
+                f"{note} | {event['occurred_at']} |"
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -141,6 +175,17 @@ def render_hybrid_html(state: DecisionAgentState) -> str:
             f"<td>{html.escape(str(item['reason']))}</td>"
             f"<td>{html.escape(str(observation.get('summary', '')))}</td>"
             f"<td>{float(observation.get('latency_ms', 0)):.2f}</td>"
+            "</tr>"
+        )
+    approval_rows = []
+    for event in payload["approval_audit"]:
+        approval_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(event['event']))}</td>"
+            f"<td><code>{html.escape(str(event['action']))}</code></td>"
+            f"<td>{html.escape(str(event.get('outcome') or ''))}</td>"
+            f"<td>{html.escape(str(event.get('note', '')))}</td>"
+            f"<td>{html.escape(str(event['occurred_at']))}</td>"
             "</tr>"
         )
     metrics = payload["metrics"]
@@ -171,6 +216,11 @@ code {{ color: #1769aa; }}
 <table>
 <thead><tr><th>Step</th><th>Action</th><th>Source</th><th>Reason</th><th>Observation</th><th>ms</th></tr></thead>
 <tbody>{"".join(rows)}</tbody>
+</table>
+<h2>Approval Audit</h2>
+<table>
+<thead><tr><th>Event</th><th>Action</th><th>Outcome</th><th>Note</th><th>UTC time</th></tr></thead>
+<tbody>{"".join(approval_rows)}</tbody>
 </table>
 </body>
 </html>

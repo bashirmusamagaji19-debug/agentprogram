@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from web_task_agent import cli as cli_module
+from web_task_agent.agent_approval import (
+    ApprovalAuditEvent,
+    ApprovalOutcome,
+    ApprovalRequest,
+    ApprovalStatus,
+)
 from web_task_agent.agent_cli import (
     build_hybrid_runtime,
     hybrid_state_payload,
@@ -162,6 +170,54 @@ def test_hybrid_html_escapes_decision_reason():
     assert "Hybrid Decision Agent" in html
     assert "Open &lt;script&gt; candidate." in html
     assert "Open <script> candidate." not in html
+
+
+def test_hybrid_artifacts_render_redacted_approval_audit():
+    state = _completed_state()
+    state.user.resume_text = "PRIVATE RESUME CONTENT"
+    state.thread_id = "demo-1"
+    state.pending_approval = ApprovalRequest(
+        approval_id="approval-1",
+        thread_id="demo-1",
+        requested_at=datetime(2026, 7, 29, tzinfo=UTC),
+        job_count=1,
+        summary="Persist 1 verified job record.",
+        status=ApprovalStatus.APPROVED,
+    )
+    state.approval_audit = [
+        ApprovalAuditEvent(
+            approval_id="approval-1",
+            event="requested",
+            occurred_at=datetime(2026, 7, 29, tzinfo=UTC),
+        ),
+        ApprovalAuditEvent(
+            approval_id="approval-1",
+            event="resolved",
+            occurred_at=datetime(2026, 7, 29, 0, 1, tzinfo=UTC),
+            outcome=ApprovalOutcome.APPROVE,
+            note="Reviewed <summary> | safe",
+        ),
+    ]
+
+    payload = hybrid_state_payload(state)
+    markdown = render_hybrid_markdown(state)
+    html = render_hybrid_html(state)
+    serialized = json.dumps(payload, ensure_ascii=False)
+
+    assert payload["thread_id"] == "demo-1"
+    assert payload["hitl_status"] == "completed"
+    assert payload["pending_approval"]["action"] == "save_results"
+    assert payload["approval_audit"][1]["outcome"] == "approve"
+    assert "## Approval Audit" in markdown
+    assert "Reviewed <summary> \\| safe" in markdown
+    assert "Reviewed &lt;summary&gt; | safe" in html
+    for forbidden in [
+        "PRIVATE RESUME CONTENT",
+        "Authorization",
+        "Bearer ",
+        "api_key",
+    ]:
+        assert forbidden not in serialized
 
 
 @pytest.mark.asyncio
