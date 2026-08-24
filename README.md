@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：`308 passed`、总覆盖率 `91.17%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：本轮全量测试 `341 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -32,6 +32,11 @@ python -m web_task_agent.cli --open-search-demo --query "找北京 Agent 实习"
 # Web 运行台
 python -m uvicorn web_task_agent.open_search.api:app --reload
 # 浏览器打开 http://127.0.0.1:8000/
+
+# 公开岗位搜索 Streamlit Demo
+python -m pip install -e ".[demo]"
+python -m streamlit run streamlit_app.py
+# 浏览器打开 Streamlit 输出的本地地址，默认 http://localhost:8501
 
 # 冻结查询评测（与在线审计指标分开）
 python -m web_task_agent.open_search.evaluation --queries data/open-search/evaluation/queries.jsonl --output-dir docs/results/open-search
