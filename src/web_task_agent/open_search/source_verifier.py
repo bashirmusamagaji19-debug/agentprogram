@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+import httpx
+
 
 @dataclass(frozen=True)
 class SourceVerdict:
@@ -50,3 +52,43 @@ class SourceVerifier:
             "host is not a trusted job detail source",
             "source_untrusted",
         )
+
+    async def verify_reachable(
+        self, url: str, *, client: httpx.AsyncClient | None = None
+    ) -> SourceVerdict:
+        verdict = self.verify_url(url)
+        if not verdict.trusted:
+            return verdict
+        own_client = client is None
+        request_client = client or httpx.AsyncClient(timeout=10, follow_redirects=True)
+        try:
+            response = await request_client.get(url)
+            if response.status_code >= 400:
+                return SourceVerdict(
+                    False,
+                    verdict.normalized_url,
+                    verdict.source_type,
+                    f"detail page returned HTTP {response.status_code}",
+                    "page_unreachable",
+                )
+            content_type = response.headers.get("content-type", "").casefold()
+            if content_type and "text/html" not in content_type:
+                return SourceVerdict(
+                    False,
+                    verdict.normalized_url,
+                    verdict.source_type,
+                    "detail page did not return HTML",
+                    "page_not_html",
+                )
+            return verdict
+        except httpx.HTTPError as exc:
+            return SourceVerdict(
+                False,
+                verdict.normalized_url,
+                verdict.source_type,
+                f"detail page request failed: {type(exc).__name__}",
+                "page_unreachable",
+            )
+        finally:
+            if own_client:
+                await request_client.aclose()

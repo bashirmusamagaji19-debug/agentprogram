@@ -31,9 +31,12 @@ def _run_search(query: str, mode: str):
         if not tavily_key:
             raise SearchProviderConfigurationError("TAVILY_API_KEY is required for online search")
         provider = TavilySearchProvider(tavily_key)
-    output_dir = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs")) / "streamlit"
+    artifact_root = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs"))
+    output_dir = artifact_root / "streamlit"
     result = asyncio.run(
-        OpenSearchPipeline(provider).run(intent, output_dir=output_dir, limit=intent.target_count)
+        OpenSearchPipeline(provider, verify_reachability=mode == "online").run(
+            intent, output_dir=output_dir, limit=intent.target_count
+        )
     )
     return intent, result
 
@@ -43,7 +46,12 @@ st.title("开放互联网岗位搜索 Agent")
 st.caption("输入岗位需求，Agent 将解析意图、搜索来源并展示可审计结果。")
 
 query = st.text_area("岗位需求", "北京 Python LangGraph Agent 实习，3 个岗位", height=90)
-mode = st.radio("运行模式", ["demo", "online"], format_func=lambda value: "离线演示" if value == "demo" else "开放互联网搜索", horizontal=True)
+mode = st.radio(
+    "运行模式",
+    ["demo", "online"],
+    format_func=lambda value: "离线演示" if value == "demo" else "开放互联网搜索",
+    horizontal=True,
+)
 
 if st.button("开始搜索", type="primary", disabled=not query.strip()):
     with st.spinner("正在解析需求并检索岗位..."):

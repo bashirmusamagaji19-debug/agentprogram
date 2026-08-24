@@ -60,7 +60,9 @@ async def _execute(run_id: str, request: RunRequest) -> None:
             if request.mode == "demo"
             else TavilySearchProvider.from_environment()
         )
-        result = await OpenSearchPipeline(provider).run(
+        result = await OpenSearchPipeline(
+            provider, verify_reachability=request.mode == "online"
+        ).run(
             intent,
             output_dir=ARTIFACT_ROOT / run_id,
             limit=intent.target_count,

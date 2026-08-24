@@ -10,9 +10,16 @@ from .source_verifier import SourceVerifier
 
 
 class OpenSearchPipeline:
-    def __init__(self, provider, *, source_verifier: SourceVerifier | None = None) -> None:
+    def __init__(
+        self,
+        provider,
+        *,
+        source_verifier: SourceVerifier | None = None,
+        verify_reachability: bool = False,
+    ) -> None:
         self.provider = provider
         self.source_verifier = source_verifier or SourceVerifier()
+        self.verify_reachability = verify_reachability
 
     async def run(self, intent: SearchIntent, *, output_dir: Path, limit: int | None = None):
         run_id = str(uuid4())
@@ -44,9 +51,18 @@ class OpenSearchPipeline:
             if candidate.url in seen:
                 continue
             seen.add(candidate.url)
-            verdict = self.source_verifier.verify_url(candidate.url)
+            verdict = (
+                await self.source_verifier.verify_reachable(candidate.url)
+                if self.verify_reachability
+                else self.source_verifier.verify_url(candidate.url)
+            )
             writer.append_jsonl(
-                "execution-trace.jsonl", {"url": candidate.url, "trusted": verdict.trusted}
+                "execution-trace.jsonl",
+                {
+                    "url": candidate.url,
+                    "trusted": verdict.trusted,
+                    "reachability_checked": self.verify_reachability,
+                },
             )
             if not verdict.trusted:
                 failures.append(
