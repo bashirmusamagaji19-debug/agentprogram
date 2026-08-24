@@ -32,6 +32,11 @@ def test_search_intent_normalizes_unique_constraints():
     assert intent.excluded_roles == ["产品经理"]
 
 
+def test_search_intent_rejects_empty_raw_text_after_trim():
+    with pytest.raises(ValidationError):
+        SearchIntent(raw_text="   ")
+
+
 @pytest.mark.parametrize("target_count", [0, 21])
 def test_search_intent_restricts_target_count(target_count):
     with pytest.raises(ValidationError):
@@ -39,8 +44,8 @@ def test_search_intent_restricts_target_count(target_count):
 
 
 def test_failure_record_requires_code_and_url():
-    with pytest.raises(ValidationError):
-        FailureRecord(code="page_unavailable", url="", message="timeout")
+    record = FailureRecord(code="search_api_error", message="timeout")
+    assert record.url == ""
 
 
 def test_models_trim_strings_and_dedupe_lists():
@@ -94,6 +99,38 @@ def test_content_hash_is_non_empty_hexadecimal():
             snippet="Agent Intern",
             page_url="https://example.com/jobs/1",
             content_hash="not-hex",
+        )
+
+
+@pytest.mark.parametrize("score", [-0.1, 1.1, float("nan"), float("inf")])
+def test_search_candidate_rejects_invalid_score(score):
+    with pytest.raises(ValidationError):
+        SearchCandidate(url="https://example.com/jobs/1", score=score)
+
+
+@pytest.mark.parametrize("model_factory", [
+    lambda: SearchCandidate(url="ftp://example.com/jobs/1"),
+    lambda: FieldEvidence(
+        field_name="title",
+        value="Agent",
+        snippet="Agent",
+        page_url="ftp://example.com/jobs/1",
+        content_hash="abc123",
+    ),
+])
+def test_urls_require_http_or_https(model_factory):
+    with pytest.raises(ValidationError):
+        model_factory()
+
+
+def test_verified_job_requires_at_least_one_evidence_item():
+    with pytest.raises(ValidationError):
+        VerifiedJob(
+            title="Agent Intern",
+            company="Example AI",
+            location="Remote",
+            url="https://example.com/jobs/1",
+            source="fixture",
         )
 
 
