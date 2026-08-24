@@ -3,6 +3,12 @@ from fastapi.testclient import TestClient
 from web_task_agent.open_search.api import app
 
 
+def test_healthz_returns_ok():
+    response = TestClient(app).get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_create_run_returns_run_id_and_intent():
     response = TestClient(app).post("/api/runs", json={"query": "找北京 Agent 实习", "mode": "demo"})
     assert response.status_code == 202

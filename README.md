@@ -116,10 +116,11 @@ $env:DEEPSEEK_API_KEY="..."
 
 ```toml
 TAVILY_API_KEY = "你的 Tavily key"
+# 仅在启用项目中其他 Qwen 抽取/规划 CLI 时需要
 DASHSCOPE_API_KEY = "你的 DashScope key"
 ```
 
-Demo 模式无需任何 key；Online 模式才会调用 Tavily。部署完成后平台会生成 `https://<app>.streamlit.app` 公网地址。
+Demo 模式无需任何 key；当前 Web Online 模式使用 Tavily，Qwen key 对该页面不是必需项。部署完成后平台会生成 `https://<app>.streamlit.app` 公网地址。
 
 ### Render（FastAPI 服务）
 
