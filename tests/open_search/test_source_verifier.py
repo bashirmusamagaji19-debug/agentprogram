@@ -50,3 +50,31 @@ async def test_reachability_verifier_rejects_non_html_page():
     finally:
         await client.aclose()
     assert verdict.failure_code == "page_not_html"
+
+
+@pytest.mark.asyncio
+async def test_reachability_verifier_rejects_untrusted_redirect():
+    async def handler(request):
+        if "greenhouse" in request.url.host:
+            return httpx.Response(
+                302,
+                headers={"location": "https://evil.example/jobs/1"},
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            content=b"<html>redirected</html>",
+            headers={"content-type": "text/html"},
+            request=request,
+        )
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), follow_redirects=True
+    )
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+    assert verdict.failure_code == "redirect_untrusted"

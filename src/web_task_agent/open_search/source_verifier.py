@@ -55,6 +55,19 @@ class SourceVerifier:
             "source_untrusted",
         )
 
+    def _same_trusted_host_family(self, original_url: str, final_url: str) -> bool:
+        original_host = urlparse(original_url).netloc.casefold().split(":", 1)[0]
+        final_host = urlparse(final_url).netloc.casefold().split(":", 1)[0]
+        if original_host == final_host:
+            return True
+        return any(
+            original_host == suffix
+            and final_host.endswith("." + suffix)
+            or final_host == suffix
+            and original_host.endswith("." + suffix)
+            for suffix in self._ats
+        )
+
     async def verify_reachable(
         self, url: str, *, client: httpx.AsyncClient | None = None
     ) -> SourceVerdict:
@@ -72,6 +85,17 @@ class SourceVerifier:
                     verdict.source_type,
                     f"detail page returned HTTP {response.status_code}",
                     "page_unreachable",
+                )
+            final_verdict = self.verify_url(str(response.url))
+            if not final_verdict.trusted or not self._same_trusted_host_family(
+                verdict.normalized_url, str(response.url)
+            ):
+                return SourceVerdict(
+                    False,
+                    str(response.url),
+                    final_verdict.source_type,
+                    "detail page redirected to an untrusted URL",
+                    "redirect_untrusted",
                 )
             content_type = response.headers.get("content-type", "").casefold()
             if content_type and "text/html" not in content_type:
