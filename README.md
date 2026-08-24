@@ -134,6 +134,13 @@ uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
 
 当前版本是单实例演示部署：运行状态保存在进程内存，artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
 
+本地先验证 Streamlit 页面：
+
+```powershell
+python -m pip install -e ".[demo]"
+python -m streamlit run streamlit_app.py
+```
+
 如果 Windows PowerShell 显示中文乱码，请使用 UTF-8 终端或执行 chcp 65001 后再查看。
 
 ## 已验证的 MVP 命令
