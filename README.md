@@ -23,7 +23,7 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 
 ## 开放互联网岗位搜索 Agent
 
-输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Online 模式还会请求详情页，拒绝不可达或非 HTML 页面，最后只把可信招聘详情页和页面字段证据作为结果。搜索摘要不是最终证据；开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`page_unreachable`、`page_not_html`、`no_match` 和 `budget_exhausted` 会分别记录。
+输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Online 模式还会请求详情页，拒绝不可达、空正文或非 HTML 页面，并在执行轨迹中记录页面正文 SHA-256（不保存整页内容），最后只把可信招聘详情页和页面字段证据作为结果。搜索摘要不是最终证据；开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`page_unreachable`、`page_not_html`、`page_empty`、`no_match` 和 `budget_exhausted` 会分别记录。
 
 ```powershell
 # 离线演示：无需 key，生成岗位、执行轨迹和 run-summary
