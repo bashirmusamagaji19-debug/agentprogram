@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>开放岗位搜索 Agent</title>
+  <style>
+    :root{font-family:Inter,system-ui,sans-serif;color:#18212f;background:#f4f6f8}body{margin:0}main{max-width:1100px;margin:auto;padding:28px}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dce2e8;padding-bottom:16px}h1{font-size:24px;margin:0}.panel{background:#fff;border:1px solid #dce2e8;border-radius:8px;padding:18px;margin-top:18px}textarea{width:100%;min-height:72px;border:1px solid #b9c3cf;border-radius:6px;padding:10px;font:inherit;box-sizing:border-box}.controls{display:flex;gap:10px;margin-top:12px;align-items:center}button{border:0;border-radius:6px;padding:10px 16px;background:#1664d8;color:white;font-weight:600;cursor:pointer}button:disabled{opacity:.5}.status{font-family:ui-monospace,monospace;color:#516071}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.job{border-top:1px solid #e2e7ec;padding:12px 0}.job:first-child{border-top:0}.job a{color:#1664d8}.trace{max-height:260px;overflow:auto;font:12px ui-monospace,monospace;background:#101820;color:#d9e5f2;padding:12px;border-radius:6px;white-space:pre-wrap}@media(max-width:700px){main{padding:16px}.grid{grid-template-columns:1fr}.controls{flex-wrap:wrap}}
+  </style>
+</head>
+<body><main>
+  <header><h1>开放岗位搜索 Agent</h1><span id="status" class="status">未运行</span></header>
+  <section class="panel"><textarea id="query">找北京 Agent 实习，要求 Python、LangGraph</textarea><div class="controls"><select id="mode"><option value="demo">离线演示</option><option value="online">开放互联网</option></select><button id="run">开始搜索</button><span id="intent"></span></div></section>
+  <div class="grid"><section class="panel"><h2>岗位结果</h2><div id="jobs">等待运行</div></section><section class="panel"><h2>执行轨迹</h2><div id="trace" class="trace">等待运行</div></section></div>
+</main><script>
+const $=id=>document.getElementById(id);let timer;
+async function poll(id){const r=await fetch(`/api/runs/${id}`),d=await r.json();$('status').textContent=d.status;if(d.intent){$('intent').textContent=`解析地点：${(d.intent.locations||[]).join('、')||'未指定'}`}if(d.status==='queued'||d.status==='running'){timer=setTimeout(()=>poll(id),500);return}if(d.error){$('jobs').textContent=`失败：${d.error.message}`;return}const [jr,tr]=await Promise.all([fetch(`/api/runs/${id}/jobs`).then(x=>x.json()),fetch(`/api/runs/${id}/trace`).then(x=>x.json())]);$('jobs').innerHTML=jr.jobs.length?jr.jobs.map(j=>`<article class="job"><strong>${j.title}</strong><div>${j.company} · ${j.location}</div><a href="${j.url}" target="_blank">打开详情页</a></article>`).join(''):'可信岗位：0';$('trace').textContent=tr.trace.map(x=>JSON.stringify(x)).join('\n')||'无轨迹';}
+$('run').onclick=async()=>{clearTimeout(timer);$('run').disabled=true;$('jobs').textContent='运行中…';const r=await fetch('/api/runs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:$('query').value,mode:$('mode').value})});const d=await r.json();$('run').disabled=false;if(!r.ok){$('status').textContent=`错误：${d.detail?.message||'提交失败'}`;return}poll(d.run_id)};
+</script></body></html>
