@@ -13,3 +13,10 @@ def test_web_results_escape_external_fields_and_use_safe_links():
     assert "function escapeHtml" in text
     assert "escapeHtml(j.title)" in text
     assert 'rel="noopener noreferrer"' in text
+
+
+def test_web_page_probes_capabilities_before_online_search():
+    text = Path("src/web_task_agent/open_search/web/index.html").read_text(encoding="utf-8")
+    assert "loadCapabilities" in text
+    assert "/api/capabilities" in text
+    assert "online.disabled=true" in text
