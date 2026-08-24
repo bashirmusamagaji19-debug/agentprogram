@@ -49,7 +49,7 @@ Pipeline completion 不是 extraction accuracy。历史 2026-06-22 的 8 页真�
 
 - 基于 Python、LangGraph 与 Pydantic 构建 Hybrid Decision Agent，将岗位搜索、页面访问、文本/视觉抽取、验证、匹配和持久化封装为 8 个类型化工具，实现条件决策循环与可审计 execution trace。
 - 设计“LLM 语义规划 + 确定性安全策略”架构，并在 `save_results` 前实现 LangGraph Human-in-the-loop：稳定 `thread_id` 支持跨进程恢复，`approval_id` SQLite receipt 保证 replay 不重复写入，reject 以 `human_denied` 结束。
-- 构建版本化 deterministic fixture 评测与离线复现入口：10/10 Agent 循环终止、HITL 3/3 pause、reject/duplicate effects 0；portfolio 基线为 `308 passed`，当前包含开放搜索和部署链路的全量测试为 `346 passed`，并提供 `--portfolio-demo` 与 `--release-check`。
+- 构建版本化 deterministic fixture 评测与离线复现入口：10/10 Agent 循环终止、HITL 3/3 pause、reject/duplicate effects 0；portfolio 基线为 `308 passed`、历史 coverage `91.17%`，当前包含开放搜索和部署链路的全量测试为 `346 passed`，并提供 `--portfolio-demo` 与 `--release-check`。
 
 ## 诚实边界
 
