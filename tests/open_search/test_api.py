@@ -30,6 +30,11 @@ def test_online_mode_without_key_is_structured_error(monkeypatch):
     assert response.json()["detail"]["code"] == "search_api_error"
 
 
+def test_query_length_is_bounded():
+    response = TestClient(app).post("/api/runs", json={"query": "x" * 501, "mode": "demo"})
+    assert response.status_code == 422
+
+
 def test_artifact_endpoints_reject_unknown_run():
     client = TestClient(app)
     for suffix in ("jobs", "trace", "evaluation"):

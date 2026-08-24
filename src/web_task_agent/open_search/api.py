@@ -26,7 +26,7 @@ _runs: dict[str, dict] = {}
 
 
 class RunRequest(BaseModel):
-    query: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=500)
     mode: str = Field(default="demo", pattern="^(demo|online)$")
 
 
