@@ -25,6 +25,7 @@ jobs:
           tests/test_search_discovery.py
           src/web_task_agent/open_search
           tests/open_search
+          streamlit_app.py
       - name: Deterministic test suite
         run: >-
           python -m pytest -p no:cacheprovider
