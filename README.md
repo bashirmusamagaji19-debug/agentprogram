@@ -139,6 +139,15 @@ uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
 
 API 客户端还可以访问 `/api/capabilities`，查看 Demo/Online 模式是否可用；该接口只返回布尔状态，不会返回任何密钥内容。
 
+### Docker（通用部署）
+
+```powershell
+docker build -t open-web-job-agent .
+docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
+```
+
+容器默认启动 FastAPI，使用 `PORT` 环境变量覆盖监听端口；启动后访问 `/healthz` 检查服务状态。
+
 当前版本是单实例演示部署：运行状态保存在进程内存，artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
 
 本地先验证 Streamlit 页面：
