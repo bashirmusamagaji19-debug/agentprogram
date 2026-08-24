@@ -93,6 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"web-task-agent {__version__}",
     )
     parser.add_argument("--keyword")
+    parser.add_argument("--open-search-demo", action="store_true")
+    parser.add_argument("--open-search-api", action="store_true")
+    parser.add_argument("--query", help="Natural-language open web job query.")
+    parser.add_argument("--output-dir", default="outputs/open-search")
     parser.add_argument("--location", default="Remote")
     parser.add_argument("--target-count", type=int, default=10)
     parser.add_argument("--skill", action="append", default=[])
@@ -374,6 +378,42 @@ def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.open_search_demo or args.open_search_api:
+        from web_task_agent.open_search.models import SearchCandidate
+        from web_task_agent.open_search.pipeline import OpenSearchPipeline
+        from web_task_agent.open_search.query_parser import DemoQueryParser
+        from web_task_agent.open_search.search_provider import (
+            FixtureSearchProvider,
+            TavilySearchProvider,
+        )
+
+        query = (args.query or "找北京 Agent 实习").strip()
+        intent = DemoQueryParser().parse(query)
+        if args.open_search_demo:
+            provider = FixtureSearchProvider(
+                [
+                    SearchCandidate(
+                        url="https://job-boards.greenhouse.io/example/jobs/123",
+                        title="Agent Intern",
+                        snippet="Python LangGraph Beijing",
+                        source="Example AI",
+                    )
+                ]
+            )
+        else:
+            try:
+                provider = TavilySearchProvider.from_environment()
+            except Exception as exc:
+                print(f"Open search configuration error: {exc}")
+                return 2
+        result = await OpenSearchPipeline(provider).run(
+            intent, output_dir=Path(args.output_dir), limit=1
+        )
+        print(f"Open search: {result.summary.terminal_reason}")
+        print(f"Verified jobs: {len(result.jobs)}")
+        print(f"Artifacts: {Path(args.output_dir).resolve()}")
+        return 0
+
     hitl_error = validate_hitl_args(args)
     if hitl_error:
         print(f"HITL configuration error: {hitl_error}")

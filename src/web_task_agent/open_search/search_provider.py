@@ -27,11 +27,15 @@ class FixtureSearchProvider:
 
     async def search(self, query: str, limit: int = 10) -> list[SearchCandidate]:
         lowered = query.casefold()
+        tokens = [token for token in lowered.replace("，", " ").split() if token]
         matches = [
             item
             for item in self.fixtures
-            if not lowered or lowered in f"{item.title} {item.snippet}".casefold()
+            if not tokens
+            or any(token in f"{item.title} {item.snippet}".casefold() for token in tokens)
         ]
+        if not matches and self.fixtures:
+            matches = self.fixtures
         return matches[: max(0, min(limit, 20))]
 
 
