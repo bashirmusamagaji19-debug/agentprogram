@@ -33,6 +33,16 @@ class DemoQueryParser:
                 role_keywords.append(role)
         required = skills if re.search(r"要求|必须|需要", raw) else []
         preferred = [] if required else skills
+        count_match = re.search(
+            r"(?:找|筛选|返回|需要|给我)?\s*(\d{1,2})\s*(?:个|条)?\s*(?:岗位|职位|结果)|"
+            r"(?:top|前)\s*(\d{1,2})\b",
+            raw,
+            re.I,
+        )
+        target_count = 10
+        if count_match:
+            parsed_count = int(next(group for group in count_match.groups() if group))
+            target_count = min(20, max(1, parsed_count))
         return SearchIntent(
             raw_text=raw,
             role_keywords=role_keywords,
@@ -40,6 +50,7 @@ class DemoQueryParser:
             required_skills=required,
             preferred_skills=preferred,
             excluded_roles=excluded_roles,
+            target_count=target_count,
         )
 
 
