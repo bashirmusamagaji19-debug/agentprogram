@@ -18,3 +18,10 @@ def test_demo_parser_extracts_requested_result_count():
     assert parser.parse("找三个岗位").target_count == 3
     assert parser.parse("找 2 jobs").target_count == 2
     assert parser.parse("找 30 个岗位").target_count == 20
+
+
+def test_demo_parser_extracts_common_english_location_and_role():
+    intent = DemoQueryParser().parse("Remote AI intern, top 3 jobs")
+    assert "Remote" in intent.locations
+    assert "intern" in intent.role_keywords
+    assert intent.target_count == 3
