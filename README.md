@@ -21,6 +21,24 @@
 
 Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/replay JSON/Markdown 和阶段汇总。项目故事、简历三条、60 秒讲法见 `docs/interview-benchmark-story.md`；完整实现日志见 `docs/work-log/2026-07-30-resume-portfolio-finish.md`。
 
+## 开放互联网岗位搜索 Agent
+
+输入自然语言岗位需求，系统先解析地点、技能和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL，最后只把可信招聘详情页和页面字段证据作为结果。搜索摘要不是最终证据；开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`no_match` 和 `budget_exhausted` 会分别记录。
+
+```powershell
+# 离线演示：无需 key，生成岗位、执行轨迹和 run-summary
+python -m web_task_agent.cli --open-search-demo --query "找北京 Agent 实习" --output-dir outputs/open-search
+
+# Web 运行台
+python -m uvicorn web_task_agent.open_search.api:app --reload
+# 浏览器打开 http://127.0.0.1:8000/
+
+# 冻结查询评测（与在线审计指标分开）
+python -m web_task_agent.open_search.evaluation --queries data/open-search/evaluation/queries.jsonl --output-dir docs/results/open-search
+```
+
+简历表述：实现基于搜索 API + 浏览器验证的开放互联网岗位搜索 Agent；建立来源可信度、字段证据和失败分类边界；用 20 条自然语言查询和版本化 artifact 验证可复现性。冻结 fixture 指标不等同于真实互联网泛化准确率。
+
 ## MVP 能力
 
 - 通过浏览器客户端读取网页内容，已提供 deterministic fake browser 和 `browser-use` session adapter 两条边界。
