@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 
@@ -31,7 +32,10 @@ def _run_search(query: str, mode: str):
             raise SearchProviderConfigurationError("TAVILY_API_KEY is required for online search")
         provider = TavilySearchProvider(tavily_key)
     output_dir = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs")) / "streamlit"
-    return asyncio.run(OpenSearchPipeline(provider).run(intent, output_dir=output_dir, limit=intent.target_count))
+    result = asyncio.run(
+        OpenSearchPipeline(provider).run(intent, output_dir=output_dir, limit=intent.target_count)
+    )
+    return intent, result
 
 
 st.set_page_config(page_title="Open Web Job Search Agent", page_icon="🔎", layout="wide")
@@ -44,13 +48,15 @@ mode = st.radio("运行模式", ["demo", "online"], format_func=lambda value: "�
 if st.button("开始搜索", type="primary", disabled=not query.strip()):
     with st.spinner("正在解析需求并检索岗位..."):
         try:
-            result = _run_search(query.strip(), mode)
+            intent, result = _run_search(query.strip(), mode)
         except SearchProviderConfigurationError as exc:
             st.error(str(exc))
         except Exception as exc:
             st.error(f"运行失败：{type(exc).__name__}: {exc}")
         else:
             summary = result.summary
+            with st.expander("查看解析后的搜索意图", expanded=True):
+                st.json(intent.model_dump(mode="json"))
             cols = st.columns(4)
             cols[0].metric("候选来源", summary.candidates_seen)
             cols[1].metric("已验证岗位", summary.verified_count)
@@ -72,3 +78,15 @@ if st.button("开始搜索", type="primary", disabled=not query.strip()):
                 with st.expander("查看失败记录"):
                     for failure in result.failures:
                         st.warning(f"{failure.code}: {failure.message} ({failure.url})")
+            payload = {
+                "intent": intent.model_dump(mode="json"),
+                "summary": summary.model_dump(mode="json"),
+                "jobs": [job.model_dump(mode="json") for job in result.jobs],
+                "failures": [failure.model_dump(mode="json") for failure in result.failures],
+            }
+            st.download_button(
+                "下载本次结构化结果",
+                data=json.dumps(payload, ensure_ascii=False, indent=2),
+                file_name="open-search-result.json",
+                mime="application/json",
+            )
