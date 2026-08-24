@@ -42,6 +42,8 @@ python -m streamlit run streamlit_app.py
 python -m web_task_agent.open_search.evaluation --queries data/open-search/evaluation/queries.jsonl --output-dir docs/results/open-search
 ```
 
+当前冻结的 20 条查询评测结果为：需求解析正确率 `100.0%`、硬约束违反 `0`。该结果只证明固定查询集上的解析回归，不代表开放互联网岗位搜索的召回或抽取准确率。
+
 简历表述：实现基于搜索 API + 浏览器验证的开放互联网岗位搜索 Agent；建立来源可信度、字段证据和失败分类边界；用 20 条自然语言查询和版本化 artifact 验证可复现性。冻结 fixture 指标不等同于真实互联网泛化准确率。
 
 ## MVP 能力
