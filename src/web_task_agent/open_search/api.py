@@ -22,6 +22,7 @@ WEB_DIR = ROOT / "web"
 ARTIFACT_ROOT = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs"))
 app = FastAPI(title="Open Web Job Search Agent")
 _runs: dict[str, dict] = {}
+_MAX_RUNS = 100
 
 
 class RunRequest(BaseModel):
@@ -98,6 +99,9 @@ async def capabilities() -> dict[str, object]:
 
 @app.post("/api/runs", status_code=202)
 async def create_run(request: RunRequest, background_tasks: BackgroundTasks) -> dict:
+    if len(_runs) >= _MAX_RUNS:
+        oldest_id = next(iter(_runs))
+        _runs.pop(oldest_id, None)
     run_id = uuid4().hex
     intent = DemoQueryParser().parse(request.query)
     _runs[run_id] = {

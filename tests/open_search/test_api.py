@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from web_task_agent.open_search import api
 from web_task_agent.open_search.api import app
 
 
@@ -43,6 +44,17 @@ def test_online_mode_without_key_is_structured_error(monkeypatch):
 def test_query_length_is_bounded():
     response = TestClient(app).post("/api/runs", json={"query": "x" * 501, "mode": "demo"})
     assert response.status_code == 422
+
+
+def test_run_registry_is_bounded(monkeypatch):
+    monkeypatch.setattr(api, "_MAX_RUNS", 1)
+    api._runs.clear()
+    with TestClient(app) as client:
+        first = client.post("/api/runs", json={"query": "Agent", "mode": "demo"}).json()["run_id"]
+        second = client.post("/api/runs", json={"query": "Python", "mode": "demo"}).json()["run_id"]
+    assert first != second
+    assert first not in api._runs
+    assert second in api._runs
 
 
 def test_artifact_endpoints_reject_unknown_run():

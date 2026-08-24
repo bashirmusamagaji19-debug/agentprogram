@@ -149,7 +149,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 容器默认启动 FastAPI，使用 `PORT` 环境变量覆盖监听端口；启动后访问 `/healthz` 检查服务状态。
 本地构建前需要启动 Docker Desktop 的 Linux engine；CI 或云平台会在自己的 Docker daemon 中执行构建。
 
-当前版本是单实例演示部署：运行状态保存在进程内存，artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
+当前版本是单实例演示部署：运行状态保存在进程内存（最多保留最近 100 次 run），artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
 
 本地先验证 Streamlit 页面：
 
