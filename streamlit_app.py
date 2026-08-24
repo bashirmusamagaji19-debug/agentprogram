@@ -17,7 +17,19 @@ from web_task_agent.open_search.search_provider import (
 
 def _run_search(query: str, mode: str):
     intent = DemoQueryParser().parse(query)
-    provider = _fixture_provider() if mode == "demo" else TavilySearchProvider.from_environment()
+    if mode == "demo":
+        provider = _fixture_provider()
+    else:
+        # Streamlit Cloud exposes Secrets through st.secrets rather than env vars.
+        tavily_key = os.getenv("TAVILY_API_KEY", "").strip()
+        if not tavily_key:
+            try:
+                tavily_key = str(st.secrets.get("TAVILY_API_KEY", "")).strip()
+            except Exception:
+                tavily_key = ""
+        if not tavily_key:
+            raise SearchProviderConfigurationError("TAVILY_API_KEY is required for online search")
+        provider = TavilySearchProvider(tavily_key)
     output_dir = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs")) / "streamlit"
     return asyncio.run(OpenSearchPipeline(provider).run(intent, output_dir=output_dir, limit=intent.target_count))
 
