@@ -73,6 +73,11 @@ async def index() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
 
 
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.post("/api/runs", status_code=202)
 async def create_run(request: RunRequest, background_tasks: BackgroundTasks) -> dict:
     run_id = uuid4().hex

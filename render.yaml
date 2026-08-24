@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: open-web-job-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install .[demo]
+    startCommand: uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: DASHSCOPE_API_KEY
+        sync: false

@@ -104,6 +104,35 @@ $env:DEEPSEEK_API_KEY="..."
 .\.venv\Scripts\python.exe -m web_task_agent.agent_evaluation --output-dir docs\results
 ```
 
+## 公开 Web 演示部署
+
+项目提供两个入口：`streamlit_app.py` 是面试官直接体验的演示页面，FastAPI 是工程化 API 入口。
+
+### Streamlit Community Cloud（推荐演示）
+
+1. 将仓库推送到 GitHub。
+2. 在 Streamlit Community Cloud 选择仓库，Main file 设置为 `streamlit_app.py`。
+3. 在 App Settings / Secrets 中配置：
+
+```toml
+TAVILY_API_KEY = "你的 Tavily key"
+DASHSCOPE_API_KEY = "你的 DashScope key"
+```
+
+Demo 模式无需任何 key；Online 模式才会调用 Tavily。部署完成后平台会生成 `https://<app>.streamlit.app` 公网地址。
+
+### Render（FastAPI 服务）
+
+仓库中的 `render.yaml` 已定义构建和启动命令。Render 使用以下生产启动方式：
+
+```text
+uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
+```
+
+部署后可通过 `/healthz` 检查服务状态，并获得 `https://<service>.onrender.com` 地址。API key 应在 Render Environment 中配置，不能提交到仓库。
+
+当前版本是单实例演示部署：运行状态保存在进程内存，artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
+
 如果 Windows PowerShell 显示中文乱码，请使用 UTF-8 终端或执行 chcp 65001 后再查看。
 
 ## 已验证的 MVP 命令
