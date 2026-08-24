@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -13,6 +14,7 @@ class SourceVerdict:
     source_type: str
     reason: str
     failure_code: str | None = None
+    content_hash: str = ""
 
 
 class SourceVerifier:
@@ -80,7 +82,23 @@ class SourceVerifier:
                     "detail page did not return HTML",
                     "page_not_html",
                 )
-            return verdict
+            page_text = response.text.strip()
+            if not page_text:
+                return SourceVerdict(
+                    False,
+                    verdict.normalized_url,
+                    verdict.source_type,
+                    "detail page returned an empty body",
+                    "page_empty",
+                )
+            return SourceVerdict(
+                verdict.trusted,
+                verdict.normalized_url,
+                verdict.source_type,
+                verdict.reason,
+                verdict.failure_code,
+                hashlib.sha256(page_text.encode("utf-8")).hexdigest(),
+            )
         except httpx.HTTPError as exc:
             return SourceVerdict(
                 False,

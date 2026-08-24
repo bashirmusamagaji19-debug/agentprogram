@@ -7,6 +7,7 @@ from web_task_agent.open_search.source_verifier import SourceVerifier
 def test_official_greenhouse_url_is_trusted():
     verdict = SourceVerifier().verify_url("https://job-boards.greenhouse.io/example/jobs/123")
     assert verdict.trusted is True
+    assert len(verdict.content_hash) == 64
     assert verdict.source_type == "public_ats"
 
 

@@ -62,6 +62,7 @@ class OpenSearchPipeline:
                     "url": candidate.url,
                     "trusted": verdict.trusted,
                     "reachability_checked": self.verify_reachability,
+                    "content_hash": verdict.content_hash,
                 },
             )
             if not verdict.trusted:
