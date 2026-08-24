@@ -81,6 +81,21 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/capabilities")
+async def capabilities() -> dict[str, object]:
+    return {
+        "modes": {
+            "demo": {"available": True, "requires_api_key": False},
+            "online": {
+                "available": bool(os.getenv("TAVILY_API_KEY", "").strip()),
+                "requires_api_key": True,
+                "provider": "tavily",
+            },
+        },
+        "artifacts": ["jobs", "trace"],
+    }
+
+
 @app.post("/api/runs", status_code=202)
 async def create_run(request: RunRequest, background_tasks: BackgroundTasks) -> dict:
     run_id = uuid4().hex

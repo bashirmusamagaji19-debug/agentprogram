@@ -9,6 +9,16 @@ def test_healthz_returns_ok():
     assert response.json() == {"status": "ok"}
 
 
+def test_capabilities_do_not_expose_secrets(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "secret-value")
+    response = TestClient(app).get("/api/capabilities")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["modes"]["demo"]["available"] is True
+    assert payload["modes"]["online"]["available"] is True
+    assert "secret-value" not in response.text
+
+
 def test_create_run_returns_run_id_and_intent():
     with TestClient(app) as client:
         response = client.post("/api/runs", json={"query": "找北京 Agent 实习", "mode": "demo"})
