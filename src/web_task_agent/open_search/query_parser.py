@@ -15,6 +15,19 @@ class DemoQueryParser:
 
     _locations = ("北京", "上海", "深圳", "广州", "杭州", "远程", "海外")
     _skills = ("Python", "LangGraph", "LangChain", "OpenAI", "RAG", "FastAPI", "Java", "C++")
+    _chinese_counts = {
+        "一": 1,
+        "两": 2,
+        "二": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
 
     def parse(self, text: str) -> SearchIntent:
         raw = text.strip()
@@ -34,7 +47,7 @@ class DemoQueryParser:
         required = skills if re.search(r"要求|必须|需要", raw) else []
         preferred = [] if required else skills
         count_match = re.search(
-            r"(?:找|筛选|返回|需要|给我)?\s*(\d{1,2})\s*(?:个|条)?\s*(?:岗位|职位|结果)|"
+            r"(?:找|筛选|返回|需要|给我)?\s*(\d{1,2})\s*(?:个|条)?\s*(?:岗位|职位|结果|jobs?|results?)|"
             r"(?:top|前)\s*(\d{1,2})\b",
             raw,
             re.I,
@@ -43,6 +56,15 @@ class DemoQueryParser:
         if count_match:
             parsed_count = int(next(group for group in count_match.groups() if group))
             target_count = min(20, max(1, parsed_count))
+        else:
+            chinese_count = re.search(
+                r"(?:找|筛选|返回|需要|给我)?\s*"
+                r"([一二两三四五六七八九十])\s*(?:个|条)?\s*"
+                r"(?:岗位|职位|结果)",
+                raw,
+            )
+            if chinese_count:
+                target_count = self._chinese_counts[chinese_count.group(1)]
         return SearchIntent(
             raw_text=raw,
             role_keywords=role_keywords,
