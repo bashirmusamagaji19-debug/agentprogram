@@ -1,0 +1,20 @@
+{"query":"找北京 Agent 实习","intent":{"locations":["北京"]}}
+{"query":"上海的 Python AI 实习","intent":{"locations":["上海"]}}
+{"query":"深圳远程 LangGraph 岗位","intent":{"locations":["深圳","远程"]}}
+{"query":"广州后端 Agent 实习","intent":{"locations":["广州"]}}
+{"query":"杭州 AI 应用开发","intent":{"locations":["杭州"]}}
+{"query":"北京远程 Python 实习","intent":{"locations":["北京","远程"]}}
+{"query":"上海 LangChain 工程师","intent":{"locations":["上海"]}}
+{"query":"深圳 FastAPI Agent 岗位","intent":{"locations":["深圳"]}}
+{"query":"广州 OpenAI 应用实习","intent":{"locations":["广州"]}}
+{"query":"杭州算法实习","intent":{"locations":["杭州"]}}
+{"query":"北京 AI 后端实习","intent":{"locations":["北京"]}}
+{"query":"上海远程 Agent 岗位","intent":{"locations":["上海","远程"]}}
+{"query":"深圳 Python LangGraph 实习","intent":{"locations":["深圳"]}}
+{"query":"广州远程 AI 应用","intent":{"locations":["广州","远程"]}}
+{"query":"杭州后端开发实习","intent":{"locations":["杭州"]}}
+{"query":"北京 RAG 工程实习","intent":{"locations":["北京"]}}
+{"query":"上海 Java AI 岗位","intent":{"locations":["上海"]}}
+{"query":"深圳 C++ 算法实习","intent":{"locations":["深圳"]}}
+{"query":"广州远程 Python Agent","intent":{"locations":["广州","远程"]}}
+{"query":"杭州 LangGraph 实习","intent":{"locations":["杭州"]}}

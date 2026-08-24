@@ -1,0 +1,9 @@
+{
+  "query_count": 20,
+  "metric_families": [
+    "offline_frozen",
+    "online_audit"
+  ],
+  "hard_constraint_violations": 0,
+  "intent_accuracy": 1.0
+}
