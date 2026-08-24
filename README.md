@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：本轮全量测试 `350 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：本轮全量测试 `352 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -23,7 +23,7 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 
 ## 开放互联网岗位搜索 Agent
 
-输入自然语言岗位需求，系统先解析地点、技能和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL，最后只把可信招聘详情页和页面字段证据作为结果。搜索摘要不是最终证据；开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`no_match` 和 `budget_exhausted` 会分别记录。
+输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Online 模式还会请求详情页，拒绝不可达或非 HTML 页面，最后只把可信招聘详情页和页面字段证据作为结果。搜索摘要不是最终证据；开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`page_unreachable`、`page_not_html`、`no_match` 和 `budget_exhausted` 会分别记录。
 
 ```powershell
 # 离线演示：无需 key，生成岗位、执行轨迹和 run-summary
