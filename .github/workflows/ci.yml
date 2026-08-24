@@ -15,7 +15,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install project
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev,demo]"
       - name: Ruff
         run: >-
           python -m ruff check
@@ -23,6 +23,8 @@ jobs:
           src/web_task_agent/search_discovery.py
           tests/test_agent_*.py
           tests/test_search_discovery.py
+          src/web_task_agent/open_search
+          tests/open_search
       - name: Deterministic test suite
         run: >-
           python -m pytest -p no:cacheprovider

@@ -17,7 +17,11 @@ class EvaluationReport:
 
 
 def evaluate_frozen_queries(queries_path: Path) -> EvaluationReport:
-    rows = [json.loads(line) for line in Path(queries_path).read_text(encoding="utf-8").splitlines() if line]
+    rows = [
+        json.loads(line)
+        for line in Path(queries_path).read_text(encoding="utf-8").splitlines()
+        if line
+    ]
     parser = DemoQueryParser()
     correct = 0
     for row in rows:
@@ -43,10 +47,14 @@ def main() -> int:
     (args.output_dir / "evaluation-report.json").write_text(
         json.dumps(report.__dict__, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    (args.output_dir / "evaluation-report.md").write_text(
-        f"# 开放搜索离线评测\n\n- 查询数：{report.query_count}\n- 需求解析正确率：{report.intent_accuracy:.1%}\n- 硬约束违反：{report.hard_constraint_violations}\n- 指标族：{', '.join(report.metric_families)}\n",
-        encoding="utf-8",
+    markdown = (
+        f"# 开放搜索离线评测\n\n"
+        f"- 查询数：{report.query_count}\n"
+        f"- 需求解析正确率：{report.intent_accuracy:.1%}\n"
+        f"- 硬约束违反：{report.hard_constraint_violations}\n"
+        f"- 指标族：{', '.join(report.metric_families)}\n"
     )
+    (args.output_dir / "evaluation-report.md").write_text(markdown, encoding="utf-8")
     return 0
 
 
