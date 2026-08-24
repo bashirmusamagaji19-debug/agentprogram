@@ -25,3 +25,8 @@ def test_demo_parser_extracts_common_english_location_and_role():
     assert "Remote" in intent.locations
     assert "intern" in intent.role_keywords
     assert intent.target_count == 3
+
+
+def test_demo_parser_extracts_english_exclusions():
+    intent = DemoQueryParser().parse("Remote AI intern, exclude sales and product manager")
+    assert "sales and product manager" in intent.excluded_roles

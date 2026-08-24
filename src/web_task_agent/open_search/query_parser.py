@@ -35,7 +35,11 @@ class DemoQueryParser:
         if re.search(r"\bremote\b", raw, re.I) and "Remote" not in locations:
             locations.append("Remote")
         skills = [item for item in self._skills if re.search(re.escape(item), raw, re.I)]
-        excluded = re.findall(r"(?:排除|不要|不考虑)\s*([^，,。；;]+)", raw)
+        excluded = re.findall(
+            r"(?:排除|不要|不考虑|exclude|excluding|not)\s*([^，,。；;]+)",
+            raw,
+            re.I,
+        )
         excluded_roles = [
             part.strip()
             for value in excluded
