@@ -7,7 +7,6 @@ from web_task_agent.open_search.source_verifier import SourceVerifier
 def test_official_greenhouse_url_is_trusted():
     verdict = SourceVerifier().verify_url("https://job-boards.greenhouse.io/example/jobs/123")
     assert verdict.trusted is True
-    assert len(verdict.content_hash) == 64
     assert verdict.source_type == "public_ats"
 
 
@@ -20,7 +19,12 @@ def test_search_result_page_is_rejected():
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
     async def handler(request):
-        return httpx.Response(200, headers={"content-type": "text/html"}, request=request)
+        return httpx.Response(
+            200,
+            content=b"<html><body>job detail</body></html>",
+            headers={"content-type": "text/html"},
+            request=request,
+        )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     try:
@@ -30,6 +34,7 @@ async def test_reachability_verifier_accepts_html_detail_page():
     finally:
         await client.aclose()
     assert verdict.trusted is True
+    assert len(verdict.content_hash) == 64
 
 
 @pytest.mark.asyncio
