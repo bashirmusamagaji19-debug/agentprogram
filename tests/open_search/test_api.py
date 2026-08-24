@@ -31,6 +31,9 @@ def test_create_run_returns_run_id_and_intent():
         jobs = client.get(f"/api/runs/{run_id}/jobs")
         assert jobs.status_code == 200
         assert jobs.json()["jobs"]
+        evaluation = client.get(f"/api/runs/{run_id}/evaluation")
+        assert evaluation.json()["evaluation"]["available"] is True
+        assert evaluation.json()["evaluation"]["jobs_count"] >= 1
         assert response.json()["intent"]["locations"] == ["北京"]
 
 
