@@ -65,6 +65,27 @@ async def test_tavily_provider_maps_results_and_bounds_limit():
 
 
 @pytest.mark.asyncio
+async def test_tavily_provider_skips_malformed_result_and_keeps_valid_result():
+    client = _Client(
+        _Response(
+            200,
+            {
+                "results": [
+                    {"url": "not-a-url", "title": "Broken"},
+                    {
+                        "url": "https://jobs.example.com/careers/1",
+                        "title": "Agent Intern",
+                        "content": "Python",
+                    },
+                ]
+            },
+        )
+    )
+    result = await TavilySearchProvider("key", client=client).search("Agent", limit=2)
+    assert [item.title for item in result] == ["Agent Intern"]
+
+
+@pytest.mark.asyncio
 async def test_tavily_provider_classifies_http_failure():
     with pytest.raises(SearchProviderError, match="HTTP 429"):
         await TavilySearchProvider("key", client=_Client(_Response(429, {}))).search("Agent")

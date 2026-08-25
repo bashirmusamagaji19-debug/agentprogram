@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 import httpx
+from pydantic import ValidationError
 
 from .models import SearchCandidate
 
@@ -70,15 +71,20 @@ class TavilySearchProvider:
                 raise SearchProviderError(f"tavily returned HTTP {response.status_code}")
             payload = response.json()
             results = payload.get("results", [])
-            return [
-                SearchCandidate(
-                    url=item.get("url", ""),
-                    title=item.get("title", ""),
-                    snippet=item.get("content", ""),
-                    source="tavily",
-                )
-                for item in results[:limit]
-            ]
+            candidates: list[SearchCandidate] = []
+            for item in results[:limit]:
+                try:
+                    candidates.append(
+                        SearchCandidate(
+                            url=item.get("url", ""),
+                            title=item.get("title", ""),
+                            snippet=item.get("content", ""),
+                            source="tavily",
+                        )
+                    )
+                except (AttributeError, TypeError, ValidationError):
+                    continue
+            return candidates
         except httpx.HTTPError as exc:
             raise SearchProviderError(f"tavily request failed: {type(exc).__name__}") from exc
         finally:
