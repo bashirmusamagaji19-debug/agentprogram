@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -38,6 +39,20 @@ def _positive_env_int(name: str, default: int) -> int:
 _MAX_RUNS = _positive_env_int("OPEN_SEARCH_MAX_RUNS", 100)
 _MAX_REQUESTS_PER_MINUTE = _positive_env_int("OPEN_SEARCH_RATE_LIMIT_PER_MINUTE", 20)
 _request_windows: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _cors_origins() -> list[str]:
+    raw = os.getenv("OPEN_SEARCH_CORS_ORIGINS", "").strip()
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 class RunRequest(BaseModel):

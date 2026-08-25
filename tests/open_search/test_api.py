@@ -96,6 +96,16 @@ def test_positive_env_int_falls_back_for_invalid_values(monkeypatch):
     assert api._positive_env_int("INVALID_LIMIT", 7) == 9
 
 
+def test_cors_defaults_to_no_origins(monkeypatch):
+    monkeypatch.delenv("OPEN_SEARCH_CORS_ORIGINS", raising=False)
+    assert api._cors_origins() == []
+
+
+def test_cors_origins_parse_csv(monkeypatch):
+    monkeypatch.setenv("OPEN_SEARCH_CORS_ORIGINS", "https://demo.example, https://app.example ")
+    assert api._cors_origins() == ["https://demo.example", "https://app.example"]
+
+
 def test_artifact_endpoints_reject_unknown_run():
     client = TestClient(app)
     response = client.get("/api/runs/missing")
