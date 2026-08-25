@@ -27,12 +27,21 @@ class SourceVerifier:
     def __init__(self, *, timeout_seconds: float | None = None) -> None:
         if timeout_seconds is not None:
             self.timeout_seconds = max(1.0, timeout_seconds)
-            return
+        else:
+            try:
+                configured = float(os.getenv("OPEN_SEARCH_PAGE_TIMEOUT_SECONDS", "10"))
+            except ValueError:
+                configured = 10.0
+            self.timeout_seconds = max(1.0, configured)
+        self.max_redirects = self._read_max_redirects()
+
+    @staticmethod
+    def _read_max_redirects() -> int:
         try:
-            configured = float(os.getenv("OPEN_SEARCH_PAGE_TIMEOUT_SECONDS", "10"))
+            value = int(os.getenv("OPEN_SEARCH_MAX_REDIRECTS", "5"))
         except ValueError:
-            configured = 10.0
-        self.timeout_seconds = max(1.0, configured)
+            value = 5
+        return max(0, min(10, value))
 
     def verify_url(self, url: str) -> SourceVerdict:
         normalized = url.strip()
@@ -130,6 +139,14 @@ class SourceVerifier:
         )
         try:
             response = await request_client.get(url, headers={"User-Agent": self._user_agent})
+            if len(response.history) > self.max_redirects:
+                return SourceVerdict(
+                    False,
+                    str(response.url),
+                    "redirect",
+                    "detail page exceeded redirect limit",
+                    "redirect_limit",
+                )
             if response.status_code >= 400:
                 return SourceVerdict(
                     False,

@@ -159,6 +159,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 跨域调用默认关闭；如需让独立前端调用 API，可通过 `OPEN_SEARCH_CORS_ORIGINS` 配置逗号分隔的明确来源，不建议使用通配符。
 在线 Tavily 请求默认超时 30 秒，可通过 `TAVILY_TIMEOUT_SECONDS` 调整（最小 1 秒）。
 岗位详情页请求默认超时 10 秒，可通过 `OPEN_SEARCH_PAGE_TIMEOUT_SECONDS` 调整（最小 1 秒）。
+详情页最多跟随 5 次重定向，可通过 `OPEN_SEARCH_MAX_REDIRECTS` 调整，范围限制为 0~10。
 
 本地先验证 Streamlit 页面：
 

@@ -43,6 +43,13 @@ def test_page_timeout_setting_is_bounded(monkeypatch):
     assert SourceVerifier().timeout_seconds == 10.0
 
 
+def test_redirect_limit_setting_is_bounded(monkeypatch):
+    monkeypatch.setenv("OPEN_SEARCH_MAX_REDIRECTS", "99")
+    assert SourceVerifier().max_redirects == 10
+    monkeypatch.setenv("OPEN_SEARCH_MAX_REDIRECTS", "bad")
+    assert SourceVerifier().max_redirects == 5
+
+
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
     seen_headers = {}
