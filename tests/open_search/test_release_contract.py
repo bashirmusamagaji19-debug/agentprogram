@@ -20,3 +20,8 @@ def test_web_page_probes_capabilities_before_online_search():
     assert "loadCapabilities" in text
     assert "/api/capabilities" in text
     assert "online.disabled=true" in text
+
+
+def test_readiness_probe_uses_unique_probe_file():
+    text = Path("src/web_task_agent/open_search/api.py").read_text(encoding="utf-8")
+    assert '.readyz-probe-{uuid4().hex}' in text

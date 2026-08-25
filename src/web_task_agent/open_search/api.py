@@ -116,7 +116,7 @@ async def healthz() -> dict[str, str]:
 
 @app.get("/readyz")
 async def readyz() -> dict[str, object]:
-    probe = ARTIFACT_ROOT / ".readyz-probe"
+    probe = ARTIFACT_ROOT / f".readyz-probe-{uuid4().hex}"
     try:
         ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
         probe.write_text("ok", encoding="utf-8")
