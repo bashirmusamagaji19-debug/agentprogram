@@ -25,3 +25,9 @@ def test_streamlit_source_contains_failure_category_summary():
     text = open("streamlit_app.py", encoding="utf-8").read()
     assert "Counter(failure.code" in text
     assert "失败分类" in text
+
+
+def test_streamlit_uses_isolated_artifact_directory_per_run():
+    text = open("streamlit_app.py", encoding="utf-8").read()
+    assert "uuid4().hex" in text
+    assert 'artifact_root / "streamlit" / streamlit_run_id' in text

@@ -5,6 +5,7 @@ import json
 import os
 from collections import Counter
 from pathlib import Path
+from uuid import uuid4
 
 import streamlit as st
 
@@ -33,7 +34,8 @@ def _run_search(query: str, mode: str):
             raise SearchProviderConfigurationError("TAVILY_API_KEY is required for online search")
         provider = TavilySearchProvider(tavily_key)
     artifact_root = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs"))
-    output_dir = artifact_root / "streamlit"
+    streamlit_run_id = uuid4().hex
+    output_dir = artifact_root / "streamlit" / streamlit_run_id
     result = asyncio.run(
         OpenSearchPipeline(provider, verify_reachability=mode == "online").run(
             intent, output_dir=output_dir, limit=intent.target_count
@@ -64,6 +66,7 @@ if st.button("开始搜索", type="primary", disabled=not query.strip()):
             st.error(f"运行失败：{type(exc).__name__}: {exc}")
         else:
             summary = result.summary
+            st.caption(f"run_id: {summary.run_id}")
             with st.expander("查看解析后的搜索意图", expanded=True):
                 st.json(intent.model_dump(mode="json"))
             cols = st.columns(4)
