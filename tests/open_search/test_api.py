@@ -1,5 +1,6 @@
-from fastapi.testclient import TestClient
 from pathlib import Path
+
+from fastapi.testclient import TestClient
 
 from web_task_agent.open_search import api
 from web_task_agent.open_search.api import app
