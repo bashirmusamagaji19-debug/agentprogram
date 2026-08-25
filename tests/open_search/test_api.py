@@ -17,6 +17,13 @@ def test_readyz_reports_artifact_directory_writable(tmp_path, monkeypatch):
     assert response.json() == {"status": "ready", "artifact_writable": True}
 
 
+def test_readyz_returns_503_when_artifact_directory_is_unwritable(monkeypatch):
+    monkeypatch.setattr(api, "ARTIFACT_ROOT", "<invalid>\\artifact")
+    response = TestClient(app).get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+
+
 def test_capabilities_do_not_expose_secrets(monkeypatch):
     monkeypatch.setenv("TAVILY_API_KEY", "secret-value")
     response = TestClient(app).get("/api/capabilities")

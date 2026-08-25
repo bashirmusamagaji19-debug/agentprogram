@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .models import SearchCandidate
@@ -122,7 +123,10 @@ async def readyz() -> dict[str, object]:
         probe.write_text("ok", encoding="utf-8")
         probe.unlink()
     except OSError as exc:
-        return {"status": "not_ready", "reason": type(exc).__name__}
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "reason": type(exc).__name__},
+        )
     return {"status": "ready", "artifact_writable": True}
 
 
