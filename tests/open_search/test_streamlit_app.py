@@ -1,9 +1,13 @@
+from pathlib import Path
+
 from streamlit.testing.v1 import AppTest
+
+APP_PATH = Path(__file__).resolve().parents[2] / "streamlit_app.py"
 
 
 def test_streamlit_online_without_key_shows_error(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    app = AppTest.from_file("streamlit_app.py").run()
+    app = AppTest.from_file(APP_PATH).run()
     app.radio[0].set_value("online").run()
     app.button[0].click().run(timeout=30)
 
@@ -12,7 +16,7 @@ def test_streamlit_online_without_key_shows_error(monkeypatch):
 
 
 def test_streamlit_demo_search_renders_intent_metrics_and_jobs():
-    app = AppTest.from_file("streamlit_app.py").run()
+    app = AppTest.from_file(APP_PATH).run()
     app.button[0].click().run(timeout=30)
 
     assert not app.error

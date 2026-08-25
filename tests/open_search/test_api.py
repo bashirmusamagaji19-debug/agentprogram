@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 from web_task_agent.open_search import api
@@ -19,8 +17,10 @@ def test_readyz_reports_artifact_directory_writable(tmp_path, monkeypatch):
     assert response.json() == {"status": "ready", "artifact_writable": True}
 
 
-def test_readyz_returns_503_when_artifact_directory_is_unwritable(monkeypatch):
-    monkeypatch.setattr(api, "ARTIFACT_ROOT", Path("<invalid>\\artifact"))
+def test_readyz_returns_503_when_artifact_directory_is_unwritable(monkeypatch, tmp_path):
+    blocked_path = tmp_path / "readyz-blocked-file"
+    blocked_path.write_text("not a directory", encoding="utf-8")
+    monkeypatch.setattr(api, "ARTIFACT_ROOT", blocked_path)
     response = TestClient(app).get("/readyz")
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
