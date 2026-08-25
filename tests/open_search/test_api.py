@@ -64,6 +64,12 @@ def test_create_run_returns_run_id_and_intent():
         assert response.json()["intent"]["locations"] == ["北京"]
 
 
+def test_run_mode_is_normalized():
+    with TestClient(app) as client:
+        response = client.post("/api/runs", json={"query": "Agent", "mode": " Demo "})
+    assert response.status_code == 202
+
+
 def test_online_mode_without_key_is_structured_error(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     response = TestClient(app).post("/api/runs", json={"query": "Agent intern", "mode": "online"})

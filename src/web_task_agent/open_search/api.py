@@ -10,7 +10,7 @@ from uuid import uuid4
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .models import SearchCandidate
 from .pipeline import OpenSearchPipeline
@@ -58,6 +58,11 @@ app.add_middleware(
 class RunRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
     mode: str = Field(default="demo", pattern="^(demo|online)$")
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def normalize_mode(cls, value):
+        return value.strip().casefold() if isinstance(value, str) else value
 
 
 def _fixture_provider() -> FixtureSearchProvider:
