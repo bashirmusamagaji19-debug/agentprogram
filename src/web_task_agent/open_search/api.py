@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections import Counter
 import os
+from collections import Counter
 from pathlib import Path
 from uuid import uuid4
 
