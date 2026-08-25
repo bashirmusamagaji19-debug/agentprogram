@@ -89,6 +89,9 @@ def test_runtime_limits_have_documented_defaults():
 
 def test_artifact_endpoints_reject_unknown_run():
     client = TestClient(app)
+    response = client.get("/api/runs/missing")
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "run_not_found"
     for suffix in ("jobs", "trace", "evaluation"):
         response = client.get(f"/api/runs/missing/{suffix}")
         assert response.status_code == 404
