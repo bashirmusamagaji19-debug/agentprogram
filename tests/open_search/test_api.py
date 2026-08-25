@@ -87,6 +87,15 @@ def test_runtime_limits_have_documented_defaults():
     assert api._MAX_REQUESTS_PER_MINUTE >= 1
 
 
+def test_positive_env_int_falls_back_for_invalid_values(monkeypatch):
+    monkeypatch.setenv("INVALID_LIMIT", "not-a-number")
+    assert api._positive_env_int("INVALID_LIMIT", 7) == 7
+    monkeypatch.setenv("INVALID_LIMIT", "0")
+    assert api._positive_env_int("INVALID_LIMIT", 7) == 7
+    monkeypatch.setenv("INVALID_LIMIT", "9")
+    assert api._positive_env_int("INVALID_LIMIT", 7) == 9
+
+
 def test_artifact_endpoints_reject_unknown_run():
     client = TestClient(app)
     response = client.get("/api/runs/missing")
