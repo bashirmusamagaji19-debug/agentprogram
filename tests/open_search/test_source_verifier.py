@@ -38,7 +38,10 @@ def test_malformed_url_is_rejected_without_raising():
 
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
+    seen_headers = {}
+
     async def handler(request):
+        seen_headers.update(request.headers)
         return httpx.Response(
             200,
             content=b"<html><body>job detail</body></html>",
@@ -55,6 +58,7 @@ async def test_reachability_verifier_accepts_html_detail_page():
         await client.aclose()
     assert verdict.trusted is True
     assert len(verdict.content_hash) == 64
+    assert seen_headers["user-agent"].startswith("OpenWebJobSearchAgent/")
 
 
 @pytest.mark.asyncio

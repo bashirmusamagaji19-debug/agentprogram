@@ -19,6 +19,7 @@ class SourceVerdict:
 
 
 class SourceVerifier:
+    _user_agent = "OpenWebJobSearchAgent/0.1 (+https://github.com/)"
     _ats = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "ashbyhq.com")
     _search_hosts = ("google.", "bing.com", "baidu.com", "duckduckgo.com")
 
@@ -115,7 +116,7 @@ class SourceVerifier:
         own_client = client is None
         request_client = client or httpx.AsyncClient(timeout=10, follow_redirects=True)
         try:
-            response = await request_client.get(url)
+            response = await request_client.get(url, headers={"User-Agent": self._user_agent})
             if response.status_code >= 400:
                 return SourceVerdict(
                     False,
