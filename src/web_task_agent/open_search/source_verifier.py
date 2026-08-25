@@ -53,7 +53,10 @@ class SourceVerifier:
         except ValueError:
             address = None
         if address is not None and (
-            address.is_private or address.is_loopback or address.is_link_local or address.is_reserved
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_reserved
         ):
             return SourceVerdict(
                 False,
