@@ -18,6 +18,19 @@ class ReachableVerifier:
         return SourceVerdict(True, url, "fixture", "reachable", content_hash="a" * 64)
 
 
+class ProviderWithMalformedCount:
+    last_malformed_count = 2
+
+    async def search(self, query, limit=10):
+        return [
+            SearchCandidate(
+                url="https://job-boards.greenhouse.io/example/jobs/123",
+                title="Agent Intern",
+                source="Example",
+            )
+        ]
+
+
 @pytest.mark.asyncio
 async def test_pipeline_returns_verified_jobs_and_trace(tmp_path):
     provider = type("Provider", (), {})()
@@ -72,3 +85,12 @@ async def test_pipeline_records_reachability_hash_in_trace(tmp_path):
     trace = (tmp_path / "execution-trace.jsonl").read_text(encoding="utf-8")
     assert "reachability_checked" in trace
     assert "a" * 64 in trace
+
+
+@pytest.mark.asyncio
+async def test_pipeline_summary_records_provider_quality_metadata(tmp_path):
+    result = await OpenSearchPipeline(ProviderWithMalformedCount()).run(
+        SearchIntent(raw_text="Agent"), output_dir=tmp_path, limit=1
+    )
+    assert result.summary.metadata["malformed_candidates"] == 2
+    assert result.summary.metadata["reachability_checked"] is False

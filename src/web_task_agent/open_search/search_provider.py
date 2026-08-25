@@ -46,6 +46,7 @@ class TavilySearchProvider:
     def __init__(self, api_key: str, *, client: httpx.AsyncClient | None = None) -> None:
         self.api_key = api_key
         self._client = client
+        self.last_malformed_count = 0
 
     @classmethod
     def from_environment(cls) -> TavilySearchProvider:
@@ -72,6 +73,7 @@ class TavilySearchProvider:
             payload = response.json()
             results = payload.get("results", [])
             candidates: list[SearchCandidate] = []
+            malformed_count = 0
             for item in results[:limit]:
                 try:
                     candidates.append(
@@ -83,7 +85,9 @@ class TavilySearchProvider:
                         )
                     )
                 except (AttributeError, TypeError, ValidationError):
+                    malformed_count += 1
                     continue
+            self.last_malformed_count = malformed_count
             return candidates
         except httpx.HTTPError as exc:
             raise SearchProviderError(f"tavily request failed: {type(exc).__name__}") from exc

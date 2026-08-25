@@ -106,6 +106,11 @@ class OpenSearchPipeline:
             verified_count=len(jobs),
             failures=len(failures),
             terminal_reason=reason,
+            metadata={
+                "provider": type(self.provider).__name__,
+                "malformed_candidates": getattr(self.provider, "last_malformed_count", 0),
+                "reachability_checked": self.verify_reachability,
+            },
         )
         writer.write_json("run-summary.json", summary.model_dump(mode="json"))
         for job in jobs:

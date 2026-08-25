@@ -81,8 +81,10 @@ async def test_tavily_provider_skips_malformed_result_and_keeps_valid_result():
             },
         )
     )
-    result = await TavilySearchProvider("key", client=client).search("Agent", limit=2)
+    provider = TavilySearchProvider("key", client=client)
+    result = await provider.search("Agent", limit=2)
     assert [item.title for item in result] == ["Agent Intern"]
+    assert provider.last_malformed_count == 1
 
 
 @pytest.mark.asyncio
