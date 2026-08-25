@@ -61,6 +61,17 @@ def test_run_registry_is_bounded(monkeypatch):
     assert second in api._runs
 
 
+def test_create_run_is_rate_limited(monkeypatch):
+    monkeypatch.setattr(api, "_MAX_REQUESTS_PER_MINUTE", 1)
+    api._request_windows.clear()
+    with TestClient(app) as client:
+        first = client.post("/api/runs", json={"query": "Agent", "mode": "demo"})
+        second = client.post("/api/runs", json={"query": "Python", "mode": "demo"})
+    assert first.status_code == 202
+    assert second.status_code == 429
+    assert second.json()["detail"]["code"] == "rate_limited"
+
+
 def test_artifact_endpoints_reject_unknown_run():
     client = TestClient(app)
     for suffix in ("jobs", "trace", "evaluation"):

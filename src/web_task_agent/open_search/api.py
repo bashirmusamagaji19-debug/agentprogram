@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
-from collections import Counter
+import time
+from collections import Counter, defaultdict, deque
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,8 @@ ARTIFACT_ROOT = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-
 app = FastAPI(title="Open Web Job Search Agent")
 _runs: dict[str, dict] = {}
 _MAX_RUNS = 100
+_MAX_REQUESTS_PER_MINUTE = 20
+_request_windows: dict[str, deque[float]] = defaultdict(deque)
 
 
 class RunRequest(BaseModel):
@@ -101,7 +104,23 @@ async def capabilities() -> dict[str, object]:
 
 
 @app.post("/api/runs", status_code=202)
-async def create_run(request: RunRequest, background_tasks: BackgroundTasks) -> dict:
+async def create_run(
+    request: RunRequest, background_tasks: BackgroundTasks, http_request: Request
+) -> dict:
+    client_key = http_request.client.host if http_request.client else "unknown"
+    now = time.monotonic()
+    window = _request_windows[client_key]
+    while window and now - window[0] >= 60:
+        window.popleft()
+    if len(window) >= _MAX_REQUESTS_PER_MINUTE:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "rate_limited",
+                "message": "Too many runs from this client; retry later.",
+            },
+        )
+    window.append(now)
     if len(_runs) >= _MAX_RUNS:
         oldest_id = next(iter(_runs))
         _runs.pop(oldest_id, None)
