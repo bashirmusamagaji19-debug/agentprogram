@@ -158,6 +158,7 @@ async def create_run(
                 "code": "rate_limited",
                 "message": "Too many runs from this client; retry later.",
             },
+            headers={"Retry-After": "60"},
         )
     window.append(now)
     if len(_runs) >= _MAX_RUNS:

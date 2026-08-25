@@ -80,6 +80,7 @@ def test_create_run_is_rate_limited(monkeypatch):
     assert first.status_code == 202
     assert second.status_code == 429
     assert second.json()["detail"]["code"] == "rate_limited"
+    assert second.headers["retry-after"] == "60"
 
 
 def test_runtime_limits_have_documented_defaults():
