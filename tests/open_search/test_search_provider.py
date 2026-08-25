@@ -15,6 +15,14 @@ def test_tavily_provider_requires_key(monkeypatch):
         TavilySearchProvider.from_environment()
 
 
+def test_tavily_timeout_setting_is_bounded(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "key")
+    monkeypatch.setenv("TAVILY_TIMEOUT_SECONDS", "0")
+    assert TavilySearchProvider.from_environment().timeout_seconds == 1.0
+    monkeypatch.setenv("TAVILY_TIMEOUT_SECONDS", "bad")
+    assert TavilySearchProvider.from_environment().timeout_seconds == 30.0
+
+
 @pytest.mark.asyncio
 async def test_fixture_provider_returns_bounded_candidates():
     candidate = SearchCandidate(url="https://example.com/jobs/1", title="Agent 北京")

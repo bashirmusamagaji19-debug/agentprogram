@@ -43,9 +43,16 @@ class FixtureSearchProvider:
 class TavilySearchProvider:
     endpoint = "https://api.tavily.com/search"
 
-    def __init__(self, api_key: str, *, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> None:
         self.api_key = api_key
         self._client = client
+        self.timeout_seconds = timeout_seconds
         self.last_malformed_count = 0
 
     @classmethod
@@ -53,11 +60,15 @@ class TavilySearchProvider:
         key = os.getenv("TAVILY_API_KEY", "").strip()
         if not key:
             raise SearchProviderConfigurationError("TAVILY_API_KEY is required for online search")
-        return cls(key)
+        try:
+            timeout = float(os.getenv("TAVILY_TIMEOUT_SECONDS", "30"))
+        except ValueError:
+            timeout = 30.0
+        return cls(key, timeout_seconds=max(1.0, timeout))
 
     async def search(self, query: str, limit: int = 10) -> list[SearchCandidate]:
         own_client = self._client is None
-        client = self._client or httpx.AsyncClient(timeout=30)
+        client = self._client or httpx.AsyncClient(timeout=self.timeout_seconds)
         try:
             response = await client.post(
                 self.endpoint,
