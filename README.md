@@ -137,7 +137,7 @@ Demo 模式无需任何 key；当前 Web Online 模式使用 Tavily，Qwen key �
 uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
 ```
 
-部署后可通过 `/healthz` 检查服务状态，并获得 `https://<service>.onrender.com` 地址。API key 应在 Render Environment 中配置，不能提交到仓库。
+部署后可通过 `/healthz` 检查进程存活，通过 `/readyz` 检查 artifact 目录可写，并获得 `https://<service>.onrender.com` 地址。API key 应在 Render Environment 中配置，不能提交到仓库。
 
 API 客户端还可以访问 `/api/capabilities`，查看 Demo/Online 模式是否可用；该接口只返回布尔状态，不会返回任何密钥内容。
 `/api/version` 返回项目版本、Python 版本和限流配置摘要，适合云端部署排查，同样不返回密钥。

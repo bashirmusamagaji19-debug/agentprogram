@@ -114,6 +114,18 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/readyz")
+async def readyz() -> dict[str, object]:
+    probe = ARTIFACT_ROOT / ".readyz-probe"
+    try:
+        ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        return {"status": "not_ready", "reason": type(exc).__name__}
+    return {"status": "ready", "artifact_writable": True}
+
+
 @app.get("/api/version")
 async def version() -> dict[str, object]:
     return {

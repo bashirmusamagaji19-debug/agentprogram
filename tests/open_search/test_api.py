@@ -10,6 +10,13 @@ def test_healthz_returns_ok():
     assert response.json() == {"status": "ok"}
 
 
+def test_readyz_reports_artifact_directory_writable(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "ARTIFACT_ROOT", tmp_path / "artifacts")
+    response = TestClient(app).get("/readyz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "artifact_writable": True}
+
+
 def test_capabilities_do_not_expose_secrets(monkeypatch):
     monkeypatch.setenv("TAVILY_API_KEY", "secret-value")
     response = TestClient(app).get("/api/capabilities")
