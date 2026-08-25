@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -167,6 +168,8 @@ async def get_evaluation(run_id: str) -> dict:
     _require_run(run_id)
     summary = _artifact_json(run_id, "run-summary.json")
     if summary is not None:
+        failures = _artifact_lines(run_id, "failures.jsonl")
+        failure_counts = dict(Counter(item.get("code", "unknown") for item in failures))
         return {
             "run_id": run_id,
             "evaluation": {
@@ -174,6 +177,7 @@ async def get_evaluation(run_id: str) -> dict:
                 "summary": summary,
                 "jobs_count": len(_artifact_lines(run_id, "jobs.jsonl")),
                 "trace_count": len(_artifact_lines(run_id, "execution-trace.jsonl")),
+                "failure_counts": failure_counts,
             },
         }
     return {
