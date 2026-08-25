@@ -25,7 +25,10 @@ class SourceVerifier:
     def verify_url(self, url: str) -> SourceVerdict:
         normalized = url.strip()
         parsed = urlparse(normalized)
-        host = parsed.netloc.casefold().split(":", 1)[0]
+        try:
+            host = (parsed.hostname or "").casefold()
+        except ValueError:
+            host = ""
         if parsed.scheme not in {"http", "https"} or not host:
             return SourceVerdict(
                 False, normalized, "invalid", "URL scheme or host is invalid", "source_untrusted"
@@ -82,8 +85,8 @@ class SourceVerifier:
         )
 
     def _same_trusted_host_family(self, original_url: str, final_url: str) -> bool:
-        original_host = urlparse(original_url).netloc.casefold().split(":", 1)[0]
-        final_host = urlparse(final_url).netloc.casefold().split(":", 1)[0]
+        original_host = (urlparse(original_url).hostname or "").casefold()
+        final_host = (urlparse(final_url).hostname or "").casefold()
         if original_host == final_host:
             return True
         return any(

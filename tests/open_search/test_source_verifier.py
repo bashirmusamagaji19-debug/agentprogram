@@ -22,6 +22,8 @@ def test_private_and_loopback_hosts_are_rejected():
         "http://127.0.0.1/jobs/1",
         "http://localhost/jobs/1",
         "http://192.168.1.10/jobs/1",
+        "http://[::1]/jobs/1",
+        "http://user@127.0.0.1/jobs/1",
     ):
         verdict = verifier.verify_url(url)
         assert verdict.trusted is False
