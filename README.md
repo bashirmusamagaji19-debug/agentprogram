@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：本轮全量测试 `359 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：本轮全量测试 `360 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -154,6 +154,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 本地构建前需要启动 Docker Desktop 的 Linux engine；CI 或云平台会在自己的 Docker daemon 中执行构建。
 
 当前版本是单实例演示部署：运行状态保存在进程内存（最多保留最近 100 次 run），artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
+单实例 API 默认按客户端 IP 限制每分钟创建 20 次 run，超过时返回 `429 rate_limited`；多实例生产部署应将限流状态迁移到共享网关或 Redis。
 
 本地先验证 Streamlit 页面：
 
