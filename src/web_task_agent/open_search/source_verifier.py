@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -37,6 +38,28 @@ class SourceVerifier:
                 normalized,
                 "search_engine",
                 "search result pages are not job details",
+                "source_untrusted",
+            )
+        if host in {"localhost", "localhost.localdomain"}:
+            return SourceVerdict(
+                False,
+                normalized,
+                "private_host",
+                "localhost is not a public job source",
+                "source_untrusted",
+            )
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            address = None
+        if address is not None and (
+            address.is_private or address.is_loopback or address.is_link_local or address.is_reserved
+        ):
+            return SourceVerdict(
+                False,
+                normalized,
+                "private_host",
+                "private or reserved IPs are not public job sources",
                 "source_untrusted",
             )
         if any(host == suffix or host.endswith("." + suffix) for suffix in self._ats):

@@ -16,6 +16,18 @@ def test_search_result_page_is_rejected():
     assert verdict.failure_code == "source_untrusted"
 
 
+def test_private_and_loopback_hosts_are_rejected():
+    verifier = SourceVerifier()
+    for url in (
+        "http://127.0.0.1/jobs/1",
+        "http://localhost/jobs/1",
+        "http://192.168.1.10/jobs/1",
+    ):
+        verdict = verifier.verify_url(url)
+        assert verdict.trusted is False
+        assert verdict.failure_code == "source_untrusted"
+
+
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
     async def handler(request):
