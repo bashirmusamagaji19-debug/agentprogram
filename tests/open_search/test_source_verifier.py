@@ -36,6 +36,13 @@ def test_malformed_url_is_rejected_without_raising():
     assert verdict.failure_code == "source_untrusted"
 
 
+def test_page_timeout_setting_is_bounded(monkeypatch):
+    monkeypatch.setenv("OPEN_SEARCH_PAGE_TIMEOUT_SECONDS", "0")
+    assert SourceVerifier().timeout_seconds == 1.0
+    monkeypatch.setenv("OPEN_SEARCH_PAGE_TIMEOUT_SECONDS", "bad")
+    assert SourceVerifier().timeout_seconds == 10.0
+
+
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
     seen_headers = {}

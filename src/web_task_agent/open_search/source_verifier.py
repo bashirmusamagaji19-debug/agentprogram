@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import os
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -22,6 +23,16 @@ class SourceVerifier:
     _user_agent = "OpenWebJobSearchAgent/0.1 (+https://github.com/)"
     _ats = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "ashbyhq.com")
     _search_hosts = ("google.", "bing.com", "baidu.com", "duckduckgo.com")
+
+    def __init__(self, *, timeout_seconds: float | None = None) -> None:
+        if timeout_seconds is not None:
+            self.timeout_seconds = max(1.0, timeout_seconds)
+            return
+        try:
+            configured = float(os.getenv("OPEN_SEARCH_PAGE_TIMEOUT_SECONDS", "10"))
+        except ValueError:
+            configured = 10.0
+        self.timeout_seconds = max(1.0, configured)
 
     def verify_url(self, url: str) -> SourceVerdict:
         normalized = url.strip()
@@ -114,7 +125,9 @@ class SourceVerifier:
         if not verdict.trusted:
             return verdict
         own_client = client is None
-        request_client = client or httpx.AsyncClient(timeout=10, follow_redirects=True)
+        request_client = client or httpx.AsyncClient(
+            timeout=self.timeout_seconds, follow_redirects=True
+        )
         try:
             response = await request_client.get(url, headers={"User-Agent": self._user_agent})
             if response.status_code >= 400:
