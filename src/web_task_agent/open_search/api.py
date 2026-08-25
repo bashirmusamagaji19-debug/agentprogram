@@ -122,7 +122,10 @@ async def readyz() -> dict[str, object]:
         probe.write_text("ok", encoding="utf-8")
         probe.unlink()
     except OSError as exc:
-        probe.unlink(missing_ok=True)
+        try:
+            probe.unlink(missing_ok=True)
+        except OSError:
+            pass
         return JSONResponse(
             status_code=503,
             content={"status": "not_ready", "reason": type(exc).__name__},
