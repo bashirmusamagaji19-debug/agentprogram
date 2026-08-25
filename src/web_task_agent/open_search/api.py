@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import time
 from collections import Counter, defaultdict, deque
 from pathlib import Path
@@ -86,6 +87,19 @@ async def index() -> FileResponse:
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+async def version() -> dict[str, object]:
+    return {
+        "project": "web-task-agent",
+        "version": "0.1.0",
+        "python": platform.python_version(),
+        "limits": {
+            "max_runs": _MAX_RUNS,
+            "rate_limit_per_minute": _MAX_REQUESTS_PER_MINUTE,
+        },
+    }
 
 
 @app.get("/api/capabilities")

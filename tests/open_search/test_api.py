@@ -20,6 +20,16 @@ def test_capabilities_do_not_expose_secrets(monkeypatch):
     assert "secret-value" not in response.text
 
 
+def test_version_reports_non_sensitive_runtime_metadata():
+    response = TestClient(app).get("/api/version")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["project"] == "web-task-agent"
+    assert payload["version"] == "0.1.0"
+    assert "python" in payload
+    assert "limits" in payload
+
+
 def test_create_run_returns_run_id_and_intent():
     with TestClient(app) as client:
         response = client.post("/api/runs", json={"query": "找北京 Agent 实习", "mode": "demo"})
