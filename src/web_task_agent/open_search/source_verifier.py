@@ -24,7 +24,16 @@ class SourceVerifier:
 
     def verify_url(self, url: str) -> SourceVerdict:
         normalized = url.strip()
-        parsed = urlparse(normalized)
+        try:
+            parsed = urlparse(normalized)
+        except ValueError:
+            return SourceVerdict(
+                False,
+                normalized,
+                "invalid",
+                "URL could not be parsed",
+                "source_untrusted",
+            )
         try:
             host = (parsed.hostname or "").casefold()
         except ValueError:

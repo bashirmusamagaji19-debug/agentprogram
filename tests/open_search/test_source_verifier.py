@@ -30,6 +30,12 @@ def test_private_and_loopback_hosts_are_rejected():
         assert verdict.failure_code == "source_untrusted"
 
 
+def test_malformed_url_is_rejected_without_raising():
+    verdict = SourceVerifier().verify_url("http://[::1/jobs/1")
+    assert verdict.trusted is False
+    assert verdict.failure_code == "source_untrusted"
+
+
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
     async def handler(request):
