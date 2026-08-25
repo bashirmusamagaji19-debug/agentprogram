@@ -141,6 +141,8 @@ uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
 
 API 客户端还可以访问 `/api/capabilities`，查看 Demo/Online 模式是否可用；该接口只返回布尔状态，不会返回任何密钥内容。
 
+Online verifier 还会拒绝 `localhost`、环回、私有、链路本地和保留 IP，防止开放搜索结果诱导服务端访问内网资源；这是演示服务的 SSRF 基础防护，不替代生产环境的网络出口策略。
+
 ### Docker（通用部署）
 
 ```powershell
