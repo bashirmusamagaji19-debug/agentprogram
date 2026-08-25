@@ -24,8 +24,8 @@ WEB_DIR = ROOT / "web"
 ARTIFACT_ROOT = Path(os.getenv("OPEN_SEARCH_ARTIFACT_DIR", "outputs/open-search-runs"))
 app = FastAPI(title="Open Web Job Search Agent")
 _runs: dict[str, dict] = {}
-_MAX_RUNS = 100
-_MAX_REQUESTS_PER_MINUTE = 20
+_MAX_RUNS = int(os.getenv("OPEN_SEARCH_MAX_RUNS", "100"))
+_MAX_REQUESTS_PER_MINUTE = int(os.getenv("OPEN_SEARCH_RATE_LIMIT_PER_MINUTE", "20"))
 _request_windows: dict[str, deque[float]] = defaultdict(deque)
 
 

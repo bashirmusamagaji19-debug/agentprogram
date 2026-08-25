@@ -154,7 +154,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 本地构建前需要启动 Docker Desktop 的 Linux engine；CI 或云平台会在自己的 Docker daemon 中执行构建。
 
 当前版本是单实例演示部署：运行状态保存在进程内存（最多保留最近 100 次 run），artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
-单实例 API 默认按客户端 IP 限制每分钟创建 20 次 run，超过时返回 `429 rate_limited`；多实例生产部署应将限流状态迁移到共享网关或 Redis。
+单实例 API 默认按客户端 IP 限制每分钟创建 20 次 run，最多保留 100 次 run；可通过 `OPEN_SEARCH_RATE_LIMIT_PER_MINUTE` 和 `OPEN_SEARCH_MAX_RUNS` 调整，超过限流时返回 `429 rate_limited`。多实例生产部署应将限流状态迁移到共享网关或 Redis。
 
 本地先验证 Streamlit 页面：
 

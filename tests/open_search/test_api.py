@@ -72,6 +72,11 @@ def test_create_run_is_rate_limited(monkeypatch):
     assert second.json()["detail"]["code"] == "rate_limited"
 
 
+def test_runtime_limits_have_documented_defaults():
+    assert api._MAX_RUNS >= 1
+    assert api._MAX_REQUESTS_PER_MINUTE >= 1
+
+
 def test_artifact_endpoints_reject_unknown_run():
     client = TestClient(app)
     for suffix in ("jobs", "trace", "evaluation"):
