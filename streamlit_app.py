@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from collections import Counter
 from pathlib import Path
 
 import streamlit as st
@@ -84,6 +85,8 @@ if st.button("开始搜索", type="primary", disabled=not query.strip()):
                             st.code(evidence.content_hash, language="text")
             if result.failures:
                 with st.expander("查看失败记录"):
+                    failure_counts = Counter(failure.code for failure in result.failures)
+                    st.write("**失败分类：**", dict(failure_counts))
                     for failure in result.failures:
                         st.warning(f"{failure.code}: {failure.message} ({failure.url})")
             payload = {

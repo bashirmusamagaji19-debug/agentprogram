@@ -19,3 +19,9 @@ def test_streamlit_demo_search_renders_intent_metrics_and_jobs():
     assert len(app.json) == 1
     assert len(app.metric) == 4
     assert len(app.subheader) >= 1
+
+
+def test_streamlit_source_contains_failure_category_summary():
+    text = open("streamlit_app.py", encoding="utf-8").read()
+    assert "Counter(failure.code" in text
+    assert "失败分类" in text
