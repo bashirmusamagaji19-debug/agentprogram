@@ -38,3 +38,11 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deployment image
+        run: docker build --tag web-task-agent:ci .

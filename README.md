@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：本轮全量测试 `374 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：本轮全量测试 `379 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -40,9 +40,14 @@ python -m streamlit run streamlit_app.py
 
 # 冻结查询评测（与在线审计指标分开）
 python -m web_task_agent.open_search.evaluation --queries data/open-search/evaluation/queries.jsonl --output-dir docs/results/open-search
+
+# 真实在线验收：需要 TAVILY_API_KEY，默认执行 3 条中英文查询
+python -m web_task_agent.open_search.online_smoke --output-dir outputs/open-search-online-smoke/manual
 ```
 
 当前冻结的 20 条查询评测结果为：需求解析正确率 `100.0%`、硬约束违反 `0`。该结果只证明固定查询集上的解析回归，不代表开放互联网岗位搜索的召回或抽取准确率。
+
+在线验收命令会为每条查询保留独立的 `jobs.jsonl`、`failures.jsonl`、`execution-trace.jsonl` 和 `run-summary.json`，并在输出目录生成 `online-smoke-report.json` 与 `online-smoke-report.md`。可以重复传入 `--query "你的岗位需求"` 覆盖默认查询。缺少 Tavily key 时命令会立即以非零状态退出，不生成伪在线报告；零岗位结果仍需结合报告中的 `failure_counts` 和 `terminal_reason` 判断，不能直接解释为系统不可用或搜索成功。
 
 简历表述：实现基于搜索 API + 浏览器验证的开放互联网岗位搜索 Agent；建立来源可信度、字段证据和失败分类边界；用 20 条自然语言查询和版本化 artifact 验证可复现性。冻结 fixture 指标不等同于真实互联网泛化准确率。
 
@@ -152,7 +157,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 ```
 
 容器默认启动 FastAPI，使用 `PORT` 环境变量覆盖监听端口；启动后访问 `/healthz` 检查服务状态。
-本地构建前需要启动 Docker Desktop 的 Linux engine；CI 或云平台会在自己的 Docker daemon 中执行构建。
+本地构建前需要启动 Docker Desktop 的 Linux engine；GitHub Actions 的独立 `docker-build` job 会在每次 push 和 pull request 时执行无密钥镜像构建。该门禁证明当前提交可以生成部署镜像，不等同于公网服务已部署或真实在线搜索已经通过。
 
 当前版本是单实例演示部署：运行状态保存在进程内存（最多保留最近 100 次 run），artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
 单实例 API 默认按客户端 IP 限制每分钟创建 20 次 run，最多保留 100 次 run；可通过 `OPEN_SEARCH_RATE_LIMIT_PER_MINUTE` 和 `OPEN_SEARCH_MAX_RUNS` 调整，超过限流时返回 `429 rate_limited`。多实例生产部署应将限流状态迁移到共享网关或 Redis。
