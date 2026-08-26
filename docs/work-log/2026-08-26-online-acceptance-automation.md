@@ -33,3 +33,7 @@
 ## 证据边界
 
 本轮环境没有用于该入口的 Tavily key，因此没有执行真实互联网搜索，不能声称已获得新的在线岗位样本。新增工具解决的是“key 就绪后如何一条命令形成可审计证据”；Docker CI 解决的是“部署镜像能否在 Linux runner 构建”，两者都不等同于公网应用已经上线。
+
+## 远端验证
+
+提交 `d422783` 触发的 GitHub Actions run `32978760764` 与 `32978759212` 均成功。两次 run 中的 `quality` 和 `docker-build` job 全部通过；Docker 构建分别耗时约 34 秒和 56 秒。仓库仅存在一个活动 workflow 文件 `.github/workflows/ci.yml`，未发现重复 workflow 配置。
