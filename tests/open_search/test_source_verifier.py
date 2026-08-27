@@ -2,7 +2,6 @@ import httpx
 import pytest
 
 import web_task_agent.open_search.source_verifier as source_verifier_module
-
 from web_task_agent.open_search.source_verifier import SourceVerifier
 
 
