@@ -96,7 +96,9 @@ def _fixture_provider() -> FixtureSearchProvider:
 
 
 async def _execute(run_id: str, request: RunRequest) -> None:
-    record = _runs[run_id]
+    record = _runs.get(run_id)
+    if record is None:
+        return
     record["status"] = "running"
     try:
         parser = DemoQueryParser()

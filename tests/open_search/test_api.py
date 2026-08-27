@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from web_task_agent.open_search import api
@@ -143,3 +144,10 @@ def test_artifact_endpoints_reject_unknown_run():
         response = client.get(f"/api/runs/missing/{suffix}")
         assert response.status_code == 404
         assert response.json()["detail"]["code"] == "run_not_found"
+
+
+@pytest.mark.asyncio
+async def test_evicted_run_does_not_crash_background_execution():
+    api._runs.clear()
+    await api._execute("evicted-run", api.RunRequest(query="Agent", mode="demo"))
+    assert "evicted-run" not in api._runs

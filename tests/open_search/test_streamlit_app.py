@@ -42,3 +42,8 @@ def test_streamlit_uses_isolated_artifact_directory_per_run():
     text = open("streamlit_app.py", encoding="utf-8").read()
     assert "uuid4().hex" in text
     assert 'artifact_root / "streamlit" / streamlit_run_id' in text
+
+
+def test_streamlit_passes_same_run_id_to_pipeline_summary():
+    text = open("streamlit_app.py", encoding="utf-8").read()
+    assert "run_id=streamlit_run_id" in text

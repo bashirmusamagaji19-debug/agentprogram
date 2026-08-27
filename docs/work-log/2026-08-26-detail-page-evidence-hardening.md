@@ -27,6 +27,8 @@
 - 总覆盖率：`90.56%`。
 - Ruff 与 Python 编译检查通过。
 - 后续回归修复：所有 Pipeline summary 收尾路径写入 UTC `finished_at`；在线模式缺少 `TAVILY_API_KEY` 时在限流和 run 创建前直接返回结构化错误且无副作用；Greenhouse OpenGraph 公司名前缀解析改为大小写不敏感。
+- 追加稳定性修复：Streamlit 将同一 `run_id` 传入 Pipeline，保证页面、summary 与 artifact 对齐；后台任务遇到已被 run 上限淘汰的 ID 时直接结束，避免并发 `KeyError`。
+- 最新全量验证：`397 passed`，覆盖率 `90.57%`，Ruff、编译检查和远端 CI 均通过。
 
 ## 真实页面证据
 

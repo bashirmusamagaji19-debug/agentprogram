@@ -38,7 +38,10 @@ def _run_search(query: str, mode: str):
     output_dir = artifact_root / "streamlit" / streamlit_run_id
     result = asyncio.run(
         OpenSearchPipeline(provider, verify_reachability=mode == "online").run(
-            intent, output_dir=output_dir, limit=intent.target_count
+            intent,
+            output_dir=output_dir,
+            limit=intent.target_count,
+            run_id=streamlit_run_id,
         )
     )
     return intent, result
