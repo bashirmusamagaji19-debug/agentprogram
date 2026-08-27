@@ -1,7 +1,18 @@
 import httpx
 import pytest
 
+import web_task_agent.open_search.source_verifier as source_verifier_module
+
 from web_task_agent.open_search.source_verifier import SourceVerifier
+
+
+@pytest.fixture(autouse=True)
+def public_dns_for_mocked_http(monkeypatch):
+    monkeypatch.setattr(
+        source_verifier_module.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
+    )
 
 
 def test_official_greenhouse_url_is_trusted():
@@ -208,3 +219,30 @@ async def test_reachability_verifier_preserves_not_job_detail_redirect_reason():
 
     assert verdict.failure_code == "not_job_detail"
     assert requested_urls == ["https://job-boards.greenhouse.io/example/jobs/123"]
+
+
+@pytest.mark.asyncio
+async def test_reachability_verifier_rejects_public_hostname_resolving_to_private_ip(monkeypatch):
+    requested_urls = []
+
+    def fake_getaddrinfo(*args, **kwargs):
+        return [(2, 1, 6, "", ("127.0.0.1", 443))]
+
+    monkeypatch.setattr(source_verifier_module.socket, "getaddrinfo", fake_getaddrinfo)
+
+    async def handler(request):
+        requested_urls.append(str(request.url))
+        return httpx.Response(200, content=b"<html>job</html>", request=request)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+
+    assert verdict.trusted is False
+    assert verdict.source_type == "private_host"
+    assert verdict.failure_code == "source_untrusted"
+    assert requested_urls == []

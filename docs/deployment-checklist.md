@@ -1,12 +1,14 @@
 # 公开演示部署检查清单
 
+> 状态说明：仓库、测试、Docker 构建和本地 HTTP smoke 已完成；云平台账号授权、公网 URL 和真实 Tavily 搜索仍需在对应平台执行后勾选。
+
 ## 发布前
 
-- [ ] GitHub 仓库默认分支包含 `streamlit_app.py`、`render.yaml` 和 `requirements.txt`
-- [ ] 仓库中没有真实 API key：使用 `git grep` 检查，只允许 `.env.example` 中的变量名
-- [ ] `python -m pytest` 全部通过
-- [ ] 本地 Streamlit 页面能用 Demo 模式完成一次搜索
-- [ ] `/healthz` 返回 `{"status":"ok"}`
+- [x] GitHub 仓库包含 `streamlit_app.py`、`render.yaml` 和 `requirements.txt`
+- [x] 仓库中没有真实 API key：使用 `git grep` 检查，只允许 `.env.example` 中的变量名
+- [x] `python -m pytest` 全部通过
+- [x] 本地 Streamlit 页面能用 Demo 模式完成一次搜索
+- [x] `/healthz` 返回 `{"status":"ok"}`
 
 ## Streamlit Cloud
 
@@ -18,7 +20,7 @@
 
 ## Render
 
-- [ ] 使用仓库中的 `render.yaml` 创建 Web Service
+- [x] 使用仓库中的 `render.yaml` 创建 Web Service
 - [ ] 配置 `TAVILY_API_KEY`，`DASHSCOPE_API_KEY` 仅在其他 Qwen CLI 链路需要时配置
 - [ ] 打开 `<service-url>/healthz`
 - [ ] 打开 `<service-url>/` 确认 FastAPI 原生页面可访问

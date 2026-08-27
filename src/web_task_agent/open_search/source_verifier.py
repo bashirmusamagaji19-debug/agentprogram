@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import os
+import socket
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
@@ -173,6 +174,29 @@ class SourceVerifier:
             for suffix in self._ats
         )
 
+    @staticmethod
+    def _host_resolves_to_public_addresses(host: str, port: int | str) -> bool:
+        """Reject DNS answers that include loopback, private, link-local, or reserved IPs."""
+        try:
+            addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        except OSError:
+            # Let the HTTP client classify transient DNS/connection failures.
+            return True
+        for entry in addresses:
+            sockaddr = entry[4]
+            try:
+                address = ipaddress.ip_address(sockaddr[0])
+            except (IndexError, ValueError):
+                continue
+            if (
+                address.is_private
+                or address.is_loopback
+                or address.is_link_local
+                or address.is_reserved
+            ):
+                return False
+        return True
+
     async def verify_reachable(
         self, url: str, *, client: httpx.AsyncClient | None = None
     ) -> SourceVerdict:
@@ -187,6 +211,18 @@ class SourceVerifier:
             current_url = verdict.normalized_url
             response = None
             for redirect_count in range(self.max_redirects + 1):
+                current = urlparse(current_url)
+                port = current.port or (443 if current.scheme == "https" else 80)
+                if not self._host_resolves_to_public_addresses(
+                    current.hostname or "", port
+                ):
+                    return SourceVerdict(
+                        False,
+                        current_url,
+                        "private_host",
+                        "hostname resolves to a private or reserved IP",
+                        "source_untrusted",
+                    )
                 response = await request_client.get(
                     current_url,
                     headers={"User-Agent": self._user_agent},
