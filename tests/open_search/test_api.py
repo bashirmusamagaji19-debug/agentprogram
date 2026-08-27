@@ -59,6 +59,7 @@ def test_create_run_returns_run_id_and_intent():
         assert jobs.json()["jobs"]
         evaluation = client.get(f"/api/runs/{run_id}/evaluation")
         assert evaluation.json()["evaluation"]["available"] is True
+        assert evaluation.json()["evaluation"]["summary"]["run_id"] == run_id
         assert evaluation.json()["evaluation"]["jobs_count"] >= 1
         assert evaluation.json()["evaluation"]["failure_counts"] == {}
         assert response.json()["intent"]["locations"] == ["北京"]
@@ -72,9 +73,13 @@ def test_run_mode_is_normalized():
 
 def test_online_mode_without_key_is_structured_error(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    api._request_windows.clear()
+    before = len(api._runs)
     response = TestClient(app).post("/api/runs", json={"query": "Agent intern", "mode": "online"})
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "search_api_error"
+    assert len(api._request_windows) == 0
+    assert len(api._runs) == before
 
 
 def test_query_length_is_bounded():

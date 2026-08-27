@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：本轮全量测试 `379 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：本轮全量测试 `395 passed`；Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -23,7 +23,7 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 
 ## 开放互联网岗位搜索 Agent
 
-输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Pipeline summary 记录 provider 类型、malformed candidate 数和是否执行详情页可达性检查。Online 模式还会请求详情页，检查最终重定向域名必须保持原可信主机或同一 ATS 域族，拒绝不可达、空正文、非 HTML 或不可信重定向页面，并在执行轨迹中记录页面正文 SHA-256（不保存整页内容），最后只把可信招聘详情页和页面字段证据作为结果。搜索摘要不是最终证据；开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`page_unreachable`、`page_not_html`、`page_empty`、`redirect_untrusted`、`no_match` 和 `budget_exhausted` 会分别记录。
+输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Pipeline summary 记录 provider 类型、malformed candidate 数和是否执行详情页可达性检查。Online 模式还会请求详情页，在每次重定向发生前检查目标域名必须保持原可信主机或同一 ATS 域族，拒绝不可达、空正文、非 HTML、不可信重定向或非岗位详情页面，并在执行轨迹中记录页面正文 SHA-256（不保存整页内容）。最终岗位字段通过可信招聘详情页的 JSON-LD 或受限的 Greenhouse OpenGraph fallback 抽取，搜索标题和摘要只用于 URL 发现。开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`not_job_detail`、`page_unreachable`、`page_not_html`、`page_empty`、`redirect_untrusted`、`extraction_incomplete`、`no_match` 和 `budget_exhausted` 会分别记录。
 
 ```powershell
 # 离线演示：无需 key，生成岗位、执行轨迹和 run-summary
@@ -48,6 +48,8 @@ python -m web_task_agent.open_search.online_smoke --output-dir outputs/open-sear
 当前冻结的 20 条查询评测结果为：需求解析正确率 `100.0%`、硬约束违反 `0`。该结果只证明固定查询集上的解析回归，不代表开放互联网岗位搜索的召回或抽取准确率。
 
 在线验收命令会为每条查询保留独立的 `jobs.jsonl`、`failures.jsonl`、`execution-trace.jsonl` 和 `run-summary.json`，并在输出目录生成 `online-smoke-report.json` 与 `online-smoke-report.md`。可以重复传入 `--query "你的岗位需求"` 覆盖默认查询。缺少 Tavily key 时命令会立即以非零状态退出，不生成伪在线报告；零岗位结果仍需结合报告中的 `failure_counts` 和 `terminal_reason` 判断，不能直接解释为系统不可用或搜索成功。
+
+详情页真实 smoke 见 `docs/results/open-search/detail-page-smoke.md`：同一轮记录一个可抽取的 Anthropic Greenhouse 页面和一个已失效 Reddit 页面，分别证明详情字段证据链与 `not_job_detail` 失败路径。该 smoke 没有经过搜索 API，不计入 3 轮 Tavily 在线验收。
 
 简历表述：实现基于搜索 API + 浏览器验证的开放互联网岗位搜索 Agent；建立来源可信度、字段证据和失败分类边界；用 20 条自然语言查询和版本化 artifact 验证可复现性。冻结 fixture 指标不等同于真实互联网泛化准确率。
 
@@ -162,6 +164,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 当前版本是单实例演示部署：运行状态保存在进程内存（最多保留最近 100 次 run），artifact 写入实例本地文件系统，实例重启后历史运行记录可能丢失；这不影响现场演示，但不应当作多实例生产存储方案。
 单实例 API 默认按客户端 IP 限制每分钟创建 20 次 run，最多保留 100 次 run；可通过 `OPEN_SEARCH_RATE_LIMIT_PER_MINUTE` 和 `OPEN_SEARCH_MAX_RUNS` 调整，超过限流时返回 `429 rate_limited`。多实例生产部署应将限流状态迁移到共享网关或 Redis。
 跨域调用默认关闭；如需让独立前端调用 API，可通过 `OPEN_SEARCH_CORS_ORIGINS` 配置逗号分隔的明确来源，不建议使用通配符。
+来源验证默认只接受 Greenhouse、Lever、Workday 和 Ashby 的单岗位详情路径。公司自建招聘站必须通过 `OPEN_SEARCH_OFFICIAL_HOSTS` 配置逗号分隔的精确主机名，例如 `careers.example.com,jobs.example.org`；系统不会因为任意网站路径包含 `/jobs` 就自动信任。
 在线 Tavily 请求默认超时 30 秒，可通过 `TAVILY_TIMEOUT_SECONDS` 调整（最小 1 秒）。
 岗位详情页请求默认超时 10 秒，可通过 `OPEN_SEARCH_PAGE_TIMEOUT_SECONDS` 调整（最小 1 秒）。
 详情页最多跟随 5 次重定向，可通过 `OPEN_SEARCH_MAX_REDIRECTS` 调整，范围限制为 0~10。

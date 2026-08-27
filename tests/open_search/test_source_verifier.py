@@ -16,6 +16,36 @@ def test_search_result_page_is_rejected():
     assert verdict.failure_code == "source_untrusted"
 
 
+def test_greenhouse_board_or_error_page_is_not_a_job_detail():
+    verdict = SourceVerifier().verify_url("https://job-boards.greenhouse.io/reddit?error=true")
+
+    assert verdict.trusted is False
+    assert verdict.failure_code == "not_job_detail"
+
+
+def test_arbitrary_public_jobs_path_is_not_implicitly_trusted():
+    verdict = SourceVerifier().verify_url("https://unknown.example/jobs/123")
+
+    assert verdict.trusted is False
+    assert verdict.failure_code == "source_untrusted"
+
+
+def test_explicit_official_career_host_is_trusted(monkeypatch):
+    monkeypatch.setenv("OPEN_SEARCH_OFFICIAL_HOSTS", "careers.example.com")
+
+    verdict = SourceVerifier().verify_url("https://careers.example.com/jobs/123")
+
+    assert verdict.trusted is True
+    assert verdict.source_type == "company_careers"
+
+
+def test_url_with_userinfo_is_rejected_even_on_public_host():
+    verdict = SourceVerifier().verify_url("https://user@careers.example.com/jobs/123")
+
+    assert verdict.trusted is False
+    assert verdict.failure_code == "source_untrusted"
+
+
 def test_private_and_loopback_hosts_are_rejected():
     verifier = SourceVerifier()
     for url in (
@@ -53,12 +83,13 @@ def test_redirect_limit_setting_is_bounded(monkeypatch):
 @pytest.mark.asyncio
 async def test_reachability_verifier_accepts_html_detail_page():
     seen_headers = {}
+    page_html = "<html><body>job detail</body></html>"
 
     async def handler(request):
         seen_headers.update(request.headers)
         return httpx.Response(
             200,
-            content=b"<html><body>job detail</body></html>",
+            content=page_html.encode(),
             headers={"content-type": "text/html"},
             request=request,
         )
@@ -72,6 +103,7 @@ async def test_reachability_verifier_accepts_html_detail_page():
         await client.aclose()
     assert verdict.trusted is True
     assert len(verdict.content_hash) == 64
+    assert verdict.page_html == page_html
     assert seen_headers["user-agent"].startswith("OpenWebJobSearchAgent/")
 
 
@@ -92,7 +124,10 @@ async def test_reachability_verifier_rejects_non_html_page():
 
 @pytest.mark.asyncio
 async def test_reachability_verifier_rejects_untrusted_redirect():
+    requested_urls = []
+
     async def handler(request):
+        requested_urls.append(str(request.url))
         if "greenhouse" in request.url.host:
             return httpx.Response(
                 302,
@@ -116,3 +151,60 @@ async def test_reachability_verifier_rejects_untrusted_redirect():
     finally:
         await client.aclose()
     assert verdict.failure_code == "redirect_untrusted"
+    assert requested_urls == ["https://job-boards.greenhouse.io/example/jobs/123"]
+
+
+@pytest.mark.asyncio
+async def test_reachability_verifier_allows_redirect_within_same_ats_family():
+    requested_hosts = []
+
+    async def handler(request):
+        requested_hosts.append(request.url.host)
+        if request.url.host == "job-boards.greenhouse.io":
+            return httpx.Response(
+                302,
+                headers={"location": "https://boards.greenhouse.io/example/jobs/123"},
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            content=b"<html>trusted detail</html>",
+            headers={"content-type": "text/html"},
+            request=request,
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True)
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+
+    assert verdict.trusted is True
+    assert verdict.normalized_url == "https://boards.greenhouse.io/example/jobs/123"
+    assert requested_hosts == ["job-boards.greenhouse.io", "boards.greenhouse.io"]
+
+
+@pytest.mark.asyncio
+async def test_reachability_verifier_preserves_not_job_detail_redirect_reason():
+    requested_urls = []
+
+    async def handler(request):
+        requested_urls.append(str(request.url))
+        return httpx.Response(
+            302,
+            headers={"location": "https://job-boards.greenhouse.io/example?error=true"},
+            request=request,
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True)
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+
+    assert verdict.failure_code == "not_job_detail"
+    assert requested_urls == ["https://job-boards.greenhouse.io/example/jobs/123"]

@@ -66,6 +66,15 @@ class RunRequest(BaseModel):
 
 
 def _fixture_provider() -> FixtureSearchProvider:
+    detail = (
+        '<script type="application/ld+json">'
+        '{"@type":"JobPosting","title":"Agent Intern",'
+        '"hiringOrganization":{"name":"Example AI"},'
+        '"jobLocation":{"address":{"addressLocality":"Beijing",'
+        '"addressCountry":"CN"}},"employmentType":"INTERN",'
+        '"description":"Build agents","qualifications":"Python LangGraph"}'
+        "</script>"
+    )
     return FixtureSearchProvider(
         [
             SearchCandidate(
@@ -73,12 +82,14 @@ def _fixture_provider() -> FixtureSearchProvider:
                 title="Agent Intern",
                 snippet="Python LangGraph Beijing",
                 source="Example AI",
+                metadata={"page_html": detail},
             ),
             SearchCandidate(
-                url="https://jobs.example.com/careers/ai-engineer",
+                url="https://jobs.lever.co/example/ai-engineer-intern",
                 title="AI Application Intern",
                 snippet="Python FastAPI remote",
                 source="Example Labs",
+                metadata={"page_html": detail.replace("Beijing", "Remote")},
             ),
         ]
     )
@@ -101,6 +112,7 @@ async def _execute(run_id: str, request: RunRequest) -> None:
             intent,
             output_dir=ARTIFACT_ROOT / run_id,
             limit=intent.target_count,
+            run_id=run_id,
         )
         record.update(status="completed", summary=result.summary.model_dump(mode="json"))
     except SearchProviderConfigurationError as exc:
@@ -170,6 +182,11 @@ async def capabilities() -> dict[str, object]:
 async def create_run(
     request: RunRequest, background_tasks: BackgroundTasks, http_request: Request
 ) -> dict:
+    if request.mode == "online" and not os.getenv("TAVILY_API_KEY", "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "search_api_error", "message": "TAVILY_API_KEY is required"},
+        )
     client_key = http_request.client.host if http_request.client else "unknown"
     now = time.monotonic()
     window = _request_windows[client_key]
@@ -195,11 +212,6 @@ async def create_run(
         "status": "queued",
         "intent": intent.model_dump(mode="json"),
     }
-    if request.mode == "online" and not os.getenv("TAVILY_API_KEY", "").strip():
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "search_api_error", "message": "TAVILY_API_KEY is required"},
-        )
     background_tasks.add_task(_execute, run_id, request)
     return _runs[run_id]
 

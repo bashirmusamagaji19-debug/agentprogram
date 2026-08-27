@@ -85,6 +85,8 @@ if st.button("开始搜索", type="primary", disabled=not query.strip()):
                     with st.expander("查看字段证据"):
                         for evidence in job.evidence:
                             st.write(f"`{evidence.field_name}` · {evidence.page_url}")
+                            st.write(f"**字段值：** {evidence.value}")
+                            st.caption(evidence.snippet[:500])
                             st.code(evidence.content_hash, language="text")
             if result.failures:
                 with st.expander("查看失败记录"):

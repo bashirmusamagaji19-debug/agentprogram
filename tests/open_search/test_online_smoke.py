@@ -38,6 +38,14 @@ class ReachableVerifier:
             "greenhouse",
             "reachable",
             content_hash="a" * 64,
+            page_html="""
+            <script type="application/ld+json">
+            {"@type":"JobPosting","title":"Detail Agent Intern",
+             "hiringOrganization":{"name":"Example AI"},
+             "jobLocation":{"address":{"addressLocality":"Beijing", "addressCountry":"CN"}},
+             "description":"Build agents", "qualifications":"Python"}
+            </script>
+            """,
         )
 
 

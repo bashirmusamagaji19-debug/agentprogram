@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "fetched_at": "2026-08-26T14:37:42.9430269Z",
+  "scope": "public_detail_page_smoke_without_search_api",
+  "results": [
+    {
+      "requested_url": "https://job-boards.greenhouse.io/anthropic/jobs/5116927008",
+      "final_url": "https://job-boards.greenhouse.io/anthropic/jobs/5116927008",
+      "trusted": true,
+      "failure_code": null,
+      "content_hash": "34cfe5700c8e4ee8717c4febf67bc0c72d1b4211e55365069f96cfec05b67a06",
+      "page_bytes": 112249,
+      "job": {
+        "title": "Applied AI Technical Evangelist, Startup Ecosystem",
+        "company": "Anthropic",
+        "location": "San Francisco, CA",
+        "extraction_method": "greenhouse_open_graph",
+        "evidence_count": 4
+      }
+    },
+    {
+      "requested_url": "https://job-boards.greenhouse.io/reddit/jobs/7958354",
+      "final_url": "https://job-boards.greenhouse.io/reddit?error=true",
+      "trusted": false,
+      "failure_code": "not_job_detail",
+      "content_hash": "",
+      "page_bytes": 0,
+      "job": null
+    }
+  ]
+}

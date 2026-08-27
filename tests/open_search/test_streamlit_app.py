@@ -31,6 +31,13 @@ def test_streamlit_source_contains_failure_category_summary():
     assert "失败分类" in text
 
 
+def test_streamlit_source_renders_field_evidence_value_and_bounded_snippet():
+    text = open("streamlit_app.py", encoding="utf-8").read()
+
+    assert "evidence.value" in text
+    assert "evidence.snippet[:500]" in text
+
+
 def test_streamlit_uses_isolated_artifact_directory_per_run():
     text = open("streamlit_app.py", encoding="utf-8").read()
     assert "uuid4().hex" in text

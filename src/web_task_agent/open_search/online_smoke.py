@@ -8,6 +8,7 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from .artifacts import ArtifactWriter
 from .pipeline import OpenSearchPipeline
@@ -79,6 +80,7 @@ async def run_online_smoke(
             intent,
             output_dir=output_dir / relative_artifact_dir,
             limit=intent.target_count,
+            run_id=uuid4().hex,
         )
         failure_counts = Counter(failure.code for failure in result.failures)
         aggregate_failures.update(failure_counts)

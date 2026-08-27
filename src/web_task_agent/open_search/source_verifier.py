@@ -4,7 +4,7 @@ import hashlib
 import ipaddress
 import os
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -17,6 +17,7 @@ class SourceVerdict:
     reason: str
     failure_code: str | None = None
     content_hash: str = ""
+    page_html: str = ""
 
 
 class SourceVerifier:
@@ -24,7 +25,12 @@ class SourceVerifier:
     _ats = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "ashbyhq.com")
     _search_hosts = ("google.", "bing.com", "baidu.com", "duckduckgo.com")
 
-    def __init__(self, *, timeout_seconds: float | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float | None = None,
+        official_hosts: tuple[str, ...] | None = None,
+    ) -> None:
         if timeout_seconds is not None:
             self.timeout_seconds = max(1.0, timeout_seconds)
         else:
@@ -34,6 +40,14 @@ class SourceVerifier:
                 configured = 10.0
             self.timeout_seconds = max(1.0, configured)
         self.max_redirects = self._read_max_redirects()
+        configured_hosts = (
+            official_hosts
+            if official_hosts is not None
+            else tuple(os.getenv("OPEN_SEARCH_OFFICIAL_HOSTS", "").split(","))
+        )
+        self.official_hosts = frozenset(
+            host.strip().casefold() for host in configured_hosts if host.strip()
+        )
 
     @staticmethod
     def _read_max_redirects() -> int:
@@ -62,6 +76,14 @@ class SourceVerifier:
         if parsed.scheme not in {"http", "https"} or not host:
             return SourceVerdict(
                 False, normalized, "invalid", "URL scheme or host is invalid", "source_untrusted"
+            )
+        if parsed.username is not None or parsed.password is not None:
+            return SourceVerdict(
+                False,
+                normalized,
+                "invalid",
+                "URLs containing userinfo are not allowed",
+                "source_untrusted",
             )
         if any(marker in host for marker in self._search_hosts) or parsed.path.startswith(
             "/search"
@@ -98,9 +120,21 @@ class SourceVerifier:
                 "private or reserved IPs are not public job sources",
                 "source_untrusted",
             )
-        if any(host == suffix or host.endswith("." + suffix) for suffix in self._ats):
+        ats_suffix = next(
+            (suffix for suffix in self._ats if host == suffix or host.endswith("." + suffix)),
+            None,
+        )
+        if ats_suffix and not self._is_ats_detail_path(ats_suffix, parsed.path):
+            return SourceVerdict(
+                False,
+                normalized,
+                "public_ats",
+                "ATS page is not an individual job detail",
+                "not_job_detail",
+            )
+        if ats_suffix:
             return SourceVerdict(True, normalized, "public_ats", "known public ATS detail host")
-        if any(
+        if host in self.official_hosts and any(
             token in parsed.path.casefold() for token in ("/careers", "/jobs", "/job/", "/recruit")
         ):
             return SourceVerdict(
@@ -114,16 +148,28 @@ class SourceVerifier:
             "source_untrusted",
         )
 
+    @staticmethod
+    def _is_ats_detail_path(suffix: str, path: str) -> bool:
+        normalized = path.casefold().rstrip("/")
+        parts = [part for part in normalized.split("/") if part]
+        if suffix == "greenhouse.io":
+            return "/jobs/" in normalized and len(parts) >= 3
+        if suffix == "lever.co":
+            return len(parts) >= 2
+        if suffix == "myworkdayjobs.com":
+            return "/job/" in normalized
+        if suffix == "ashbyhq.com":
+            return len(parts) >= 2
+        return False
+
     def _same_trusted_host_family(self, original_url: str, final_url: str) -> bool:
         original_host = (urlparse(original_url).hostname or "").casefold()
         final_host = (urlparse(final_url).hostname or "").casefold()
         if original_host == final_host:
             return True
         return any(
-            original_host == suffix
-            and final_host.endswith("." + suffix)
-            or final_host == suffix
-            and original_host.endswith("." + suffix)
+            (original_host == suffix or original_host.endswith("." + suffix))
+            and (final_host == suffix or final_host.endswith("." + suffix))
             for suffix in self._ats
         )
 
@@ -135,18 +181,53 @@ class SourceVerifier:
             return verdict
         own_client = client is None
         request_client = client or httpx.AsyncClient(
-            timeout=self.timeout_seconds, follow_redirects=True
+            timeout=self.timeout_seconds, follow_redirects=False
         )
         try:
-            response = await request_client.get(url, headers={"User-Agent": self._user_agent})
-            if len(response.history) > self.max_redirects:
-                return SourceVerdict(
-                    False,
-                    str(response.url),
-                    "redirect",
-                    "detail page exceeded redirect limit",
-                    "redirect_limit",
+            current_url = verdict.normalized_url
+            response = None
+            for redirect_count in range(self.max_redirects + 1):
+                response = await request_client.get(
+                    current_url,
+                    headers={"User-Agent": self._user_agent},
+                    follow_redirects=False,
                 )
+                if not response.is_redirect:
+                    break
+                location = response.headers.get("location", "").strip()
+                if redirect_count >= self.max_redirects or not location:
+                    return SourceVerdict(
+                        False,
+                        current_url,
+                        "redirect",
+                        "detail page exceeded redirect limit",
+                        "redirect_limit",
+                    )
+                next_url = urljoin(str(response.url), location)
+                next_verdict = self.verify_url(next_url)
+                same_family = self._same_trusted_host_family(verdict.normalized_url, next_url)
+                if not next_verdict.trusted:
+                    if same_family and next_verdict.failure_code == "not_job_detail":
+                        return next_verdict
+                    return SourceVerdict(
+                        False,
+                        next_url,
+                        next_verdict.source_type,
+                        "detail page redirected to an untrusted URL",
+                        "redirect_untrusted",
+                    )
+                if not same_family:
+                    return SourceVerdict(
+                        False,
+                        next_url,
+                        next_verdict.source_type,
+                        "detail page redirected to an untrusted URL",
+                        "redirect_untrusted",
+                    )
+                current_url = next_url
+
+            if response is None:
+                raise RuntimeError("detail page request did not produce a response")
             if response.status_code >= 400:
                 return SourceVerdict(
                     False,
@@ -186,11 +267,12 @@ class SourceVerifier:
                 )
             return SourceVerdict(
                 verdict.trusted,
-                verdict.normalized_url,
+                str(response.url),
                 verdict.source_type,
                 verdict.reason,
                 verdict.failure_code,
                 hashlib.sha256(page_text.encode("utf-8")).hexdigest(),
+                page_text,
             )
         except httpx.HTTPError as exc:
             return SourceVerdict(
