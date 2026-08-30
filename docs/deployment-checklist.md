@@ -20,7 +20,8 @@
 
 ## Render
 
-- [x] 使用仓库中的 `render.yaml` 创建 Web Service
+- [x] 仓库中的 `render.yaml` 已准备好 Web Service 配置
+- [ ] 在 Render 中基于 `feature/open-web-job-agent` 创建 Web Service
 - [ ] 配置 `TAVILY_API_KEY`，`DASHSCOPE_API_KEY` 仅在其他 Qwen CLI 链路需要时配置
 - [ ] 打开 `<service-url>/healthz`
 - [ ] 打开 `<service-url>/` 确认 FastAPI 原生页面可访问

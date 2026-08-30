@@ -124,8 +124,8 @@ $env:DEEPSEEK_API_KEY="..."
 
 ### Streamlit Community Cloud（推荐演示）
 
-1. 将仓库推送到 GitHub。
-2. 在 Streamlit Community Cloud 选择仓库，Main file 设置为 `streamlit_app.py`。
+1. 在 Streamlit Community Cloud 选择仓库 `bashirmusamagaji19-debug/agentprogram`，分支选择 `feature/open-web-job-agent`（该分支包含当前完整实现；合并到 `master` 前不要使用默认分支）。
+2. Main file 设置为 `streamlit_app.py`。
 3. 在 App Settings / Secrets 中配置：
 
 ```toml
@@ -138,7 +138,7 @@ Demo 模式无需任何 key；当前 Web Online 模式使用 Tavily，Qwen key �
 
 ### Render（FastAPI 服务）
 
-仓库中的 `render.yaml` 已定义构建和启动命令。Render 使用以下生产启动方式：
+仓库中的 `render.yaml` 已定义构建和启动命令。创建服务时选择 `feature/open-web-job-agent` 分支；Render 使用以下生产启动方式：
 
 ```text
 uvicorn web_task_agent.open_search.api:app --host 0.0.0.0 --port $PORT
