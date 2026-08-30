@@ -390,6 +390,15 @@ async def _run(args: argparse.Namespace) -> int:
         query = (args.query or "找北京 Agent 实习").strip()
         intent = DemoQueryParser().parse(query)
         if args.open_search_demo:
+            detail = (
+                '<script type="application/ld+json">'
+                '{"@type":"JobPosting","title":"Agent Intern",'
+                '"hiringOrganization":{"name":"Example AI"},'
+                '"jobLocation":{"address":{"addressLocality":"Beijing",'
+                '"addressCountry":"CN"}},"employmentType":"INTERN",'
+                '"description":"Build agents","qualifications":"Python LangGraph"}'
+                "</script>"
+            )
             provider = FixtureSearchProvider(
                 [
                     SearchCandidate(
@@ -397,6 +406,7 @@ async def _run(args: argparse.Namespace) -> int:
                         title="Agent Intern",
                         snippet="Python LangGraph Beijing",
                         source="Example AI",
+                        metadata={"page_html": detail},
                     )
                 ]
             )
