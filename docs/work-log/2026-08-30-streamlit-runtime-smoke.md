@@ -1,0 +1,16 @@
+# Streamlit 运行时 Smoke
+
+## 验证范围
+
+在当前 `feature/open-web-job-agent` 分支启动 `streamlit_app.py`，使用 headless 模式监听本机 `127.0.0.1:8511`，再通过 HTTP 客户端访问根路径。
+
+## 结果
+
+- 进程成功启动并输出 Streamlit 访问地址。
+- `GET /` 返回 HTTP `200`。
+- 响应长度为 `1522` 字节，包含 Streamlit 页面标识。
+- smoke 结束后主动停止临时进程，没有遗留服务。
+
+## 边界
+
+该结果证明 Streamlit 入口和依赖在本地运行环境可启动，不代表 Streamlit Cloud 已完成账号授权、Secrets 配置或公网访问；在线搜索仍需有效 `TAVILY_API_KEY`。
