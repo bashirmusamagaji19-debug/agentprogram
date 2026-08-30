@@ -146,6 +146,20 @@ def test_artifact_endpoints_reject_unknown_run():
         assert response.json()["detail"]["code"] == "run_not_found"
 
 
+def test_corrupt_artifact_returns_structured_service_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "ARTIFACT_ROOT", tmp_path)
+    api._runs.clear()
+    api._runs["corrupt-run"] = {"run_id": "corrupt-run", "status": "completed"}
+    run_dir = tmp_path / "corrupt-run"
+    run_dir.mkdir()
+    (run_dir / "jobs.jsonl").write_text('{"title":"ok"}\nnot-json\n', encoding="utf-8")
+
+    response = TestClient(app).get("/api/runs/corrupt-run/jobs")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "artifact_corrupt"
+
+
 @pytest.mark.asyncio
 async def test_evicted_run_does_not_crash_background_execution():
     api._runs.clear()

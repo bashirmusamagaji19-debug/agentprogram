@@ -14,3 +14,7 @@
 ## 边界
 
 该结果证明 Streamlit 入口和依赖在本地运行环境可启动，不代表 Streamlit Cloud 已完成账号授权、Secrets 配置或公网访问；在线搜索仍需有效 `TAVILY_API_KEY`。
+
+## 后续 API 稳定性回归
+
+artifact JSONL 损坏时，API 现在返回 `503 artifact_corrupt`，不再将 `JSONDecodeError` 冒泡为未分类的 `500`。新增测试覆盖错误码和响应结构；全量测试当前为 `399 passed`，覆盖率 `90.50%`。

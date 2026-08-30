@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import platform
 import time
@@ -229,18 +230,33 @@ def _artifact_lines(run_id: str, name: str) -> list[dict]:
     path = ARTIFACT_ROOT / run_id / name
     if not path.exists():
         return []
-    return [
-        __import__("json").loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line
-    ]
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        return [json.loads(line) for line in lines if line]
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "artifact_corrupt",
+                "message": f"Unable to read artifact {name}: {type(exc).__name__}",
+            },
+        ) from exc
 
 
 def _artifact_json(run_id: str, name: str) -> dict | None:
     path = ARTIFACT_ROOT / run_id / name
     if not path.exists():
         return None
-    return __import__("json").loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "artifact_corrupt",
+                "message": f"Unable to read artifact {name}: {type(exc).__name__}",
+            },
+        ) from exc
 
 
 def _require_run(run_id: str) -> None:
