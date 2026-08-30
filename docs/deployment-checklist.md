@@ -2,6 +2,8 @@
 
 > 状态说明：仓库、测试、Docker 构建和本地 HTTP smoke 已完成；云平台账号授权、公网 URL 和真实 Tavily 搜索仍需在对应平台执行后勾选。
 
+当前完整实现分支为 `feature/open-web-job-agent`。登录 GitHub 后可直接打开 [创建合并请求](https://github.com/bashirmusamagaji19-debug/agentprogram/compare/master...feature/open-web-job-agent)，目标分支选择 `master`；合并前请确认最新 CI 为绿色。
+
 ## 发布前
 
 - [x] GitHub 仓库包含 `streamlit_app.py`、`render.yaml` 和 `requirements.txt`
