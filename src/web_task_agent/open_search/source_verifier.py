@@ -41,6 +41,7 @@ class SourceVerifier:
                 configured = 10.0
             self.timeout_seconds = max(1.0, configured)
         self.max_redirects = self._read_max_redirects()
+        self.max_page_bytes = self._read_max_page_bytes()
         configured_hosts = (
             official_hosts
             if official_hosts is not None
@@ -57,6 +58,15 @@ class SourceVerifier:
         except ValueError:
             value = 5
         return max(0, min(10, value))
+
+    @staticmethod
+    def _read_max_page_bytes() -> int:
+        default = 2_000_000
+        try:
+            value = int(os.getenv("OPEN_SEARCH_MAX_PAGE_BYTES", str(default)))
+        except ValueError:
+            return default
+        return min(value, 10_000_000) if value > 0 else default
 
     def verify_url(self, url: str) -> SourceVerdict:
         normalized = url.strip()
@@ -291,6 +301,14 @@ class SourceVerifier:
                     verdict.source_type,
                     "detail page did not return HTML",
                     "page_not_html",
+                )
+            if len(response.content) > self.max_page_bytes:
+                return SourceVerdict(
+                    False,
+                    verdict.normalized_url,
+                    verdict.source_type,
+                    "detail page exceeded the configured processing size limit",
+                    "page_too_large",
                 )
             page_text = response.text.strip()
             if not page_text:

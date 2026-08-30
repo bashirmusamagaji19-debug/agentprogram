@@ -23,7 +23,7 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 
 ## 开放互联网岗位搜索 Agent
 
-输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Pipeline summary 记录 provider 类型、malformed candidate 数和是否执行详情页可达性检查。Online 模式还会请求详情页，在每次重定向发生前检查目标域名必须保持原可信主机或同一 ATS 域族，拒绝不可达、空正文、非 HTML、不可信重定向或非岗位详情页面，并在执行轨迹中记录页面正文 SHA-256（不保存整页内容）。最终岗位字段通过可信招聘详情页的 JSON-LD 或受限的 Greenhouse OpenGraph fallback 抽取，搜索标题和摘要只用于 URL 发现。开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`not_job_detail`、`page_unreachable`、`page_not_html`、`page_empty`、`redirect_untrusted`、`extraction_incomplete`、`no_match` 和 `budget_exhausted` 会分别记录。
+输入自然语言岗位需求，系统先解析地点、技能、数量和排除条件，再通过 Fixture（离线）或 Tavily（在线）发现候选 URL；Pipeline summary 记录 provider 类型、malformed candidate 数和是否执行详情页可达性检查。Online 模式还会请求详情页，在每次重定向发生前检查目标域名必须保持原可信主机或同一 ATS 域族，拒绝不可达、空正文、非 HTML、超大正文、不可信重定向或非岗位详情页面，并在执行轨迹中记录页面正文 SHA-256（不保存整页内容）。最终岗位字段通过可信招聘详情页的 JSON-LD 或受限的 Greenhouse OpenGraph fallback 抽取，搜索标题和摘要只用于 URL 发现。开放搜索不保证每次都有结果，`search_api_error`、`source_untrusted`、`not_job_detail`、`page_unreachable`、`page_not_html`、`page_too_large`、`page_empty`、`redirect_untrusted`、`extraction_incomplete`、`no_match` 和 `budget_exhausted` 会分别记录。
 
 ```powershell
 # 离线演示：无需 key，生成岗位、执行轨迹和 run-summary
@@ -167,6 +167,7 @@ docker run --rm -p 8000:8000 -e TAVILY_API_KEY="你的 key" open-web-job-agent
 来源验证默认只接受 Greenhouse、Lever、Workday 和 Ashby 的单岗位详情路径。公司自建招聘站必须通过 `OPEN_SEARCH_OFFICIAL_HOSTS` 配置逗号分隔的精确主机名，例如 `careers.example.com,jobs.example.org`；系统不会因为任意网站路径包含 `/jobs` 就自动信任。
 在线 Tavily 请求默认超时 30 秒，可通过 `TAVILY_TIMEOUT_SECONDS` 调整（最小 1 秒）。
 岗位详情页请求默认超时 10 秒，可通过 `OPEN_SEARCH_PAGE_TIMEOUT_SECONDS` 调整（最小 1 秒）。
+进入哈希和抽取链路的详情页正文默认最多 2,000,000 字节，可通过 `OPEN_SEARCH_MAX_PAGE_BYTES` 调整（上限 10,000,000 字节）；超限记录为 `page_too_large`。生产部署仍应在代理或网关层限制实际下载大小。
 详情页最多跟随 5 次重定向，可通过 `OPEN_SEARCH_MAX_REDIRECTS` 调整，范围限制为 0~10。
 
 本地先验证 Streamlit 页面：

@@ -17,4 +17,8 @@
 
 ## 后续 API 稳定性回归
 
-artifact JSONL 损坏时，API 现在返回 `503 artifact_corrupt`，不再将 `JSONDecodeError` 冒泡为未分类的 `500`。新增测试覆盖错误码和响应结构；全量测试当前为 `400 passed`，覆盖率 `90.50%`。
+artifact JSONL 损坏时，API 现在返回 `503 artifact_corrupt`，不再将 `JSONDecodeError` 冒泡为未分类的 `500`。新增测试覆盖错误码和响应结构；全量测试当前为 `400 passed`，覆盖率 `90.48%`。
+
+## 详情页资源边界
+
+在线验证新增 `OPEN_SEARCH_MAX_PAGE_BYTES`，默认只允许最多 2,000,000 字节的 HTML 进入哈希和抽取链路，超限记录为 `page_too_large`。该应用层处理上限不替代代理或网关的实际下载限额。

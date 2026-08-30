@@ -133,6 +133,30 @@ async def test_reachability_verifier_rejects_non_html_page():
 
 
 @pytest.mark.asyncio
+async def test_reachability_verifier_rejects_oversized_page(monkeypatch):
+    monkeypatch.setenv("OPEN_SEARCH_MAX_PAGE_BYTES", "32")
+
+    async def handler(request):
+        return httpx.Response(
+            200,
+            content=b"<html>this page is intentionally too large</html>",
+            headers={"content-type": "text/html"},
+            request=request,
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+
+    assert verdict.trusted is False
+    assert verdict.failure_code == "page_too_large"
+
+
+@pytest.mark.asyncio
 async def test_reachability_verifier_rejects_untrusted_redirect():
     requested_urls = []
 
