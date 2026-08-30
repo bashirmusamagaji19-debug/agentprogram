@@ -17,4 +17,4 @@
 
 ## 后续 API 稳定性回归
 
-artifact JSONL 损坏时，API 现在返回 `503 artifact_corrupt`，不再将 `JSONDecodeError` 冒泡为未分类的 `500`。新增测试覆盖错误码和响应结构；全量测试当前为 `399 passed`，覆盖率 `90.50%`。
+artifact JSONL 损坏时，API 现在返回 `503 artifact_corrupt`，不再将 `JSONDecodeError` 冒泡为未分类的 `500`。新增测试覆盖错误码和响应结构；全量测试当前为 `400 passed`，覆盖率 `90.50%`。
