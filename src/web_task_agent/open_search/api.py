@@ -232,8 +232,11 @@ def _artifact_lines(run_id: str, name: str) -> list[dict]:
         return []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-        return [json.loads(line) for line in lines if line]
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        records = [json.loads(line) for line in lines if line]
+        if not all(isinstance(record, dict) for record in records):
+            raise ValueError("artifact records must be JSON objects")
+        return records
+    except (OSError, UnicodeError, ValueError) as exc:
         raise HTTPException(
             status_code=503,
             detail={
@@ -248,8 +251,11 @@ def _artifact_json(run_id: str, name: str) -> dict | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(record, dict):
+            raise ValueError("artifact record must be a JSON object")
+        return record
+    except (OSError, UnicodeError, ValueError) as exc:
         raise HTTPException(
             status_code=503,
             detail={

@@ -160,6 +160,20 @@ def test_corrupt_artifact_returns_structured_service_error(tmp_path, monkeypatch
     assert response.json()["detail"]["code"] == "artifact_corrupt"
 
 
+def test_non_object_artifact_record_returns_structured_service_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "ARTIFACT_ROOT", tmp_path)
+    api._runs.clear()
+    api._runs["scalar-run"] = {"run_id": "scalar-run", "status": "completed"}
+    run_dir = tmp_path / "scalar-run"
+    run_dir.mkdir()
+    (run_dir / "jobs.jsonl").write_text("[]\n", encoding="utf-8")
+
+    response = TestClient(app).get("/api/runs/scalar-run/jobs")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "artifact_corrupt"
+
+
 @pytest.mark.asyncio
 async def test_evicted_run_does_not_crash_background_execution():
     api._runs.clear()
