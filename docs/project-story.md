@@ -262,8 +262,7 @@ Agent 不只是调用 LLM，而是根据环境观察动态决定下一步。这�
 
 ## 下一步路线
 
-1. 扩展真实站点样本库，增加更多 Greenhouse/Lever/Workday 格式的招聘 URL。
-2. 将语义匹配的批量评测扩展为多用户画像对比（不同技能组合 vs 同一批岗位）。
-3. 可选：接入 Playwright 做 JS 渲染页面的视觉内容抓取。
-3. 将语义匹配升级为批量评测模式：同一批岗位分别跑规则匹配和 LLM 匹配，人工标注匹配质量。
-4. 可选：增加 `--llm-match-min-score` 参数，允许用户自定义阈值。
+1. 将 `feature/open-web-job-agent` 合并到默认分支，并在 Streamlit Cloud 或 Render 完成一次公网 Demo smoke。
+2. 配置有效 `TAVILY_API_KEY`，执行默认 3 条中英文查询，提交独立 artifact 和失败分类报告；该结果与 fixture 指标分开统计。
+3. 扩展真实站点快照和人工标注集，再评估详情字段完整率、来源有效率、重复率和硬约束违反率。
+4. 可选：接入 Playwright 处理需要 JavaScript 渲染的招聘页面，并保持现有 verifier、资源上限和证据哈希边界。
