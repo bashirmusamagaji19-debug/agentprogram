@@ -51,6 +51,8 @@ python -m web_task_agent.open_search.online_smoke --output-dir outputs/open-sear
 
 详情页真实 smoke 见 `docs/results/open-search/detail-page-smoke.md`：同一轮记录一个可抽取的 Anthropic Greenhouse 页面和一个已失效 Reddit 页面，分别证明详情字段证据链与 `not_job_detail` 失败路径。该 smoke 没有经过搜索 API，不计入 3 轮 Tavily 在线验收。
 
+面试现场演示顺序和讲解要点见 `docs/open-search-interview-demo.md`。
+
 简历表述：实现基于搜索 API + 浏览器验证的开放互联网岗位搜索 Agent；建立来源可信度、字段证据和失败分类边界；用 20 条自然语言查询和版本化 artifact 验证可复现性。冻结 fixture 指标不等同于真实互联网泛化准确率。
 
 ## MVP 能力
