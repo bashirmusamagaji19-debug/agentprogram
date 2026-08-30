@@ -212,6 +212,27 @@ async def test_reachability_verifier_rejects_untrusted_redirect():
 
 
 @pytest.mark.asyncio
+async def test_reachability_verifier_rejects_https_to_http_downgrade():
+    async def handler(request):
+        return httpx.Response(
+            302,
+            headers={"location": "http://job-boards.greenhouse.io/example/jobs/123"},
+            request=request,
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+
+    assert verdict.trusted is False
+    assert verdict.failure_code == "redirect_untrusted"
+
+
+@pytest.mark.asyncio
 async def test_reachability_verifier_allows_redirect_within_same_ats_family():
     requested_hosts = []
 

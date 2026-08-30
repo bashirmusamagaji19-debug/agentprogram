@@ -250,6 +250,16 @@ class SourceVerifier:
                         "redirect_limit",
                     )
                 next_url = urljoin(str(response.url), location)
+                current_scheme = (urlparse(current_url).scheme or "").casefold()
+                next_scheme = (urlparse(next_url).scheme or "").casefold()
+                if current_scheme == "https" and next_scheme != "https":
+                    return SourceVerdict(
+                        False,
+                        next_url,
+                        "redirect",
+                        "detail page attempted to downgrade from HTTPS to HTTP",
+                        "redirect_untrusted",
+                    )
                 next_verdict = self.verify_url(next_url)
                 same_family = self._same_trusted_host_family(verdict.normalized_url, next_url)
                 if not next_verdict.trusted:

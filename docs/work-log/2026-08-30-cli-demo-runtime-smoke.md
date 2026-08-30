@@ -24,3 +24,5 @@ python -m web_task_agent.cli --open-search-demo `
 ## 边界
 
 这是无 API key 的确定性 fixture 运行时证据，证明 README 中的离线演示入口可产生完整岗位 artifact；它不代表 Tavily 开放互联网搜索的召回或真实性能。
+
+后续来源验证新增 HTTPS 到 HTTP 降级重定向拒绝测试；全量测试当前为 `404 passed`，覆盖率 `90.71%`。
