@@ -157,6 +157,29 @@ async def test_reachability_verifier_rejects_oversized_page(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_reachability_verifier_rejects_oversized_content_length(monkeypatch):
+    monkeypatch.setenv("OPEN_SEARCH_MAX_PAGE_BYTES", "1024")
+
+    async def handler(request):
+        return httpx.Response(
+            200,
+            content=b"<html>small test body</html>",
+            headers={"content-type": "text/html", "content-length": "9999999"},
+            request=request,
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        verdict = await SourceVerifier().verify_reachable(
+            "https://job-boards.greenhouse.io/example/jobs/123", client=client
+        )
+    finally:
+        await client.aclose()
+
+    assert verdict.failure_code == "page_too_large"
+
+
+@pytest.mark.asyncio
 async def test_reachability_verifier_rejects_untrusted_redirect():
     requested_urls = []
 

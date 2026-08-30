@@ -302,6 +302,21 @@ class SourceVerifier:
                     "detail page did not return HTML",
                     "page_not_html",
                 )
+            declared_length = response.headers.get("content-length", "").strip()
+            try:
+                exceeds_declared_limit = (
+                    bool(declared_length) and int(declared_length) > self.max_page_bytes
+                )
+            except ValueError:
+                exceeds_declared_limit = False
+            if exceeds_declared_limit:
+                return SourceVerdict(
+                    False,
+                    verdict.normalized_url,
+                    verdict.source_type,
+                    "detail page exceeded the configured processing size limit",
+                    "page_too_large",
+                )
             if len(response.content) > self.max_page_bytes:
                 return SourceVerdict(
                     False,
