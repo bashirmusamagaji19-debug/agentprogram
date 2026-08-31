@@ -232,3 +232,75 @@ def test_extract_job_uses_llm_field_extractor_when_rule_confidence_is_low():
     assert job.location == "Remote"
     assert job.skills == ["Python", "LangGraph", "LLM evaluation"]
     assert job.confidence >= 0.8
+
+
+def test_extract_job_prefers_llm_skills_array_over_rule_split():
+    """LLM 提供 skills 数组时优先使用，不再对整段 requirements 逗号切分。"""
+    page = BrowserPage(
+        url="https://example.com/cn-job",
+        title="岗位详情",
+        content="某某公司招聘大模型算法实习生，负责大模型训练与推理优化。",
+        source="chinese-fixture",
+    )
+
+    def fake_llm_extract(page: BrowserPage) -> dict[str, object]:
+        return {
+            "title": "大模型算法实习生",
+            "company": "某某公司",
+            "location": "北京市",
+            "requirements": "1、扎实的算法基础，熟悉LLM；2、熟悉PyTorch等主流深度学习框架。",
+            "responsibilities": "1、参与大模型后训练与对齐工作。",
+            "skills": ["Python", "大模型", "PyTorch", "RAG"],
+        }
+
+    job = PageExtractor(llm_field_extractor=fake_llm_extract).extract(page)
+
+    assert job.skills == ["Python", "大模型", "PyTorch", "RAG"]  # 不是整段中文句子
+
+
+def test_extract_job_falls_back_to_rule_split_when_llm_skills_empty():
+    """LLM 未提供 skills（空列表）时回退规则切分。"""
+    page = BrowserPage(
+        url="https://example.com/x",
+        title="Careers",
+        content="We are hiring an AI intern.",
+        source="fixture",
+    )
+
+    def fake_llm_extract(page: BrowserPage) -> dict[str, object]:
+        return {
+            "title": "AI Intern",
+            "company": "Example",
+            "location": "Remote",
+            "requirements": "Python, SQL, Docker",
+            "responsibilities": "Build data pipelines",
+            "skills": [],
+        }
+
+    job = PageExtractor(llm_field_extractor=fake_llm_extract).extract(page)
+
+    assert job.skills == ["Python", "SQL", "Docker"]
+
+
+def test_extract_job_filters_non_string_skills_from_llm():
+    """LLM skills 混入非字符串项时过滤，不抛异常。"""
+    page = BrowserPage(
+        url="https://example.com/x",
+        title="t",
+        content="c",
+        source="fixture",
+    )
+
+    def fake_llm_extract(page: BrowserPage) -> dict[str, object]:
+        return {
+            "title": "T",
+            "company": "C",
+            "location": "L",
+            "requirements": "req text here",
+            "responsibilities": "resp text here",
+            "skills": ["Python", 42, None, "SQL"],
+        }
+
+    job = PageExtractor(llm_field_extractor=fake_llm_extract).extract(page)
+
+    assert job.skills == ["Python", "SQL"]

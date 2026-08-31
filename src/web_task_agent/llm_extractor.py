@@ -113,7 +113,7 @@ class OpenAiCompatibleLlmFieldExtractor:
         self.timeout_seconds = timeout_seconds
         self.transport = transport or self._urllib_transport
 
-    def __call__(self, page: BrowserPage) -> dict[str, str]:
+    def __call__(self, page: BrowserPage) -> dict[str, Any]:
         response = self.transport(
             f"{self.base_url}/chat/completions",
             self._headers(),
@@ -131,7 +131,28 @@ class OpenAiCompatibleLlmFieldExtractor:
                 parsed.get("responsibilities", "")
             ),
             "posted_at": str(parsed.get("posted_at", "")).strip(),
+            "skills": self._skill_list(parsed.get("skills", [])),
         }
+
+    def _skill_list(self, value: Any) -> list[str]:
+        """规范化 skills 输出：短名列表，去空去重保序；非 list 输入忽略。
+
+        与 _string_or_join 的区别：skills 必须保持 list[str]——
+        join 成句子会退化为阶段 1 实测的"1、2026 届获得本科及以上学历"垃圾。
+        """
+        if not isinstance(value, list):
+            return []
+        seen: set[str] = set()
+        skills: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            skill = item.strip()
+            key = skill.casefold()
+            if skill and key not in seen:
+                seen.add(key)
+                skills.append(skill)
+        return skills
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -147,14 +168,24 @@ class OpenAiCompatibleLlmFieldExtractor:
                     "role": "system",
                     "content": (
                         "Extract job posting fields for a recruiting workflow. "
+                        "The posting may be written in Chinese or English. "
                         "Return only valid JSON."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        "Return only valid JSON with string fields: title, company, "
-                        "location, requirements, responsibilities, posted_at.\n\n"
+                        "Return only valid JSON with these fields:\n"
+                        "- title, company, location: strings\n"
+                        "- requirements: string (job requirements section)\n"
+                        "- responsibilities: string (job duties section)\n"
+                        "- posted_at: string\n"
+                        "- skills: array of short normalized skill names "
+                        "extracted from the requirements and responsibilities "
+                        "(tech stack, tools, domains; Chinese or English "
+                        "as written in the posting; e.g. [\"Python\", \"大模型\", "
+                        "\"LangChain\", \"RAG\"]). Never output whole sentences "
+                        "or numbered list items as skills.\n\n"
                         f"URL: {page.url}\nTitle: {page.title}\nContent:\n{page.content}"
                     ),
                 },

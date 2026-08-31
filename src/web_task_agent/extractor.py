@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from typing import Any
 
 from web_task_agent.models import BrowserPage, JobPosting
 
@@ -70,16 +71,24 @@ class PageExtractor:
                         job.responsibilities,
                     ),
                     "posted_at": llm_fields.get("posted_at", job.posted_at),
+                    "skills": llm_fields.get("skills", job.skills),
                 },
             )
         return job
 
-    def _job_from_fields(self, *, page: BrowserPage, fields: dict[str, str]) -> JobPosting:
+    def _job_from_fields(self, *, page: BrowserPage, fields: dict[str, Any]) -> JobPosting:
         title = fields.get("title") or page.title or "Unknown Title"
         company = fields.get("company") or "Unknown Company"
         location = fields.get("location") or "Unknown Location"
         requirements = fields.get("requirements", "")
         responsibilities = fields.get("responsibilities", "")
+        # skills 优先 LLM 的结构化输出；LLM 未提供时保留规则切分兜底
+        llm_skills = fields.get("skills")
+        skills = (
+            self._clean_skill_list(llm_skills)
+            if isinstance(llm_skills, list) and llm_skills
+            else self._extract_skills(requirements)
+        )
         return JobPosting(
             title=title,
             company=company,
@@ -88,7 +97,7 @@ class PageExtractor:
             url=page.url,
             requirements=requirements,
             responsibilities=responsibilities,
-            skills=self._extract_skills(requirements),
+            skills=skills,
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(
                 title=title,
@@ -217,6 +226,22 @@ class PageExtractor:
             for skill in re.split(r"[,\uFF0C]", requirements)
             if skill.strip()
         ]
+
+    def _clean_skill_list(self, skills: Any) -> list[str]:
+        """LLM skills \u5217\u8868\u7684\u6700\u540E\u9632\u5FA1\uFF1A\u53EA\u7559\u975E\u7A7A\u5B57\u7B26\u4E32\uFF0C\u53BB\u91CD\u4FDD\u5E8F\u3002"""
+        if not isinstance(skills, list):
+            return []
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for item in skills:
+            if not isinstance(item, str):
+                continue
+            skill = item.strip()
+            key = skill.casefold()
+            if skill and key not in seen:
+                seen.add(key)
+                cleaned.append(skill)
+        return cleaned
 
     def _confidence(
         self,
