@@ -38,6 +38,10 @@ class PageExtractor:
     # 中文 JD 的标签行几乎全部使用全角冒号（"任职要求：…"），半角解析整条失效
     _FULLWIDTH_COLON = "："
 
+    # 正文低于该字符数时不可能包含真实 JD，禁止触发 LLM 抽取——
+    # 否则 LLM 会从"标题+部门+城市"这类标题行幻觉编造出整段任职要求（复现实录 #21）
+    _MIN_CONTENT_FOR_LLM_CHARS = 100
+
     def __init__(
         self,
         *,
@@ -75,7 +79,12 @@ class PageExtractor:
                 responsibilities=responsibilities,
             ),
         )
-        if self.llm_field_extractor and job.confidence < self.llm_min_rule_confidence:
+        if (
+            self.llm_field_extractor
+            and job.confidence < self.llm_min_rule_confidence
+            # 内容护栏：短于阈值的正文无 JD 信息可抽，调 LLM 只会得到幻觉
+            and len(page.content.strip()) >= self._MIN_CONTENT_FOR_LLM_CHARS
+        ):
             llm_fields = self.llm_field_extractor(page)
             return self._job_from_fields(
                 page=page,

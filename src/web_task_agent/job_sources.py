@@ -127,8 +127,11 @@ def build_discovered_page(job: DiscoveredJob) -> "object":
     )
 
 
-# 低于该长度的正文视为"无有效内容"（美团/腾讯 SPA 返回 4~11 字符的壳）
-MIN_USEFUL_CONTENT_CHARS = 50
+# 低于该长度的正文视为"无有效内容"（美团/腾讯 SPA 返回 4~11 字符的壳；
+# 实测 job-radar 的 jd_text 中位数仅 46 字符——基本全是"标题+部门+城市"，
+# 50 门槛会把这类无信息内容和第三方站的浏览器兼容提示（98 字符）放进管线，
+# 诱发 LLM 幻觉 JD，复现实录 #21）
+MIN_USEFUL_CONTENT_CHARS = 120
 
 
 class AggregatorPageLoader:
@@ -199,15 +202,20 @@ class AggregatorPageLoader:
                     return page
                 self._record(url, "http:empty-page")
 
-        # 4. aggregator jd_text 兜底
-        if job.jd_text.strip():
+        # 4. aggregator jd_text 兜底（同样要求达到有效内容门槛——
+        #    job-radar 的 jd_text 多为"标题+部门+城市"标题行，无 JD 信息，
+        #    放进管线只会诱发 LLM 幻觉）
+        if len(job.jd_text.strip()) >= MIN_USEFUL_CONTENT_CHARS:
             page = build_discovered_page(job)
             self._cache(url, page)
             self._record(url, "jd_text-fallback")
             return page
+        if job.jd_text.strip():
+            self._record(url, "jd_text:too-short")
 
         raise PageEmptyError(
-            f"aggregator page has no usable content (official API/http/jd_text all failed): {url}"
+            f"aggregator page has no usable content "
+            f"(official API/http/jd_text all failed or below {MIN_USEFUL_CONTENT_CHARS} chars): {url}"
         )
 
     def _to_page(self, url: str, content: str, title: str, source: str) -> "object":

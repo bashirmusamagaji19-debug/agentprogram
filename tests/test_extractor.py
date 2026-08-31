@@ -234,12 +234,43 @@ def test_extract_job_uses_llm_field_extractor_when_rule_confidence_is_low():
     assert job.confidence >= 0.8
 
 
+def test_extract_job_skips_llm_when_content_too_short():
+    """标题行式短正文不得触发 LLM 抽取——否则幻觉编造整段 JD（复现实录 #21）。"""
+    calls: list[BrowserPage] = []
+
+    def fake_llm_extract(page: BrowserPage) -> dict[str, str]:
+        calls.append(page)
+        return {
+            "title": "幻觉岗位",
+            "company": "幻觉公司",
+            "location": "幻觉城市",
+            "requirements": "幻觉出来的任职要求",
+        }
+
+    page = BrowserPage(
+        url="https://careers.example.com/job/1",
+        title="混元多模态研究（实习生）",
+        content="混元多模态-大模型数据挖掘 · 实习生 青云计划 · TEG · 深圳总部",
+        source="aggregator:job-radar",
+    )
+
+    job = PageExtractor(llm_field_extractor=fake_llm_extract).extract(page)
+
+    assert calls == []  # LLM 不应被调用
+    assert job.confidence < 0.6  # 保持规则的诚实低置信
+
+
 def test_extract_job_prefers_llm_skills_array_over_rule_split():
     """LLM 提供 skills 数组时优先使用，不再对整段 requirements 逗号切分。"""
     page = BrowserPage(
         url="https://example.com/cn-job",
         title="岗位详情",
-        content="某某公司招聘大模型算法实习生，负责大模型训练与推理优化。",
+        content=(
+            "某某公司招聘大模型算法实习生，负责大模型训练与推理优化，"
+            "要求扎实的算法基础、熟悉主流深度学习框架，有 LLM 应用开发经验者优先，"
+            "欢迎对大模型方向有热情的同学加入团队一起探索前沿技术，"
+            "团队氛围开放，导师一对一带教，实习期表现优秀可转正。"
+        ),
         source="chinese-fixture",
     )
 
@@ -263,7 +294,10 @@ def test_extract_job_falls_back_to_rule_split_when_llm_skills_empty():
     page = BrowserPage(
         url="https://example.com/x",
         title="Careers",
-        content="We are hiring an AI intern.",
+        content=(
+            "We are hiring an AI intern. This is a long-form unstructured posting "
+            "without labeled sections, used to exercise the LLM skills fallback path."
+        ),
         source="fixture",
     )
 
@@ -287,7 +321,10 @@ def test_extract_job_filters_non_string_skills_from_llm():
     page = BrowserPage(
         url="https://example.com/x",
         title="t",
-        content="c",
+        content=(
+            "Some company is hiring for a role. The posting body is kept long enough "
+            "to pass the minimum content guard for LLM extraction in tests."
+        ),
         source="fixture",
     )
 

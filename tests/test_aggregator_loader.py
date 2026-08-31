@@ -53,13 +53,13 @@ def jobs() -> list[DiscoveredJob]:
             url="https://a.example.com/job/1",
             title="大模型算法实习生",
             company="示例A",
-            jd_text="岗位职责：jd兜底正文，同样需要超过五十个字符的长度阈值才能被判定为有效内容。" * 2,
+            jd_text="岗位职责：jd兜底正文，需要有足够的长度才能通过有效内容门槛（120 字符），这里持续填充长度直到超过门槛线为止，确保测试稳定。" * 2,
         ),
         DiscoveredJob(
             url="https://b.example.com/job/2",
             title="算法实习生",
             company="示例B",
-            jd_text="岗位职责：B站兜底正文。" + "内容填充。"*20,
+            jd_text="岗位职责：B站兜底正文。" + "内容填充。"*25,
         ),
     ]
 
@@ -147,6 +147,44 @@ async def test_all_sources_exhausted_raises_page_empty(jobs):
 
     with pytest.raises(PageEmptyError):
         await loader(job_no_jd.url)
+
+
+@pytest.mark.asyncio
+async def test_title_only_jd_text_rejected_as_fallback():
+    """标题行式 jd_text（job-radar 实测中位数 46 字符）不得进管线——诱发 LLM 幻觉（#21）。"""
+    from web_task_agent.browser import PageEmptyError
+
+    title_only = DiscoveredJob(
+        url="https://c.example.com/job/4",
+        title="混元多模态研究（实习生 青云计划）",
+        jd_text="混元多模态-大模型数据挖掘 · 实习生 青云计划 · TEG · 深圳总部",
+    )
+    loader = AggregatorPageLoader([title_only], official_api=None, http_loader=None)
+
+    with pytest.raises(PageEmptyError):
+        await loader(title_only.url)
+    assert loader.resolution_log[-1]["strategy"] == "jd_text:too-short"
+
+
+@pytest.mark.asyncio
+async def test_boilerplate_http_page_below_threshold_rejected():
+    """98 字符的浏览器兼容提示（第三方站 SPA 壳）不得当有效内容（#21）。"""
+    from web_task_agent.browser import PageEmptyError
+
+    job = DiscoveredJob(
+        url="https://c.example.com/job/5",
+        title="算法实习生",
+        jd_text="岗位职责：兜底正文，长度足够通过有效内容门槛检查，继续填充内容直到超过一百二十个字符的门槛线，保证测试稳定不抖动。" * 3,
+    )
+    boilerplate = "【温馨提示】检测到您正在使用兼容模式/旧版IE浏览器，功能可能无法正常使用。\nChrome | Firefox | Edge"
+    http = FakeHttpLoader(pages={job.url: boilerplate})
+    loader = AggregatorPageLoader([job], official_api=None, http_loader=http)
+
+    page = await loader(job.url)
+
+    # boilerplate 不够门槛 → 落到够长的 jd_text 兜底
+    assert loader.resolution_log[-2]["strategy"] == "http:empty-page"
+    assert page.source.startswith("aggregator:")
 
 
 @pytest.mark.asyncio
