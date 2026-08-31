@@ -471,11 +471,9 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
             return 2
 
     rule_matcher = JobMatcher()
-    llm_matcher_instance = (
-        JobMatcher(llm_matcher=llm_matcher) if llm_matcher is not None else None
-    )
 
     rows: list[dict] = []
+    llm_call_errors = 0
     for record in records:
         user = UserProfile(
             keyword="ground-truth",
@@ -502,15 +500,32 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
             "rule_predict": _predict_match(rule_result.score),
             "correct": None,
         }
-        if llm_matcher_instance is not None:
-            llm_result = llm_matcher_instance.match(user=user, job=job)
-            row["llm_score"] = llm_result.score
-            row["llm_predict"] = _predict_match(llm_result.score)
+        # 纯 LLM 口径：直接调 llm_matcher，不经 JobMatcher 的
+        # "规则>=0.6 不调 LLM" 分层逻辑——否则 8/16 条样本的
+        # llm_score 实为规则分，"LLM 准确率" 变成混合口径（复现实录 #20）
+        if llm_matcher is not None:
+            try:
+                llm_fields = llm_matcher(
+                    {
+                        "user_skills": ", ".join(user.skills),
+                        "user_resume": user.resume_text,
+                        "job_title": job.title,
+                        "job_company": job.company,
+                        "job_requirements": job.requirements,
+                        "job_responsibilities": job.responsibilities,
+                        "job_skills": ", ".join(job.skills),
+                    }
+                )
+                row["llm_score"] = float(llm_fields.get("score", 0.0))
+                row["llm_predict"] = _predict_match(row["llm_score"])
+            except Exception as exc:  # noqa: BLE001
+                llm_call_errors += 1
+                row["llm_error"] = f"{type(exc).__name__}: {exc}"
         row["correct"] = {
             "rule": row["rule_predict"] == (row["label"] == "match"),
             "llm": (
                 row.get("llm_predict") == (row["label"] == "match")
-                if llm_matcher_instance is not None
+                if "llm_predict" in row
                 else None
             ),
         }
@@ -524,10 +539,14 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
         "rule_accuracy": round(rule_correct / total, 2),
         "rule_correct": rule_correct,
     }
-    if llm_matcher_instance is not None:
-        llm_correct = sum(1 for r in rows if r["correct"]["llm"])
-        summary["llm_accuracy"] = round(llm_correct / total, 2)
+    if llm_matcher is not None:
+        llm_scored = [r for r in rows if r["correct"]["llm"] is not None]
+        llm_correct = sum(1 for r in llm_scored if r["correct"]["llm"])
+        summary["llm_accuracy"] = round(llm_correct / len(llm_scored), 2) if llm_scored else 0.0
         summary["llm_correct"] = llm_correct
+        summary["llm_scored"] = len(llm_scored)
+        if llm_call_errors:
+            summary["llm_call_errors"] = llm_call_errors
         summary["disagreements"] = [
             {"id": r["id"], "note": r["note"], "label": r["label"], "row": r}
             for r in rows
@@ -539,11 +558,13 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
     )
     print("Matcher evaluation (ground truth: " f"{args.ground_truth})")
     print(f"  rule accuracy: {summary['rule_accuracy']:.2f} ({rule_correct}/{total})")
-    if llm_matcher_instance is not None:
+    if llm_matcher is not None:
         print(
             f"  llm accuracy:  {summary['llm_accuracy']:.2f} "
-            f"({summary['llm_correct']}/{total})"
+            f"({summary['llm_correct']}/{summary['llm_scored']})"
         )
+        if llm_call_errors:
+            print(f"  llm call errors: {llm_call_errors} (excluded from accuracy)")
         print(f"  disagreements: {len(summary['disagreements'])}")
     print(f"Report written to: {report_path}")
     if args.json_output:
@@ -571,15 +592,24 @@ def write_matcher_evaluation_report(
     ]
     if "llm_accuracy" in summary:
         lines.append(
-            f"- LLM 语义匹配准确率: **{summary['llm_accuracy']:.2f}** "
-            f"({summary['llm_correct']}/{summary['total']})"
+            f"- LLM 语义匹配准确率（纯 LLM，直接调用不经规则分层）: **{summary['llm_accuracy']:.2f}** "
+            f"({summary['llm_correct']}/{summary['llm_scored']})"
         )
+        if summary.get("llm_call_errors"):
+            lines.append(
+                f"- LLM 调用失败（不计入准确率）: {summary['llm_call_errors']}"
+            )
     lines.extend(["", "## 逐条结果", "", "| id | 标注 | 规则分 | 规则判定 | LLM分 | LLM判定 | 备注 |", "|---|---|---:|---|---:|---|---|"])
     for row in rows:
+        llm_score_cell = (
+            f"{row['llm_score']:.2f}" if row.get("llm_score") is not None else "-"
+        )
+        if row.get("llm_error"):
+            llm_score_cell = f"ERR({row['llm_error'].split(':')[0]})"
         lines.append(
             f"| {row['id']} | {row['label']} | {row['rule_score']:.2f} "
             f"| {'✓' if row['correct']['rule'] else '✗'} "
-            f"| {row.get('llm_score', '') if row.get('llm_score') is not None else '-'} "
+            f"| {llm_score_cell} "
             f"| {('✓' if row['correct']['llm'] else '✗') if row['correct']['llm'] is not None else '-'} "
             f"| {row['note']} |"
         )
