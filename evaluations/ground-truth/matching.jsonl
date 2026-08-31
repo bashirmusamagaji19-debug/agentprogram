@@ -1,0 +1,16 @@
+{"id": 1, "note": "别名命中：岗位大模型=用户LLM", "job_title": "大模型算法实习生", "job_skills": ["Python", "大模型", "检索增强"], "user_skills": ["Python", "LLM", "RAG", "LangGraph"], "resume_text": "本科计算机，做过基于 LangGraph 的 RAG 问答系统和 LLM 应用开发。", "label": "match"}
+{"id": 2, "note": "别名命中：岗位爬虫=用户spider", "job_title": "数据采集实习生", "job_skills": ["Python", "爬虫", "SQL"], "user_skills": ["Python", "spider", "MySQL"], "resume_text": "写过 Scrapy 爬虫采集电商数据，熟悉 SQL。", "label": "match"}
+{"id": 3, "note": "完全不相关：Java 后端", "job_title": "Java后端开发实习生", "job_skills": ["Java", "Spring", "微服务"], "user_skills": ["Python", "LLM"], "resume_text": "AI 应用开发方向，无 Java 经验。", "label": "no_match"}
+{"id": 4, "note": "CV 方向不匹配", "job_title": "感知算法实习生", "job_skills": ["计算机视觉", "PyTorch", "BEV感知"], "user_skills": ["Python", "LLM", "RAG"], "resume_text": "大模型应用开发，无 CV 经验。", "label": "no_match"}
+{"id": 5, "note": "边界：只命中 1/3 但都是核心技能", "job_title": "大模型应用实习生", "job_skills": ["大模型", "多智能体", "提示词工程"], "user_skills": ["Python", "LangChain"], "resume_text": "熟悉 prompt 工程和 LangChain 框架。", "label": "match"}
+{"id": 6, "note": "高频中文词直接命中", "job_title": "机器学习平台实习生", "job_skills": ["Python", "机器学习", "SQL"], "user_skills": ["Python", "机器学习", "SQL"], "resume_text": "", "label": "match"}
+{"id": 7, "note": "简历子串命中：检索增强生成在文本里", "job_title": "知识库问答实习生", "job_skills": ["RAG", "向量数据库", "Python"], "user_skills": [], "resume_text": "做过检索增强生成系统，用过向量数据库 milvus 和 embedding 检索。", "label": "match"}
+{"id": 8, "note": "岗位技能多、用户只有边缘技能", "job_title": "AI Infra 实习生", "job_skills": ["C++", "CUDA", "分布式训练", "深度学习"], "user_skills": ["Python", "深度学习"], "resume_text": "会 PyTorch，没做过 CUDA 和分布式。", "label": "no_match"}
+{"id": 9, "note": "全角字符技能", "job_title": "后端实习生", "job_skills": ["Ｐｙｔｈｏｎ", "FastAPI", "ＳＱＬ"], "user_skills": ["Python", "FastAPI"], "resume_text": "", "label": "match"}
+{"id": 10, "note": "前端方向不匹配", "job_title": "前端开发实习生", "job_skills": ["JavaScript", "React", "TypeScript"], "user_skills": ["Python", "LLM"], "resume_text": "大模型应用方向。", "label": "no_match"}
+{"id": 11, "note": "别名双向：岗位LLM=用户大模型", "job_title": "LLM算法实习生", "job_skills": ["LLM", "预训练", "强化学习"], "user_skills": ["大模型", "PyTorch"], "resume_text": "参与过大模型 SFT 和 RLHF 训练。", "label": "match"}
+{"id": 12, "note": "数据方向勉强相关→按不投递标注", "job_title": "商业分析实习生", "job_skills": ["SQL", "数据分析", "数据洞察"], "user_skills": ["SQL"], "resume_text": "", "label": "no_match"}
+{"id": 13, "note": "生成式AI别名", "job_title": "AIGC应用实习生", "job_skills": ["AIGC", "Python", "多模态"], "user_skills": ["生成式AI", "Python", "multimodal"], "resume_text": "", "label": "match"}
+{"id": 14, "note": "测试岗不匹配", "job_title": "测试开发实习生", "job_skills": ["测试", "Selenium", "Python"], "user_skills": ["Python"], "resume_text": "", "label": "no_match"}
+{"id": 15, "note": "Agent 方向别名", "job_title": "AI Agent 开发实习生", "job_skills": ["Agent", "LLM", "LangChain"], "user_skills": ["智能体", "大模型", "langgraph"], "resume_text": "", "label": "match"}
+{"id": 16, "note": "技能完全无交集", "job_title": "产品经理实习生", "job_skills": ["需求分析", "原型设计", "用户调研"], "user_skills": ["Python", "LLM"], "resume_text": "", "label": "no_match"}

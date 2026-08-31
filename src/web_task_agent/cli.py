@@ -344,6 +344,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compare rule matching with LLM semantic matching on real-site-sample jobs.",
     )
     parser.add_argument(
+        "--evaluate-matcher",
+        action="store_true",
+        help=(
+            "Evaluate rule vs LLM matching accuracy against the ground-truth "
+            "labels in evaluations/ground-truth/matching.jsonl."
+        ),
+    )
+    parser.add_argument(
+        "--ground-truth",
+        default="evaluations/ground-truth/matching.jsonl",
+        help="Path to the matcher ground-truth JSONL (default: evaluations/ground-truth/matching.jsonl).",
+    )
+    parser.add_argument(
         "--interactive",
         action="store_true",
         help="Run in interactive multi-turn mode: adjust search parameters and re-run.",
@@ -399,6 +412,185 @@ async def discover_from_aggregator(
     """--from-aggregator 入口：聚合仓库 jobs.json → 实习+AI 岗位列表。"""
     source = AggregatorRepoSource(source_location)
     return await source.discover(limit=limit)
+
+
+MATCH_LABELS = {"match", "no_match"}
+
+
+def load_matcher_ground_truth(path: str | Path) -> list[dict]:
+    """读取标注集 JSONL，校验必填字段与标签枚举。"""
+    import json as json_module
+
+    records: list[dict] = []
+    with Path(path).open(encoding="utf-8") as fh:
+        for line_no, line in enumerate(fh, start=1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            row = json_module.loads(line)
+            missing = [
+                key
+                for key in ("id", "job_skills", "user_skills", "resume_text", "label")
+                if key not in row
+            ]
+            if missing:
+                raise ValueError(f"{path}:{line_no} missing fields: {missing}")
+            if row["label"] not in MATCH_LABELS:
+                raise ValueError(
+                    f"{path}:{line_no} invalid label {row['label']!r}; expected {sorted(MATCH_LABELS)}"
+                )
+            records.append(row)
+    return records
+
+
+def _predict_match(score: float, *, threshold: float = 0.4) -> bool:
+    """与优先级口径一致：score >= 0.4（medium 及以上）视为值得投递。"""
+    return score >= threshold
+
+
+async def run_matcher_evaluation(args: argparse.Namespace) -> int:
+    """--evaluate-matcher：规则 vs LLM 匹配在人工标注集上的准确率对比。"""
+    from web_task_agent.matcher import JobMatcher
+    from web_task_agent.models import JobPosting, UserProfile
+
+    try:
+        records = load_matcher_ground_truth(args.ground_truth)
+    except (OSError, ValueError) as exc:
+        print(f"Ground truth load failed: {exc}")
+        return 2
+    if not records:
+        print(f"Ground truth is empty: {args.ground_truth}")
+        return 2
+
+    llm_matcher = None
+    if args.llm_match_provider or args.llm_match_demo or args.llm_match:
+        try:
+            llm_matcher = build_cli_llm_matcher(args)
+        except LlmExtractorConfigurationError as exc:
+            print(f"LLM matcher is not configured: {exc}")
+            return 2
+
+    rule_matcher = JobMatcher()
+    llm_matcher_instance = (
+        JobMatcher(llm_matcher=llm_matcher) if llm_matcher is not None else None
+    )
+
+    rows: list[dict] = []
+    for record in records:
+        user = UserProfile(
+            keyword="ground-truth",
+            skills=[str(s) for s in record["user_skills"]],
+            resume_text=str(record["resume_text"]),
+        )
+        job = JobPosting(
+            title=str(record.get("job_title", "岗位")),
+            company="ground-truth",
+            location="ground-truth",
+            source="ground-truth",
+            url=f"ground-truth://{record['id']}",
+            requirements="、".join(str(s) for s in record["job_skills"]),
+            responsibilities="",
+            skills=[str(s) for s in record["job_skills"]],
+            confidence=1.0,
+        )
+        rule_result = rule_matcher.match(user=user, job=job)
+        row: dict = {
+            "id": record["id"],
+            "note": record.get("note", ""),
+            "label": record["label"],
+            "rule_score": rule_result.score,
+            "rule_predict": _predict_match(rule_result.score),
+            "correct": None,
+        }
+        if llm_matcher_instance is not None:
+            llm_result = llm_matcher_instance.match(user=user, job=job)
+            row["llm_score"] = llm_result.score
+            row["llm_predict"] = _predict_match(llm_result.score)
+        row["correct"] = {
+            "rule": row["rule_predict"] == (row["label"] == "match"),
+            "llm": (
+                row.get("llm_predict") == (row["label"] == "match")
+                if llm_matcher_instance is not None
+                else None
+            ),
+        }
+        rows.append(row)
+
+    total = len(rows)
+    rule_correct = sum(1 for r in rows if r["correct"]["rule"])
+    summary: dict = {
+        "total": total,
+        "ground_truth": str(args.ground_truth),
+        "rule_accuracy": round(rule_correct / total, 2),
+        "rule_correct": rule_correct,
+    }
+    if llm_matcher_instance is not None:
+        llm_correct = sum(1 for r in rows if r["correct"]["llm"])
+        summary["llm_accuracy"] = round(llm_correct / total, 2)
+        summary["llm_correct"] = llm_correct
+        summary["disagreements"] = [
+            {"id": r["id"], "note": r["note"], "label": r["label"], "row": r}
+            for r in rows
+            if r["correct"]["rule"] != r["correct"]["llm"]
+        ]
+
+    report_path = write_matcher_evaluation_report(
+        output_dir=args.evaluation_dir, rows=rows, summary=summary
+    )
+    print("Matcher evaluation (ground truth: " f"{args.ground_truth})")
+    print(f"  rule accuracy: {summary['rule_accuracy']:.2f} ({rule_correct}/{total})")
+    if llm_matcher_instance is not None:
+        print(
+            f"  llm accuracy:  {summary['llm_accuracy']:.2f} "
+            f"({summary['llm_correct']}/{total})"
+        )
+        print(f"  disagreements: {len(summary['disagreements'])}")
+    print(f"Report written to: {report_path}")
+    if args.json_output:
+        json_path = write_mapping_json_output(summary, args.json_output)
+        print(f"Evaluation JSON written to: {json_path}")
+    return 0
+
+
+def write_matcher_evaluation_report(
+    *,
+    output_dir: str | Path,
+    rows: list[dict],
+    summary: dict,
+) -> Path:
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    path = output / "matcher-evaluation.md"
+    lines = [
+        "# 匹配器标注集评测（规则 vs LLM）",
+        "",
+        f"- 标注集: `{summary['ground_truth']}`",
+        f"- 样本数: {summary['total']}",
+        f"- 规则匹配准确率: **{summary['rule_accuracy']:.2f}** "
+        f"({summary['rule_correct']}/{summary['total']})",
+    ]
+    if "llm_accuracy" in summary:
+        lines.append(
+            f"- LLM 语义匹配准确率: **{summary['llm_accuracy']:.2f}** "
+            f"({summary['llm_correct']}/{summary['total']})"
+        )
+    lines.extend(["", "## 逐条结果", "", "| id | 标注 | 规则分 | 规则判定 | LLM分 | LLM判定 | 备注 |", "|---|---|---:|---|---:|---|---|"])
+    for row in rows:
+        lines.append(
+            f"| {row['id']} | {row['label']} | {row['rule_score']:.2f} "
+            f"| {'✓' if row['correct']['rule'] else '✗'} "
+            f"| {row.get('llm_score', '') if row.get('llm_score') is not None else '-'} "
+            f"| {('✓' if row['correct']['llm'] else '✗') if row['correct']['llm'] is not None else '-'} "
+            f"| {row['note']} |"
+        )
+    if summary.get("disagreements"):
+        lines.extend(["", "## 规则与 LLM 分歧条目", ""])
+        for item in summary["disagreements"]:
+            lines.append(
+                f"- #{item['id']}（标注={item['label']}）：{item['note']}"
+            )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
 
 
 def build_aggregator_browser(
@@ -553,6 +745,9 @@ async def _run(args: argparse.Namespace) -> int:
             json_path = write_mapping_json_output(result, args.json_output)
             print(f"Comparison JSON written to: {json_path}")
         return 0
+
+    if args.evaluate_matcher:
+        return await run_matcher_evaluation(args)
 
     if args.compare_llm_match:
         try:

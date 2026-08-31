@@ -35,7 +35,7 @@ SKILL_ALIAS_GROUPS: list[tuple[str, ...]] = [
     ("大模型训练", "预训练", "pretrain", "pretraining", "后训练", "sft", "强化学习训练"),
     ("langchain", "langgraph", "llm框架"),
     ("向量数据库", "vector database", "向量检索", "embedding检索"),
-    ("提示词工程", "prompt engineering", "prompt工程"),
+    ("提示词工程", "prompt engineering", "prompt工程", "prompt 工程"),
 ]
 
 _ALIAS_TO_CANONICAL: dict[str, str] = {

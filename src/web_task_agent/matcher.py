@@ -3,7 +3,7 @@ from __future__ import annotations
 import unicodedata
 
 from web_task_agent.models import JobPosting, MatchResult, UserProfile
-from web_task_agent.skill_aliases import normalize_skill
+from web_task_agent.skill_aliases import normalize_skill, skill_variants
 
 
 class JobMatcher:
@@ -112,7 +112,9 @@ class JobMatcher:
     def _user_signal(self, user: UserProfile) -> set[str]:
         signal = {normalize_skill(skill) for skill in user.skills}
         resume_text = unicodedata.normalize("NFKC", user.resume_text).casefold()
-        for term in self._known_skill_terms():
+        # 已知词表 + 别名变体双重扫描：简历出现任一别名即视为具备该技能
+        # （如简历写"检索增强"而岗位要求 RAG，双方都归一为 "rag"）
+        for term in self._known_skill_terms() + skill_variants():
             if term.casefold() in resume_text:
                 signal.add(normalize_skill(term))
         return signal
