@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 
 # 每组第一个元素是 canonical 名
@@ -55,3 +56,19 @@ def normalize_skill(skill: str) -> str:
 def skill_variants() -> list[str]:
     """所有别名变体（canonical 在内），供简历文本子串扫描。"""
     return [alias for group in SKILL_ALIAS_GROUPS for alias in group]
+
+
+def term_in_text(term: str, text: str) -> bool:
+    """判断技能词是否出现在（已 casefold 的）文本中。
+
+    纯 ASCII 词（ml/dl/tf/cv 这类缩写）必须用字母数字边界匹配：
+    裸子串会把 "HTML"、"YAML"、"XML" 误判为会机器学习（bug 排查实录 #18）。
+    含 CJK 的词没有词边界概念，保持子串匹配。
+    """
+    term = term.casefold().strip()
+    if not term:
+        return False
+    if term.isascii():
+        pattern = rf"(?<![0-9a-zA-Z]){re.escape(term)}(?![0-9a-zA-Z])"
+        return re.search(pattern, text) is not None
+    return term in text

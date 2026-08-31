@@ -6,7 +6,7 @@ import pytest
 
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import JobPosting, UserProfile
-from web_task_agent.skill_aliases import normalize_skill, skill_variants
+from web_task_agent.skill_aliases import normalize_skill, skill_variants, term_in_text
 
 
 # ── normalize_skill 基础行为 ─────────────────────────────────────────
@@ -123,3 +123,42 @@ def test_rule_match_unmatched_chinese_skills_still_reported():
 
     assert result.score == 0.33
     assert result.missing_skills == ["Java微服务", "Kubernetes"]
+
+
+# ── 短 ASCII 缩写的边界匹配（bug 排查实录 #18）──────────────────────
+
+
+@pytest.mark.parametrize(
+    ("term", "text", "expected"),
+    [
+        # HTML/YAML/XML 含 "ml" 子串，但不是机器学习
+        ("ml", "熟悉 html/css 前端", False),
+        ("ml", "配置过 yaml 和 xml", False),
+        # 独立出现的缩写应命中（含紧邻中文的情况）
+        ("ml", "熟悉 ml 建模", True),
+        ("ml", "做过ML项目", True),
+        ("dl", "了解 dl 框架", True),
+        ("dl", "熟悉 handlebars 模板", False),
+        # 中文词保持子串
+        ("机器学习", "系统学习过机器学习课程", True),
+        ("检索增强", "做过检索增强生成", True),
+    ],
+)
+def test_term_in_text_ascii_boundary(term: str, text: str, expected: bool):
+    assert term_in_text(term, text.casefold()) is expected
+
+
+def test_frontend_resume_not_credited_with_machine_learning():
+    """简历只写 HTML/YAML/XML（含 "ml" 子串）不得被记为会机器学习。"""
+    matcher = JobMatcher()
+    user = UserProfile(
+        keyword="前端",
+        skills=[],
+        resume_text="熟悉 HTML/CSS 前端，配置过 YAML 和 XML。",
+    )
+    job = make_job(title="机器学习实习生", skills=["机器学习"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 0.0
+    assert result.missing_skills == ["机器学习"]
