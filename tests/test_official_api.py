@@ -63,6 +63,11 @@ async def test_fetch_tencent_builds_bypostid_request(monkeypatch: pytest.MonkeyP
     assert content.title == "混元多模态研究（实习生）"
     assert "大模型数据挖掘" in content.content
     assert "硕士及以上学历" in content.content
+    # 标准标签行分节（规则抽取依赖，复现实录 #19）
+    assert "公司：腾讯" in content.content
+    assert "岗位职责：\n" in content.content
+    assert "任职要求：\n" in content.content
+    assert "岗位职责/任职要求" not in content.content
 
 
 @pytest.mark.asyncio
@@ -131,6 +136,8 @@ async def test_fetch_meituan_filters_list_by_job_union_id(
     assert content.company == "美团"
     assert "北京市" in content.content
     assert "大模型应用研发" in content.content
+    assert "公司：美团" in content.content
+    assert "工作地点：北京市" in content.content
 
 
 @pytest.mark.asyncio
@@ -153,6 +160,56 @@ async def test_unsupported_host_raises():
 
     with pytest.raises(UnsupportedOfficialApiError):
         await fetcher.fetch("https://www.nowcoder.com/jobs/detail/447182")
+
+
+@pytest.mark.asyncio
+async def test_lookalike_host_not_matched():
+    """host 匹配必须精确到域名："xcareers.tencent.com" 不是腾讯官网。"""
+    fetcher = OfficialApiContentFetcher()
+
+    with pytest.raises(UnsupportedOfficialApiError):
+        await fetcher.fetch("https://xcareers.tencent.com/jobdesc.html?postId=1")
+
+
+@pytest.mark.asyncio
+async def test_official_api_content_rule_extractable(monkeypatch: pytest.MonkeyPatch):
+    """官方 API 正文格式可被规则抽取命中——不再每岗强制 LLM 抽取（复现实录 #19）。"""
+    from web_task_agent.extractor import PageExtractor
+    from web_task_agent.models import BrowserPage
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.url_request.urlopen",
+        lambda req, timeout: FakeResponse(
+            {
+                "Code": 200,
+                "Data": {
+                    "RecruitPostName": "大模型应用实习生",
+                    "ComName": "腾讯",
+                    "Location": "深圳",
+                    "Responsibility": "1、负责大模型应用研发；\n2、参与 RAG 系统建设。",
+                    "Requirement": "1、熟悉 Python、PyTorch。",
+                },
+            }
+        ),
+    )
+    fetcher = OfficialApiContentFetcher()
+    content = await fetcher.fetch(
+        "https://careers.tencent.com/jobdesc.html?postId=123456"
+    )
+    page = BrowserPage(
+        url="https://careers.tencent.com/jobdesc.html?postId=123456",
+        title=content.title,
+        content=content.content,
+        source="official-api",
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.company == "腾讯"
+    assert job.location == "深圳"
+    assert "Python" in job.requirements
+    assert "RAG" in job.responsibilities
+    assert job.confidence >= 0.6  # 规则抽取达到置信线，无需 LLM 兜底
 
 
 @pytest.mark.asyncio

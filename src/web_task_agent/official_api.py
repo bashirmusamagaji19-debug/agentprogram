@@ -51,9 +51,9 @@ class OfficialApiContentFetcher:
 
     async def fetch(self, url: str) -> OfficialApiContent:
         host = url_parse.urlsplit(url).netloc.lower()
-        if host.endswith("careers.tencent.com"):
+        if host == "careers.tencent.com" or host.endswith(".careers.tencent.com"):
             return self._fetch_tencent(url)
-        if host.endswith("zhaopin.meituan.com"):
+        if host == "zhaopin.meituan.com" or host.endswith(".zhaopin.meituan.com"):
             return self._fetch_meituan(url)
         raise UnsupportedOfficialApiError(f"no official API adapter for host: {host}")
 
@@ -82,17 +82,23 @@ class OfficialApiContentFetcher:
 
         title = str(data.get("RecruitPostName") or "").strip()
         company = str(data.get("ComName") or "腾讯").strip() or "腾讯"
-        sections = [
-            str(data.get("Responsibility") or "").strip(),
-            str(data.get("Requirement") or "").strip(),
-        ]
-        content = "\n".join(section for section in sections if section)
-        if not content:
+        location = str(data.get("Location") or "").strip()
+        # 输出标准标签行（"岗位职责："/"任职要求：" 分节），
+        # 复合标签 "岗位职责/任职要求：" 规则抽取认不出 → 每岗强制 LLM 抽取（复现实录 #19）
+        labeled = [f"公司：{company}"]
+        if location:
+            labeled.append(f"工作地点：{location}")
+        for label, key in (("岗位职责", "Responsibility"), ("任职要求", "Requirement")):
+            section = str(data.get(key) or "").strip()
+            if section:
+                labeled.append(f"{label}：\n{section}")
+        content = "\n".join(labeled)
+        if len(labeled) <= 1:
             raise OfficialApiUnavailableError(
                 f"tencent ByPostId returned empty JD for postId={post_id}"
             )
         return OfficialApiContent(
-            content=f"岗位职责/任职要求：\n{content}",
+            content=content,
             title=title,
             company=company,
         )
@@ -147,15 +153,18 @@ class OfficialApiContentFetcher:
             if isinstance(c, dict) and c.get("name")
         )
         company = "美团"
-        sections = [
-            str(item.get("jobDuty") or "").strip(),
-            str(item.get("jobRequirement") or "").strip(),
-        ]
-        content = "\n".join(section for section in sections if section)
-        if not content:
+        # 标准标签行（与腾讯一致），保证规则抽取可命中（复现实录 #19）
+        labeled = [f"公司：{company}"]
+        if cities:
+            labeled.append(f"工作地点：{cities}")
+        for label, key in (("岗位职责", "jobDuty"), ("任职要求", "jobRequirement")):
+            section = str(item.get(key) or "").strip()
+            if section:
+                labeled.append(f"{label}：\n{section}")
+        content = "\n".join(labeled)
+        if len(labeled) <= 1:
             raise OfficialApiUnavailableError(f"meituan item {title!r} has empty JD")
-        header = f"岗位职责/任职要求（{company} · {cities}）：\n" if cities else "岗位职责/任职要求：\n"
-        return OfficialApiContent(content=f"{header}{content}", title=title, company=company)
+        return OfficialApiContent(content=content, title=title, company=company)
 
     # ── HTTP 基础设施：与 HttpPageLoader 一致的异常语义 ──────────────
 
