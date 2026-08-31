@@ -1950,7 +1950,7 @@ def build_workflow(
         browser=browser,
         extractor=PageExtractor(llm_field_extractor=llm_field_extractor),
         matcher=JobMatcher(llm_matcher=llm_matcher),
-        verifier=JobVerifier(required_keywords=["AI", "LLM", "Agent"]),
+        verifier=JobVerifier(),  # 默认关键词 = keywords.AI_JOB_KEYWORDS（中英双语）
         repository=repo,
         reporter=MarkdownReporter(report_dir),
         visual_extractor=visual_extractor,

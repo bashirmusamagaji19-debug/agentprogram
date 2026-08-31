@@ -21,25 +21,10 @@ from typing import Protocol
 from urllib import request as url_request
 from urllib.error import URLError
 
-AI_TITLE_KEYWORDS = (
-    "AI",
-    "算法",
-    "大模型",
-    "大语言模型",
-    "LLM",
-    "机器学习",
-    "深度学习",
-    "NLP",
-    "多模态",
-    "Agent",
-    "数据挖掘",
-    "推荐",
-    "CV",
-    "视觉",
-    "RAG",
-)
+from web_task_agent.keywords import AI_JOB_KEYWORDS, INTERN_TITLE_KEYWORDS
 
-INTERN_TITLE_KEYWORDS = ("实习",)
+# 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
+AI_TITLE_KEYWORDS = AI_JOB_KEYWORDS
 
 
 @dataclass(frozen=True)

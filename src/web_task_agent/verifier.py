@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from web_task_agent.keywords import AI_JOB_KEYWORDS
 from web_task_agent.models import JobPosting
 
 
@@ -19,7 +20,7 @@ class JobVerifier:
     ):
         self.required_keywords = [
             keyword.lower()
-            for keyword in (required_keywords or ["AI", "LLM", "Agent"])
+            for keyword in (required_keywords or list(AI_JOB_KEYWORDS))
             if keyword.strip()
         ]
         self.min_confidence = min_confidence
@@ -31,7 +32,7 @@ class JobVerifier:
         if not job.requirements.strip() and not job.responsibilities.strip():
             reasons.append("missing requirements and responsibilities")
         if not self._is_relevant(job):
-            reasons.append("not relevant to AI internship direction")
+            reasons.append("not relevant to AI job direction")
         return VerificationResult(is_valid=not reasons, reasons=reasons)
 
     def dedupe(
