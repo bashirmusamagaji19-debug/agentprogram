@@ -11,6 +11,7 @@ dashboards/
 action-plans/
 evaluations/
 !evaluations/ground-truth/
+!evaluations/synthetic-resumes/
 outputs/
 browser-artifacts/
 portfolio-artifacts/
