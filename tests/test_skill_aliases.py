@@ -162,3 +162,50 @@ def test_frontend_resume_not_credited_with_machine_learning():
 
     assert result.score == 0.0
     assert result.missing_skills == ["机器学习"]
+
+
+# ── 编号长句式 skills 的文本扫描降级（bug 排查实录 #22）──────────────
+
+
+def test_numbered_sentence_skills_fall_back_to_text_scan():
+    """真实中文 JD 的编号长句 skills 不再全 0：CV 简历应命中 PyTorch/深度学习。"""
+    matcher = JobMatcher()
+    user = UserProfile(
+        keyword="CV",
+        skills=["PyTorch", "计算机视觉"],
+        resume_text="基于 PyTorch 做目标检测，熟悉深度学习与 CUDA。",
+    )
+    # 模拟官方 API 抽取产物：逗号切分出的编号长句碎片
+    job = make_job(
+        title="大模型算法工程师（实习生）",
+        skills=[
+            "1、扎实的算法基础",
+            " 熟悉NLP相关算法和模型；",
+            " 2、有Tensorflow",
+            " pytorch等深度学习框架与自然语言处理结合实际项目经验者优先 3、有语义理解、对话系统、问答系统等相关项目经验者优先。",
+        ],
+        requirements=(
+            "1、扎实的算法基础，熟悉NLP相关算法和模型；"
+            "2、有Tensorflow, pytorch等深度学习框架与自然语言处理结合实际项目经验者优先；"
+            "3、有语义理解、对话系统、问答系统、机器翻译、知识图谱等相关项目经验者优先。"
+        ),
+    )
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score > 0  # 修复前必然 0.00（句子碎片与技能词无交集）
+    assert "PyTorch" in result.matched_skills
+    assert "深度学习" in result.matched_skills
+    assert "自然语言处理" in result.missing_skills  # CV 简历没写 NLP（显示首个扫中变体）
+
+
+def test_clean_skills_still_use_exact_match_path():
+    """干净技能词列表走原精确交集路径，不被文本扫描降级影响。"""
+    matcher = JobMatcher()
+    user = UserProfile(keyword="AI", skills=["Python", "LLM"], resume_text="")
+    job = make_job(skills=["Python", "大模型", "检索增强"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 0.67
+    assert result.matched_skills == ["Python", "大模型"]

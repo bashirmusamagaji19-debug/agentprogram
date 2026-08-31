@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 
 from web_task_agent.models import JobPosting, MatchResult, UserProfile
@@ -76,6 +77,10 @@ class JobMatcher:
     ) -> MatchResult:
         # 别名归一化后再交集："大模型"↔"LLM"、"检索增强"↔"RAG" 才能互相命中
         user_signal = self._user_signal(user)
+        if self._skills_look_unstructured(required_skills):
+            # 抽取层产出的是编号长句碎片（真实中文 JD 的主流形态），
+            # 按词切分求交集必然全 0——降级为 JD 文本技能词扫描（#22）
+            return self._text_scan_match(job=job, user_signal=user_signal)
         matched_skills = [
             skill
             for skill in required_skills
@@ -108,6 +113,74 @@ class JobMatcher:
         jobs: list[JobPosting],
     ) -> list[MatchResult]:
         return [self.match(user=user, job=job) for job in jobs]
+
+    def _skills_look_unstructured(self, required_skills: list[str]) -> bool:
+        """抽取层 skills 是否为句子碎片而非技能词。
+
+        真实中文 JD 的 requirements 是 "1、xxx；2、xxx" 编号长句，
+        逗号切分产出的是句子片段——与用户技能词求交集必然全 0（#22）。
+        """
+        _NUMBERED = re.compile(r"^\d+\s*[、.．)）]")
+        return any(
+            len(skill.strip()) > 15
+            or "；" in skill
+            or "。" in skill
+            or _NUMBERED.match(skill.strip())
+            for skill in required_skills
+        )
+
+    def _text_scan_match(
+        self,
+        *,
+        job: JobPosting,
+        user_signal: set[str],
+    ) -> MatchResult:
+        """JD 文本技能词扫描匹配：绕过抽取层 skills 质量，直接扫正文。
+
+        用词表+别名变体在 requirements/responsibilities 里识别技能词，
+        与用户信号求交集。覆盖面受词表限制——是"方向匹配"而非逐条核对，
+        语义边界仍交给 LLM 兜底。
+        """
+        job_text = unicodedata.normalize(
+            "NFKC", f"{job.requirements}\n{job.responsibilities}"
+        ).casefold()
+        # 按 canonical 去重收集（同一别名组的多个变体只计一次，显示保留首个变体）
+        scanned_by_canonical: dict[str, str] = {}
+        for term in self._known_skill_terms() + skill_variants():
+            key = normalize_skill(term)
+            if key not in scanned_by_canonical and term_in_text(term, job_text):
+                scanned_by_canonical[key] = term
+        if not scanned_by_canonical:
+            return MatchResult(
+                job_id=job.url,
+                score=0.0,
+                priority="low",
+                reason="岗位正文未能识别出技能词（词表覆盖不足），建议人工查看。",
+                suggested_actions=["技能词表未覆盖该岗位方向，人工评估。"],
+            )
+        matched = [
+            term
+            for key, term in scanned_by_canonical.items()
+            if key in user_signal
+        ]
+        missing = [
+            term
+            for key, term in scanned_by_canonical.items()
+            if key not in user_signal
+        ]
+        score = round(len(matched) / len(scanned_by_canonical), 2)
+        return MatchResult(
+            job_id=job.url,
+            score=score,
+            matched_skills=matched,
+            missing_skills=missing,
+            reason=(
+                f"JD 文本扫描匹配 {len(matched)}/{len(scanned_by_canonical)} 个识别技能："
+                f"{', '.join(matched) if matched else '暂无'}。"
+            ),
+            priority=self._priority(score),
+            suggested_actions=self._suggest_actions(missing),
+        )
 
     def _user_signal(self, user: UserProfile) -> set[str]:
         signal = {normalize_skill(skill) for skill in user.skills}
