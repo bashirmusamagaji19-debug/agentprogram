@@ -140,3 +140,105 @@ def build_discovered_page(job: DiscoveredJob) -> "object":
         source=f"aggregator:{job.source}",
         metadata={"discovered_title": job.title, "discovered_company": job.company},
     )
+
+
+# 低于该长度的正文视为"无有效内容"（美团/腾讯 SPA 返回 4~11 字符的壳）
+MIN_USEFUL_CONTENT_CHARS = 50
+
+
+class AggregatorPageLoader:
+    """聚合源页面的内容解析链：缓存 → 官方 API → HttpPageLoader → jd_text 兜底。
+
+    按 URL 逐级尝试，每个 URL 记录最终使用的策略（resolution_log），
+    全部失败抛 PageEmptyError（进入既有失败分类体系）。
+    """
+
+    def __init__(
+        self,
+        jobs: list[DiscoveredJob],
+        *,
+        official_api: object | None = None,
+        http_loader: object | None = None,
+        repository: object | None = None,
+        max_age_hours: float = 24.0,
+    ) -> None:
+        self._jobs_by_url = {job.url: job for job in jobs}
+        self._official_api = official_api
+        self._http_loader = http_loader
+        self._repository = repository
+        self._max_age_hours = max_age_hours
+        self.resolution_log: list[dict[str, str]] = []
+
+    async def __call__(self, url: str) -> "object":
+        from web_task_agent.browser import PageEmptyError
+
+        job = self._jobs_by_url.get(url)
+        if job is None:
+            # 非 aggregator 发现的 URL 直接走普通 loader（与旧行为一致）
+            if self._http_loader is None:
+                raise PageEmptyError(f"no loader for non-aggregator URL: {url}")
+            return await self._http_loader(url)
+
+        # 1. 缓存
+        if self._repository is not None:
+            cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
+            if cached is not None:
+                self._record(url, "cache")
+                return cached
+
+        # 2. 官方 API（支持域名的 SPA 页优先走结构化接口）
+        if self._official_api is not None:
+            try:
+                content = await self._official_api.fetch(url)
+            except Exception as exc:  # noqa: BLE001
+                if type(exc).__name__ != "UnsupportedOfficialApiError":
+                    self._record(url, f"official-api-failed:{type(exc).__name__}")
+                else:
+                    self._record(url, "official-api:unsupported")
+            else:
+                page = self._to_page(url, content.content, content.title, "official-api")
+                self._cache(url, page)
+                self._record(url, "official-api")
+                return page
+
+        # 3. HttpPageLoader（服务端渲染站点可直达）
+        if self._http_loader is not None:
+            try:
+                page = await self._http_loader(url)
+            except Exception as exc:  # noqa: BLE001
+                self._record(url, f"http-failed:{type(exc).__name__}")
+            else:
+                if len(page.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                    self._cache(url, page)
+                    self._record(url, "http")
+                    return page
+                self._record(url, "http:empty-page")
+
+        # 4. aggregator jd_text 兜底
+        if job.jd_text.strip():
+            page = build_discovered_page(job)
+            self._cache(url, page)
+            self._record(url, "jd_text-fallback")
+            return page
+
+        raise PageEmptyError(
+            f"aggregator page has no usable content (official API/http/jd_text all failed): {url}"
+        )
+
+    def _to_page(self, url: str, content: str, title: str, source: str) -> "object":
+        from web_task_agent.models import BrowserPage
+
+        job = self._jobs_by_url.get(url)
+        return BrowserPage(
+            url=url,
+            title=title or (job.title if job else ""),
+            content=content,
+            source=source,
+        )
+
+    def _cache(self, url: str, page: "object") -> None:
+        if self._repository is not None:
+            self._repository.cache_page(page)  # type: ignore[arg-type]
+
+    def _record(self, url: str, strategy: str) -> None:
+        self.resolution_log.append({"url": url, "strategy": strategy})

@@ -12,9 +12,11 @@ from dotenv import load_dotenv
 
 from web_task_agent import __version__
 
-# Load .env before anything else reads os.environ
+# Load .env before anything else reads os.environ.
+# override=True: .env 必须赢过继承的 OS 环境变量——否则改了 .env 后，残留的
+# 旧 DASHSCOPE_API_KEY 等 OS 级变量会静默覆盖它（2026-08-31 排查过的 401 问题）。
 # __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.agent_approval import (
     ApprovalDecision,
@@ -65,6 +67,7 @@ from web_task_agent.evaluation import (
 )
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.graph_export import LangGraphExporter
+from web_task_agent.job_sources import AggregatorRepoSource, DiscoveredJob
 from web_task_agent.llm_extractor import DemoLlmFieldExtractor
 from web_task_agent.llm_extractor import (
     LlmExtractorConfigurationError,
@@ -101,6 +104,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="Open an exact job URL instead of searching. Can be repeated.",
+    )
+    parser.add_argument(
+        "--from-aggregator",
+        default=None,
+        help=(
+            "Discover intern+AI job URLs from an aggregator jobs.json "
+            "(local path or raw URL, e.g. job-radar data). Cannot be used "
+            "when resuming a HITL thread."
+        ),
+    )
+    parser.add_argument(
+        "--aggregator-limit",
+        type=int,
+        default=10,
+        help="Max jobs to discover from --from-aggregator (default 10).",
     )
     parser.add_argument(
         "--resume-text",
@@ -371,6 +389,44 @@ def main(argv: list[str] | None = None) -> int:
 
 def build_browser(*, demo: bool) -> FakeBrowserClient | BrowserUseClient:
     return FakeBrowserClient(DEMO_JOB_PAGES) if demo else BrowserUseClient()
+
+
+async def discover_from_aggregator(
+    source_location: str,
+    *,
+    limit: int,
+) -> list[DiscoveredJob]:
+    """--from-aggregator 入口：聚合仓库 jobs.json → 实习+AI 岗位列表。"""
+    source = AggregatorRepoSource(source_location)
+    return await source.discover(limit=limit)
+
+
+def build_aggregator_browser(
+    jobs: list[DiscoveredJob],
+    *,
+    db_path: str,
+) -> BrowserUseClient:
+    """聚合源运行专用 browser：内容解析链接进 BrowserUseClient 的 page_loader。
+
+    解析顺序（AggregatorPageLoader）：page_cache → 官方 API（腾讯/美团）→
+    HttpPageLoader（服务端渲染页）→ aggregator jd_text 兜底。
+    """
+    from web_task_agent.browser import CachedPageLoader, HttpPageLoader
+    from web_task_agent.job_sources import AggregatorPageLoader
+    from web_task_agent.official_api import OfficialApiContentFetcher
+    from web_task_agent.storage import JobRepository
+
+    repository = JobRepository(db_path)
+    repository.initialize()
+    http_loader = CachedPageLoader(HttpPageLoader(timeout_seconds=30), repository)
+    return BrowserUseClient(
+        page_loader=AggregatorPageLoader(
+            jobs,
+            official_api=OfficialApiContentFetcher(),
+            http_loader=http_loader,
+            repository=repository,
+        )
+    )
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -676,6 +732,7 @@ async def _run(args: argparse.Namespace) -> int:
     if (
         not args.keyword
         and not args.seed_url
+        and not args.from_aggregator
         and not (args.hitl and args.resume_approval)
     ):
         print("--keyword is required unless --evaluate is used.")
@@ -702,7 +759,23 @@ async def _run(args: argparse.Namespace) -> int:
             "The visual provider fetches pages on its own and cannot be used "
             "in search mode."
         )
-    browser = build_browser(demo=args.demo)
+    aggregator_jobs: list[DiscoveredJob] = []
+    if args.from_aggregator and not args.demo:
+        try:
+            aggregator_jobs = await discover_from_aggregator(
+                args.from_aggregator, limit=args.aggregator_limit
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Aggregator discovery failed: {type(exc).__name__}: {exc}")
+            return 2
+        print(
+            f"Aggregator: discovered {len(aggregator_jobs)} intern+AI jobs "
+            f"from {args.from_aggregator}"
+        )
+    if aggregator_jobs:
+        browser = build_aggregator_browser(aggregator_jobs, db_path=args.db_path)
+    else:
+        browser = build_browser(demo=args.demo)
     try:
         llm_field_extractor = build_cli_llm_field_extractor(args)
         llm_matcher = build_cli_llm_matcher(args)
@@ -750,13 +823,16 @@ async def _run(args: argparse.Namespace) -> int:
                     )
                 else:
                     resume_text = load_resume_text(args.resume_text, args.resume_file)
+                    hitl_seed_urls = list(args.seed_url) + [
+                        job.url for job in aggregator_jobs
+                    ]
                     user = UserProfile(
                         keyword=args.keyword or "seed URLs",
                         location=args.location,
-                        target_count=args.target_count,
+                        target_count=max(args.target_count, len(hitl_seed_urls)),
                         skills=args.skill,
                         resume_text=resume_text,
-                        seed_urls=args.seed_url,
+                        seed_urls=hitl_seed_urls,
                     )
                     hitl_result = await workflow.start_with_hybrid_agent_hitl(
                         user,
@@ -807,13 +883,14 @@ async def _run(args: argparse.Namespace) -> int:
             )
 
         resume_text = load_resume_text(args.resume_text, args.resume_file)
+        seed_urls = list(args.seed_url) + [job.url for job in aggregator_jobs]
         user = UserProfile(
             keyword=args.keyword or "seed URLs",
             location=args.location,
-            target_count=args.target_count,
+            target_count=max(args.target_count, len(seed_urls)),
             skills=args.skill,
             resume_text=resume_text,
-            seed_urls=args.seed_url,
+            seed_urls=seed_urls,
         )
         if args.hybrid_agent:
             planner = None
@@ -971,6 +1048,7 @@ def validate_hitl_args(args: argparse.Namespace) -> str | None:
             "--target-count",
             "--skill",
             "--seed-url",
+            "--from-aggregator",
             "--resume-text",
             "--resume-file",
             "--agent-max-steps",
