@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from web_task_agent.models import JobPosting, RunMetrics
+from web_task_agent.models import BrowserPage, JobPosting, RunMetrics
 
 
 @dataclass(frozen=True)
@@ -63,6 +63,17 @@ class JobRepository:
                     idempotency_key TEXT PRIMARY KEY,
                     created_at TEXT NOT NULL,
                     saved_jobs INTEGER NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS page_cache (
+                    url TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    fetched_at TEXT NOT NULL
                 )
                 """
             )
@@ -220,6 +231,45 @@ class JobRepository:
                 for job in jobs
             ],
         )
+
+    def get_cached_page(self, url: str, *, max_age_hours: float = 24.0) -> BrowserPage | None:
+        """命中且未过 TTL 的缓存页；过期或不存在返回 None（调用方重抓）。"""
+        row = self._fetch_cache_row(url)
+        if row is None:
+            return None
+        fetched_at = datetime.fromisoformat(row["fetched_at"])
+        age_hours = (datetime.now(UTC) - fetched_at).total_seconds() / 3600
+        if age_hours > max_age_hours:
+            return None
+        return BrowserPage(
+            url=row["url"],
+            title=row["title"],
+            content=row["content"],
+            source=row["source"],
+        )
+
+    def cache_page(self, page: BrowserPage) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO page_cache (url, content, title, source, fetched_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    page.url,
+                    page.content,
+                    page.title,
+                    page.source,
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+
+    def _fetch_cache_row(self, url: str) -> sqlite3.Row | None:
+        with self._connection() as conn:
+            return conn.execute(
+                "SELECT url, content, title, source, fetched_at FROM page_cache WHERE url = ?",
+                (url,),
+            ).fetchone()
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)

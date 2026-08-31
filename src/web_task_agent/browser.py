@@ -211,6 +211,35 @@ class BrowserUseClient:
         return result
 
 
+class CachedPageLoader:
+    """包装一个 page loader：命中 SQLite 缓存（TTL 内）不发 HTTP，未命中回源后写缓存。
+
+    Args:
+        loader: 被包装的 loader（如 HttpPageLoader），签名 `(url) -> BrowserPage`。
+        repository: 提供 get_cached_page / cache_page 的 JobRepository。
+        max_age_hours: 缓存 TTL，默认 24h。
+    """
+
+    def __init__(
+        self,
+        loader: PageLoader,
+        repository: Any,
+        *,
+        max_age_hours: float = 24.0,
+    ) -> None:
+        self._loader = loader
+        self._repository = repository
+        self._max_age_hours = max_age_hours
+
+    async def __call__(self, url: str) -> BrowserPage:
+        cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
+        if cached is not None:
+            return cached
+        page = await self._loader(url)
+        self._repository.cache_page(page)
+        return page
+
+
 class HttpPageLoader:
     def __init__(self, timeout_seconds: int = 30) -> None:
         self.timeout_seconds = timeout_seconds
