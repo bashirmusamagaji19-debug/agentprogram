@@ -1,0 +1,136 @@
+# 面试调试故事集（Debugging Stories）
+
+> 整合自 `docs/work-log/`、git `fix:` 提交和评测证据，每条按"问题 → 排查 → 解决 → 一句话回答"组织，供面试问答使用。
+> 原则：只收录真实发生过、有 commit/评测记录佐证的问题，不虚构。
+
+---
+
+## 一、错误分类与异常处理
+
+### 1. 异常继承顺序吞掉了 HTTP 错误
+
+- **问题**：HTTP 层失败分类改造后，评测里始终看不到 `http_error` 类别。
+- **排查**：发现 `_load_sync()` 中 `except URLError` 写在 `except HTTPError` 之前，而 `HTTPError` 是 `URLError` 的**子类**——所有 404/500 都被通用的 URLError 块先吞掉了。
+- **解决**：调整 except 顺序，把子类异常放在前面（commit 见 `2026-06-23-http-error-classification.md`），并为三种错误类型（`PageTimeoutError` / `PageHttpError` / `PageEmptyError`）各写一个触发测试。
+- **一句话**："我做失败分类时踩了一个经典坑：except 顺序没按异常继承层级排列，子类异常永远匹配不到。之后每个错误类别都有对应的触发测试，而不是只测 happy path。"
+
+### 2. "browser_error" 是一个无用的失败类别
+
+- **问题**：早期评测里所有 URL 失败都归为 `browser_error`，无法指导处理策略。
+- **解决**：细分为 `http_timeout`（要重试）、`http_error`（标记 URL 过期）、`empty_page`（JS 渲染，切视觉抽取）、`browser_error`（兜底）。分类依据是异常类型而非字符串匹配。
+- **一句话**："失败分类的价值在于驱动不同的恢复策略——超时要重试，404 要换 URL，空正文要转视觉抽取。我的 Agent 恢复链就是建立在这套分类上的。"
+
+---
+
+## 二、资源生命周期
+
+### 3. Windows 下 SQLite 文件被锁（WinError 32）
+
+- **问题**：HITL benchmark 在 pytest 清理临时目录时报 `PermissionError: [WinError 32]`，看起来像 checkpoint 场景失败。
+- **排查**：根因与审批逻辑无关——Python 的 `with sqlite3.Connection` 只管理事务提交/回滚，**不会关闭连接**；Windows 因此仍锁定数据库文件，临时目录删不掉。
+- **解决**：给 `JobRepository` 增加显式关闭连接的 context manager，成功和异常路径都执行 `close()`，并加"运行后可删除数据库文件"的回归测试。修复独立成 commit `ec0d033`，不混入幂等功能提交。
+- **一句话**："这个 bug 教会我两件事：一是 `with conn` 在 SQLite 里不等于资源释放，Windows 文件锁会把它放大成清理失败；二是平台相关的修复要单独提交，保持每个 commit 意图单一。"
+
+### 4. Playwright 浏览器资源泄漏与幂等关闭
+
+- **问题**：真实 Qwen-VL provider 跑完后出现 `unclosed transport` 警告；comparison 路径评测失败时浏览器直接泄漏。
+- **解决**：三层修复——① `close()` 调用链贯穿 `VisualJobExtractor → QwenVisualExtractorAdapter → CLI finally 块`；② `PlaywrightBrowserClient.close()` 幂等化（未启动、重复关闭都安全）；③ comparison 的 provider 评测包在 `try/finally` 里保证异常路径也释放。
+- **一句话**："浏览器是重资源，我把它做成了从组件到 CLI finally 块的完整 close 链，并把 close() 设计成幂等的——资源清理代码恰恰是最容易被调用两次或一次都不调的代码。"
+
+---
+
+## 二点五、跨服务边界（双仓库桥接）
+
+### 5. 双重获取：provider 自带浏览器导致的重复请求
+
+- **问题**：视觉 provider 模式下，workflow browser 先 `open_url()` 抓一次文本（浪费），provider 又用自带 Playwright 截图抓一次——同一 URL 两次 HTTP 请求。
+- **解决**：用 `uses_own_browser` 能力信号做协商——demo extractor 声明 `False`（依赖 workflow 提供页面），真实 provider 声明 `True`；`_browser_node` 检测到 True 就跳过自己的抓取，只创建占位 `BrowserPage`。
+- **一句话**："这是一个职责边界问题：谁负责获取页面，必须由能力声明决定，而不是让两层默默各抓一次。测试验证了 browser 确实没有被调用。"
+
+---
+
+## 三、质量门与退出码语义
+
+### 6. VLM 调用成功 ≠ 抽取有效
+
+- **问题**：Qwen-VL 调用返回 200，但字段全是 `Unknown Title` / 空正文 / 零置信度——这些被计入 `visual_extraction.successes`，看起来抽取成功了。
+- **解决**：加质量门 `_visual_fields_are_meaningful()`：title、company、body、confidence 任一为占位值就返回 `success=False`，触发文本抽取回退，并计为 failures。连"只有 title 没有 body"的 title-only 结果也拒绝。
+- **一句话**："外部 API 成功和业务成功是两回事。我在 adapter 层加了质量门，把'模型响应了但没抽出东西'显式变成失败，让回退链能被触发。"
+
+### 7. 空结果静默 exit 0
+
+- **问题**：provider smoke 跑出 `Valid jobs: 0` 但退出码是 0——CI 和脚本会认为验证通过。
+- **解决**：smoke 路径 `valid_jobs == 0` → exit code 2 + 打印抽取统计（attempts/successes/failures）、verifier 过滤原因和排查建议；comparison 路径**保持** exit 0，因为横向对比的职责是测量，不应因单行失败而中断。
+- **一句话**："退出码是给自动化看的 API。我区分了 smoke（空结果就是失败）和 comparison（失败是一行数据）两种语义，而不是一个全局 exit code 走到底。"
+
+---
+
+## 四、Agent 决策安全
+
+### 8. LLM Planner 越权决策
+
+- **问题**：接入 DeepSeek/Qwen planner 后，LLM 可能输出不在当前状态下授权的动作（打开候选列表外的 URL、自行 FINISH、重复抽取）。
+- **解决**：`_planner_decision_is_authorized()` 白名单校验——目标 URL 必须在候选列表且重试未超限；LLM 无权 FINISH；抽取动作的目标必须等于当前页。非法决策全部降级为确定性 fallback。真实 benchmark 佐证：DeepSeek 15 次调用中 5 次被 runtime 拒绝并安全 fallback，终止率仍 5/5。
+- **一句话**："我不信任 LLM 的输出，只把它当建议。授权校验是代码不是 prompt——真实运行中 DeepSeek 有 5 次越权全部被拒，这证明安全边界在代码层真实生效。"
+
+### 9. Agent 提前宣告完成
+
+- **问题**：policy 在达到目标数量后直接 FINISH，跳过了匹配和保存——用户拿到了岗位却没有任何持久化结果。
+- **解决**：完成顺序强制为 匹配 → 保存 → 才允许以 `target_reached` 终止（commit `85791d8`）。
+- **一句话**："终止条件不只是'目标达成'，而是'目标达成且收尾动作完成'。策略层把业务完整性编码进了状态机。"
+
+### 10. 恢复打开的新页面没有被抽取
+
+- **问题**：`open_page` 失败后成功恢复到新 URL，但 state 里的当前页指针没有跟上，后续抽取的还是旧上下文。
+- **解决**：修复恢复路径的状态推进（commit `ff8f948`），保证 recovery 后的观察对象是真正打开的新页面。
+- **一句话**："恢复逻辑最容易错的地方不是'重试'本身，而是重试成功后状态没有推进——我专门为'recovery 之后抽取的是新页面'补了回归测试。"
+
+---
+
+## 五、幂等与崩溃窗口
+
+### 11. checkpoint 与业务库之间的崩溃窗口
+
+- **问题**：HITL 恢复后如果"业务写入成功、checkpoint 尚未提交"时进程崩溃，replay 会产生第二次可见副作用。
+- **解决**：`approval_id` 作为业务 SQLite 事务里的唯一 receipt 键，岗位写入和 receipt 写入在同一事务——重复恢复被 receipt 拦截。评测证据：replay 重复副作用为 0。
+- **一句话**："checkpoint 解决'从哪继续'，业务 receipt 解决'是否已经发生过'，两个职责缺一不可。我让审批 ID 成为两者之间的连接键，形成 exactly-once 的可见保存。"
+
+### 12. 规则抽取在真实页面上全军覆没（诊断故事）
+
+- **问题**：8 个真实招聘页上规则抽取只完成 2/8；匹配分数全为 0。
+- **排查**：Greenhouse 真实页面没有 `Title:` / `Requirements:` 这类标签行，规则解析直接失效；抽出的"技能"字段是整段需求文本而非关键词列表，精确匹配自然全 0。
+- **解决**：低置信度页面自动升级 LLM 抽取（DeepSeek/Qwen 达到 7/8）；匹配层引入语义匹配 fallback（4/7 岗位发现 `LangGraph`↔"Agentic AI" 这类关联）。
+- **一句话**："这个失败让我建立了项目的核心分层：规则优先（免费、可测）、LLM 兜底（贵、准）、失败分类记录（诚实）。每次升级都由置信度触发，而不是无条件调用模型。"
+
+## 六、配置与环境（2026-08-31 中文管线阶段 0）
+
+### 13. 改了 .env 但 API 仍然 401：OS 环境变量覆盖链
+
+- **问题**：DASHSCOPE key 失效后在 `.env` 里更新，但 CLI 跑 LLM 抽取仍然 401 `invalid_api_key`；直接解析 `.env` 手动调 API 却是 200。
+- **排查**：对比两条路径读到的 key——`load_dotenv()` 读出的值与 Windows 用户环境变量里的旧 key 相同（41 字符），而 `.env` 文件里是新 key（36 字符）。`load_dotenv()` 默认 `override=False`：**已存在的 OS 环境变量优先于 .env 文件**。旧 key 残留在 Windows 用户环境变量里，把 `.env` 的更新完全屏蔽了。
+- **解决**：运行时显式内联 `DASHSCOPE_API_KEY=<.env 值>` 强制覆盖。
+- **一句话**："排配置问题要沿读取链逐层对比实际值，而不是假设最后一层生效。python-dotenv 默认不覆盖已有环境变量——'改了 .env 不生效'时这是第一嫌疑。"
+
+### 14. 用 /models 端点验证 API key 得到假阳性
+
+- **问题**：验证 DASHSCOPE key 时用 `/v1/models` 列表端点返回 200，判定"key 有效"；随后真实抽取调用全部 401。
+- **排查**：用垃圾 key 请求 `/v1/models` 同样返回 200——该端点不校验鉴权；`/chat/completions` 才做真实校验。
+- **解决**：验证 key 一律用将要实际调用的端点发一次最小请求（`max_tokens=5` 的对话）。
+- **一句话**："健康检查端点和业务端点的鉴权强度可能不同——验证凭证要打在真实使用的端点上，否则拿到的是假阳性。"
+
+### 15. 中文 JD 被英文关键词过滤器全量误杀
+
+- **问题**：LLM 抽取在 6 个牛客中文 JD 上字段全部正确（confidence 1.00），但走完整 CLI 管线时 `valid_jobs: 0`——verifier 默认关键词 `["AI", "LLM", "Agent"]` 全小写后在纯中文正文里匹配不到，正确抽取的岗位被 `not relevant` 过滤。
+- **排查**：对比评测报告的 failure counts（`verification_filtered=5`）与单组件冒烟结果（6/6 抽取成功），差异只出在 verifier 环节；读 `verifier.py` 确认默认关键词表无中文。
+- **解决**：阶段 2 计划新增中文关键词（人工智能/大模型/算法/机器学习等）；冒烟脚本用 `required_keywords=[]` 诊断模式绕过，把抽取质量与相关性过滤两个问题解耦测量。
+- **一句话**："全链路失败时先二分定位是哪一层——把过滤条件放空跑一次单组件冒烟，立刻区分'抽取不行'和'过滤误杀'。这个案例也说明：硬编码关键词的相关性过滤在多语言输入下天然脆弱。"
+
+---
+
+## 附：面试反问预案
+
+如果被问"这些是不是都是 AI 帮你写的，你真的理解吗"，可指向：
+
+- 每条故事对应的独立 fix commit（`git log --grep="fix:"` 可逐个展示）
+- `docs/work-log/` 按日期的完整决策过程记录
+- 修复都配有对应的回归测试（如"运行后可删除数据库文件"、`uses_own_browser` 跳过断言）
