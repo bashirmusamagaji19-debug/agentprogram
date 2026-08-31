@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import unicodedata
+
 from web_task_agent.models import JobPosting, MatchResult, UserProfile
+from web_task_agent.skill_aliases import normalize_skill
 
 
 class JobMatcher:
@@ -71,12 +74,17 @@ class JobMatcher:
         job: JobPosting,
         required_skills: list[str],
     ) -> MatchResult:
+        # 别名归一化后再交集："大模型"↔"LLM"、"检索增强"↔"RAG" 才能互相命中
         user_signal = self._user_signal(user)
         matched_skills = [
-            skill for skill in required_skills if skill.casefold() in user_signal
+            skill
+            for skill in required_skills
+            if normalize_skill(skill) in user_signal
         ]
         missing_skills = [
-            skill for skill in required_skills if skill.casefold() not in user_signal
+            skill
+            for skill in required_skills
+            if normalize_skill(skill) not in user_signal
         ]
         score = round(len(matched_skills) / len(required_skills), 2)
 
@@ -102,11 +110,11 @@ class JobMatcher:
         return [self.match(user=user, job=job) for job in jobs]
 
     def _user_signal(self, user: UserProfile) -> set[str]:
-        signal = {skill.casefold() for skill in user.skills}
-        resume_text = user.resume_text.casefold()
-        for skill in self._known_skill_terms():
-            if skill.casefold() in resume_text:
-                signal.add(skill.casefold())
+        signal = {normalize_skill(skill) for skill in user.skills}
+        resume_text = unicodedata.normalize("NFKC", user.resume_text).casefold()
+        for term in self._known_skill_terms():
+            if term.casefold() in resume_text:
+                signal.add(normalize_skill(term))
         return signal
 
     def _priority(self, score: float) -> str:
@@ -127,6 +135,7 @@ class JobMatcher:
         return []
 
     def _known_skill_terms(self) -> list[str]:
+        # 中文技能词（子串扫描用户简历）；别名变体由 skill_aliases 统一归一
         return [
             "Python",
             "LangGraph",
@@ -137,4 +146,22 @@ class JobMatcher:
             "browser-use",
             "SQLite",
             "Pydantic",
+            "Playwright",
+            # 中文
+            "大模型",
+            "大语言模型",
+            "自然语言处理",
+            "计算机视觉",
+            "机器学习",
+            "深度学习",
+            "强化学习",
+            "多模态",
+            "智能体",
+            "检索增强",
+            "爬虫",
+            "数据挖掘",
+            "数据分析",
+            "预训练",
+            "PyTorch",
+            "TensorFlow",
         ]
