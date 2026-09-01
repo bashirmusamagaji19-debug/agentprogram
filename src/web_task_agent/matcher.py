@@ -78,7 +78,9 @@ class JobMatcher:
                     matched_skills=self._str_list(llm_fields.get("matched_skills")),
                     missing_skills=self._str_list(llm_fields.get("missing_skills")),
                     reason=llm_reason,
-                    priority=str(llm_fields.get("priority", rule_result.priority)),
+                    # priority 按折减后的分数重算：LLM 自报的 high 配上折减后的
+                    # 低分会出现"0.40 但 priority=high"的矛盾输出（#24 实测）
+                    priority=self._priority(llm_score),
                     suggested_actions=self._str_list(llm_fields.get("suggested_actions")),
                 )
             except Exception:

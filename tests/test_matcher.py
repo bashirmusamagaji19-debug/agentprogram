@@ -111,7 +111,8 @@ def test_matcher_falls_back_to_llm_when_rule_score_low():
     assert result.score == round(0.85 * 0.55, 2)  # 0.47
     assert result.matched_skills == ["Python", "FastAPI"]
     assert result.missing_skills == ["SQL"]
-    assert result.priority == "high"
+    # priority 按折减后分数重算（0.47 → medium），不是 LLM 自报的 high（#24 实测）
+    assert result.priority == "medium"
     assert "语义分析" in result.reason
     assert "折减" in result.reason
 
