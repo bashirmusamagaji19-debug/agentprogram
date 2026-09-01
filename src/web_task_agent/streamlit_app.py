@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from web_task_agent.models import RunMetrics
 from web_task_agent.streamlit_runner import (
     UiRequestError,
     UiRunRequest,
@@ -68,6 +69,41 @@ def artifact_download_spec(
     label, mime = ARTIFACT_SPECS[artifact_key]
     file_name, content = read_download_artifact(result, artifact_key)
     return label, file_name, mime, content
+
+
+def metric_grid_html(metrics: RunMetrics) -> str:
+    values = (
+        ("有效岗位", metrics.valid_jobs),
+        ("访问页面", metrics.pages_visited),
+        ("失败页面", metrics.failed_pages),
+        ("重复岗位", metrics.duplicate_jobs),
+    )
+    items = "".join(
+        f'<div class="ui-metric"><span>{label}</span><strong>{value}</strong></div>'
+        for label, value in values
+    )
+    return f"""
+<style>
+.ui-metric-grid {{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}}
+.ui-metric {{
+  border: 1px solid #D8DEE7;
+  border-radius: 6px;
+  background: #FFFFFF;
+  padding: 0.75rem;
+}}
+.ui-metric span {{ display: block; color: #5F6B7A; font-size: 0.8rem; }}
+.ui-metric strong {{ display: block; color: #17202A; font-size: 1.45rem; }}
+@media (max-width: 640px) {{
+  .ui-metric-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+}}
+</style>
+<div class="ui-metric-grid">{items}</div>
+"""
 
 
 def main() -> None:
@@ -168,11 +204,7 @@ def main() -> None:
 
 def _render_result(st: Any, result: UiRunResult) -> None:
     st.subheader("运行结果")
-    metric_columns = st.columns(4)
-    metric_columns[0].metric("有效岗位", result.metrics.valid_jobs)
-    metric_columns[1].metric("访问页面", result.metrics.pages_visited)
-    metric_columns[2].metric("失败页面", result.metrics.failed_pages)
-    metric_columns[3].metric("重复岗位", result.metrics.duplicate_jobs)
+    st.markdown(metric_grid_html(result.metrics), unsafe_allow_html=True)
 
     jobs_tab, diagnostics_tab, trace_tab, downloads_tab = st.tabs(
         ["岗位结果", "失败与诊断", "执行轨迹", "下载"]

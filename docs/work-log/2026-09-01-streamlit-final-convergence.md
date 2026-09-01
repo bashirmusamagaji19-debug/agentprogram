@@ -24,4 +24,13 @@
 
 ## 验证记录
 
-最终全量 pytest、coverage、release check、Streamlit 健康检查和桌面/移动浏览器验收结果将在完成后追加，以实际命令输出为准。
+- 全量 pytest：`422 passed`。
+- 总覆盖率：`89.83%`，高于 `70%` 门槛。
+- `--release-check`：focused Ruff、pytest/coverage、wheel-build、doctor、strict HITL、git-diff-check 六阶段全部通过。
+- 独立 `pip wheel . --no-deps`：成功生成 `web_task_agent-0.1.0-py3-none-any.whl`。
+- Streamlit 健康端点：`http://127.0.0.1:8501/_stcore/health` 返回 `ok`。
+- 桌面浏览器：Demo 运行得到 3 个有效岗位；四列指标、岗位表、诊断、轨迹和四个下载按钮可达；页面无横向溢出。
+- 移动浏览器（390×844）：发现四列指标不换行后按 TDD 修复为两列响应式网格；复验计算样式为两列 `168px 168px`，页面 `scrollWidth == clientWidth == 390`。
+- Streamlit AppTest：数据模式可从 Demo 切换为指定 URL，切换后出现 URL 输入区域，无脚本异常。
+
+未验证项：真实 provider、真实简历和公开云端 URL 本轮未执行，因此不计入完成证据。

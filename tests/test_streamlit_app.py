@@ -7,6 +7,7 @@ from web_task_agent.streamlit_app import (
     artifact_download_spec,
     diagnostic_rows,
     job_result_rows,
+    metric_grid_html,
 )
 from web_task_agent.streamlit_runner import UiRunResult
 
@@ -81,3 +82,13 @@ def test_artifact_download_spec_uses_safe_label_and_mime(tmp_path: Path) -> None
     assert file_name == "report.md"
     assert mime == "text/markdown"
     assert content == b"# report"
+
+
+def test_metric_grid_switches_to_two_columns_on_mobile() -> None:
+    html = metric_grid_html(RunMetrics(run_id="run-ui", valid_jobs=3, failed_pages=1))
+
+    assert "repeat(4, minmax(0, 1fr))" in html
+    assert "@media (max-width: 640px)" in html
+    assert "repeat(2, minmax(0, 1fr))" in html
+    assert "有效岗位" in html
+    assert ">3<" in html
