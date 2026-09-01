@@ -41,6 +41,38 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 
 ## 本地运行
 
+### Streamlit 交互界面
+
+安装依赖后启动单页运行台：
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
+```
+
+浏览器访问 `http://localhost:8501`。默认的“内置 Demo”不访问公网、不需要 API key；页面还支持上传 UTF-8 编码的 Markdown/TXT 简历、上传聚合岗位 JSON，或逐行填写岗位 URL。每次运行都在 `streamlit-runs/<run-id>/` 下独立生成 JSON、Markdown 报告、HTML Dashboard、行动计划和 SQLite 数据库。
+
+开启 LLM 抽取或 LLM 匹配时，只从服务进程环境变量读取凭据：
+
+```powershell
+$env:DASHSCOPE_API_KEY="..."  # qwen
+$env:DEEPSEEK_API_KEY="..."   # deepseek
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
+```
+
+页面不接收、回显或保存 API key。未配置对应变量时，运行前只显示缺失的变量名。
+
+### 云端单实例演示
+
+部署入口是仓库根目录的 `streamlit_app.py`。支持自定义启动命令的平台可使用：
+
+```text
+streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port $PORT
+```
+
+Streamlit Community Cloud 可直接将入口文件设置为 `streamlit_app.py`，并在平台 Secrets/环境变量中配置 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`。
+
+云端定位是**单实例演示**：`streamlit-runs/` 文件和 SQLite 数据属于实例本地临时状态，重启或重新部署后可能丢失；多个实例之间不共享任务、缓存或历史记录。真实招聘网站还可能受到云出口、反爬和页面变化影响。需要多用户持久化时，应另行接入共享数据库、对象存储和任务队列。
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1

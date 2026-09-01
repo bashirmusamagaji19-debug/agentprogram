@@ -1854,3 +1854,21 @@ def test_portfolio_docs_expose_recruiter_entrypoint_and_evidence():
 
     gitignore = (root / ".gitignore").read_text(encoding="utf-8")
     assert "portfolio-artifacts/" in gitignore
+
+
+def test_streamlit_deployment_contract_is_documented() -> None:
+    root = Path(__file__).resolve().parents[1]
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    config = (root / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+
+    assert '"streamlit>=1.41,<2"' in pyproject
+    assert "streamlit run streamlit_app.py" in readme
+    assert "--server.address 0.0.0.0" in readme
+    assert "DASHSCOPE_API_KEY" in readme
+    assert "DEEPSEEK_API_KEY" in readme
+    assert "单实例" in readme
+    assert "SQLite" in readme
+    assert "临时" in readme
+    assert "headless = true" in config
+    assert "gatherUsageStats = false" in config

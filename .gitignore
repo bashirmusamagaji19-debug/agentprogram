@@ -15,4 +15,5 @@ evaluations/
 outputs/
 browser-artifacts/
 portfolio-artifacts/
+streamlit-runs/
 .env

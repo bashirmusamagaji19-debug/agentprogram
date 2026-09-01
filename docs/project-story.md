@@ -22,6 +22,7 @@
 - 行动计划生成：根据匹配结果输出优先投递岗位、技能补强顺序、可展示项目任务、简历项目改写要点、7 天执行节奏，以及技术栈体验与面试说法。
 - 数据持久化：用 SQLite 保存岗位记录和运行指标。
 - 可视化输出：生成 Markdown 报告、本地岗位 HTML Dashboard、Agent 输入轨迹、Agent 执行轨迹和评测摘要 HTML Dashboard。
+- 交互入口：Streamlit 单页运行台支持简历文本/文件、Demo、聚合岗位 JSON、指定 URL、规则/LLM 模式、失败诊断和四类产物下载；界面只做输入适配与展示，业务规则仍由现有 workflow 模块负责。
 - 可量化评测：内置 20 个任务配置、公开招聘页风格 fixture 和真实浏览器 smoke task，输出成功率、有效岗位数、平均访问页面数和失败原因分布。
 
 ## 架构概览
@@ -52,6 +53,8 @@ flowchart LR
 | `storage.py` | SQLite 保存岗位和指标 | 支持后续评测、历史记录和可观测性 |
 | `reporter.py` | 输出 Markdown 报告 | 让结果可读、可归档、可投递前复盘 |
 | `dashboard.py` | 输出静态 HTML Dashboard | 面试演示更直观，不依赖前端服务 |
+| `streamlit_runner.py` | 校验页面请求并调用既有 workflow | Web UI 与 CLI 共用同一套抽取、验证、匹配和报告逻辑 |
+| `streamlit_app.py` | Streamlit 表单、结果 Tabs 和下载入口 | 本地/云端可操作演示，不把单实例 SQLite 夸大为生产持久化 |
 | `evaluation.py` | 运行 20 任务评测集 | 用指标证明 Agent 工作流稳定性 |
 | `workflow.py` | 串联完整 Agent 流程 | 展示任务编排、状态流和模块解耦 |
 | `agent_models.py` | 定义决策、观察、预算、指标和状态契约 | Pydantic 验证阻止未知动作和无类型失败 |
