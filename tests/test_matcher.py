@@ -104,15 +104,16 @@ def test_matcher_falls_back_to_llm_when_rule_score_low():
     matcher = JobMatcher(llm_matcher=_FakeLlmMatcher())
     user = UserProfile(keyword="AI intern", skills=["Python"])
     job = make_job(skills=["FastAPI", "SQL"])
-    # rule score = 0/2 = 0.0 < 0.6 → LLM fallback
+    # rule score = 0/2 = 0.0 < 0.6 → LLM fallback（分数折减 0.55，见 #24）
 
     result = matcher.match(user=user, job=job)
 
-    assert result.score == 0.85
+    assert result.score == round(0.85 * 0.55, 2)  # 0.47
     assert result.matched_skills == ["Python", "FastAPI"]
     assert result.missing_skills == ["SQL"]
     assert result.priority == "high"
     assert "语义分析" in result.reason
+    assert "折减" in result.reason
 
 
 def test_matcher_skips_llm_when_rule_score_high():

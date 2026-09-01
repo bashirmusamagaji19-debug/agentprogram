@@ -13,14 +13,21 @@ class JobMatcher:
         *,
         llm_matcher=None,
         llm_min_rule_score: float = 0.6,
+        llm_discount: float = 0.55,
     ) -> None:
         """Parameters:
         llm_matcher: callable or None. When set and rule score < llm_min_rule_score,
                      the matcher falls back to LLM semantic matching.
         llm_min_rule_score: rule score below which LLM fallback is attempted.
+        llm_discount: LLM 乐观偏差治理——规则低分时 LLM 分数的折减系数（#17/#24）。
+                      LLM 匹配器在"方向不匹配但技能词有交集"的岗位上系统性抬分
+                      （标注集 #8 0.45/#12 0.65/#14 0.85），折减后混合准确率
+                      0.875→0.94（与纯规则持平，实测见
+                      docs/results/matcher-evaluation/），语义边界召回（#5）保留。
         """
         self._llm_matcher = llm_matcher
         self._llm_min_rule_score = llm_min_rule_score
+        self._llm_discount = llm_discount
 
     @property
     def llm_matcher(self):
@@ -54,12 +61,23 @@ class JobMatcher:
                     "job_skills": ", ".join(required_skills),
                 }
                 llm_fields = self._llm_matcher(llm_payload)
+                # 乐观偏差治理（#24）：规则低分说明关键词证据不足，
+                # LLM 高分折减后采用——防止"会 Python"就在无关岗位上抬分
+                llm_score = round(
+                    float(llm_fields.get("score", rule_result.score)) * self._llm_discount, 2
+                )
+                llm_reason = str(llm_fields.get("reason", rule_result.reason))
+                if llm_score < float(llm_fields.get("score", 0)):
+                    llm_reason = (
+                        f"{llm_reason}（规则关键词命中不足，LLM 分数已折减 "
+                        f"{self._llm_discount:.2f}）"
+                    )
                 return MatchResult(
                     job_id=job.url,
-                    score=float(llm_fields.get("score", rule_result.score)),
+                    score=llm_score,
                     matched_skills=self._str_list(llm_fields.get("matched_skills")),
                     missing_skills=self._str_list(llm_fields.get("missing_skills")),
-                    reason=str(llm_fields.get("reason", rule_result.reason)),
+                    reason=llm_reason,
                     priority=str(llm_fields.get("priority", rule_result.priority)),
                     suggested_actions=self._str_list(llm_fields.get("suggested_actions")),
                 )

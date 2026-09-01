@@ -209,3 +209,54 @@ def test_clean_skills_still_use_exact_match_path():
 
     assert result.score == 0.67
     assert result.matched_skills == ["Python", "大模型"]
+
+
+# ── 混合仲裁：LLM 乐观偏差折减（阶段 6B）────────────────────────────
+
+
+def test_llm_optimistic_score_discounted_when_rule_low():
+    """规则低分 + LLM 高分 → 折减 0.55（#24：LLM 在无关岗位上抬分）。"""
+    llm_calls: list[dict] = []
+
+    def fake_llm_matcher(payload: dict) -> dict:
+        llm_calls.append(payload)
+        return {"score": 0.85, "reason": "测试岗很匹配", "priority": "high"}
+
+    matcher = JobMatcher(llm_matcher=fake_llm_matcher)
+    # 规则 0.33（远低于 0.6）触发 LLM 兜底
+    user = UserProfile(keyword="AI", skills=["Python"], resume_text="")
+    job = make_job(title="测试开发实习生", skills=["测试", "Selenium", "Python"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert len(llm_calls) == 1
+    assert result.score == round(0.85 * 0.55, 2)  # 0.47
+    assert "折减" in result.reason
+
+
+def test_llm_score_kept_when_rule_high():
+    """规则 ≥0.6 不调 LLM（现状保持）——折减只作用于兜底路径。"""
+    def fake_llm_matcher(payload: dict) -> dict:  # pragma: no cover - 不应被调
+        raise AssertionError("LLM should not be called when rule score >= 0.6")
+
+    matcher = JobMatcher(llm_matcher=fake_llm_matcher)
+    user = UserProfile(keyword="AI", skills=["Python", "LLM", "RAG"], resume_text="")
+    job = make_job(skills=["Python", "大模型", "检索增强"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 1.0
+
+
+def test_llm_failure_falls_back_to_rule_silently():
+    """LLM 调用失败 → 静默回退规则结果（现状保持）。"""
+    def broken_llm(payload: dict) -> dict:
+        raise RuntimeError("api down")
+
+    matcher = JobMatcher(llm_matcher=broken_llm)
+    user = UserProfile(keyword="AI", skills=["Python"], resume_text="")
+    job = make_job(skills=["Python", "大模型", "检索增强"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == 0.33  # 规则分原样返回

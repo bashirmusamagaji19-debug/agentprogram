@@ -471,6 +471,7 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
             return 2
 
     rule_matcher = JobMatcher()
+    hybrid_matcher = JobMatcher(llm_matcher=llm_matcher) if llm_matcher is not None else None
 
     rows: list[dict] = []
     llm_call_errors = 0
@@ -521,11 +522,21 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
             except Exception as exc:  # noqa: BLE001
                 llm_call_errors += 1
                 row["llm_error"] = f"{type(exc).__name__}: {exc}"
+            # 混合口径（生产实际行为）：规则优先 + LLM 兜底 + 乐观偏差折减
+            if hybrid_matcher is not None and "llm_predict" in row:
+                hybrid_result = hybrid_matcher.match(user=user, job=job)
+                row["hybrid_score"] = hybrid_result.score
+                row["hybrid_predict"] = _predict_match(hybrid_result.score)
         row["correct"] = {
             "rule": row["rule_predict"] == (row["label"] == "match"),
             "llm": (
                 row.get("llm_predict") == (row["label"] == "match")
                 if "llm_predict" in row
+                else None
+            ),
+            "hybrid": (
+                row.get("hybrid_predict") == (row["label"] == "match")
+                if "hybrid_predict" in row
                 else None
             ),
         }
@@ -547,6 +558,12 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
         summary["llm_scored"] = len(llm_scored)
         if llm_call_errors:
             summary["llm_call_errors"] = llm_call_errors
+        hybrid_scored = [r for r in rows if r["correct"]["hybrid"] is not None]
+        hybrid_correct = sum(1 for r in hybrid_scored if r["correct"]["hybrid"])
+        summary["hybrid_accuracy"] = (
+            round(hybrid_correct / len(hybrid_scored), 2) if hybrid_scored else 0.0
+        )
+        summary["hybrid_correct"] = hybrid_correct
         summary["disagreements"] = [
             {"id": r["id"], "note": r["note"], "label": r["label"], "row": r}
             for r in rows
@@ -562,6 +579,10 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
         print(
             f"  llm accuracy:  {summary['llm_accuracy']:.2f} "
             f"({summary['llm_correct']}/{summary['llm_scored']})"
+        )
+        print(
+            f"  hybrid accuracy: {summary['hybrid_accuracy']:.2f} "
+            f"({summary['hybrid_correct']}/{total})"
         )
         if llm_call_errors:
             print(f"  llm call errors: {llm_call_errors} (excluded from accuracy)")
@@ -595,22 +616,31 @@ def write_matcher_evaluation_report(
             f"- LLM 语义匹配准确率（纯 LLM，直接调用不经规则分层）: **{summary['llm_accuracy']:.2f}** "
             f"({summary['llm_correct']}/{summary['llm_scored']})"
         )
+        lines.append(
+            f"- 混合匹配准确率（规则优先 + LLM 兜底 + 乐观偏差折减 0.55）: **{summary['hybrid_accuracy']:.2f}** "
+            f"({summary['hybrid_correct']}/{summary['total']})"
+        )
         if summary.get("llm_call_errors"):
             lines.append(
                 f"- LLM 调用失败（不计入准确率）: {summary['llm_call_errors']}"
             )
-    lines.extend(["", "## 逐条结果", "", "| id | 标注 | 规则分 | 规则判定 | LLM分 | LLM判定 | 备注 |", "|---|---|---:|---|---:|---|---|"])
+    lines.extend(["", "## 逐条结果", "", "| id | 标注 | 规则分 | 规则判定 | LLM分 | LLM判定 | 混合分 | 混合判定 | 备注 |", "|---|---|---:|---|---:|---|---:|---|---|"])
     for row in rows:
         llm_score_cell = (
             f"{row['llm_score']:.2f}" if row.get("llm_score") is not None else "-"
         )
         if row.get("llm_error"):
             llm_score_cell = f"ERR({row['llm_error'].split(':')[0]})"
+        hybrid_score_cell = (
+            f"{row['hybrid_score']:.2f}" if row.get("hybrid_score") is not None else "-"
+        )
         lines.append(
             f"| {row['id']} | {row['label']} | {row['rule_score']:.2f} "
             f"| {'✓' if row['correct']['rule'] else '✗'} "
             f"| {llm_score_cell} "
             f"| {('✓' if row['correct']['llm'] else '✗') if row['correct']['llm'] is not None else '-'} "
+            f"| {hybrid_score_cell} "
+            f"| {('✓' if row['correct']['hybrid'] else '✗') if row['correct']['hybrid'] is not None else '-'} "
             f"| {row['note']} |"
         )
     if summary.get("disagreements"):
