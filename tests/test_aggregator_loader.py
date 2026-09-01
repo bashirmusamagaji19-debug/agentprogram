@@ -195,3 +195,77 @@ async def test_non_aggregator_url_delegates_to_http_loader(jobs):
     page = await loader("https://other.example.com/x")
 
     assert page.content == "非聚合URL正文" * 20
+
+
+# ── 旧壳页缓存绕过内容门槛（#25）─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_stale_shell_page_cache_is_ignored(jobs, repo):
+    """门槛收紧前写入的旧壳页（<120 字符）在 TTL 内命中也不得当作有效内容（#25）。"""
+    from web_task_agent.browser import CachedPageLoader, HttpPageLoader
+    from web_task_agent.official_api import OfficialApiUnavailableError
+
+    shell_page = BrowserPage(
+        url=jobs[0].url, title="壳", content="热搜", source="browser"
+    )
+    repo.cache_page(shell_page)  # 模拟旧版本写入的 11 字符壳页缓存
+
+    official = FakeOfficialApi()
+    official.fail_for = {jobs[0].url}
+    official_fetches: list[str] = []
+
+    async def failing_official(url: str):  # noqa: ANN202
+        official_fetches.append(url)
+        raise OfficialApiUnavailableError(f"unavailable: {url}")
+
+    long_page = "HTTP真实正文，" * 40
+    http = FakeHttpLoader(pages={jobs[0].url: long_page})
+    loader = AggregatorPageLoader(
+        jobs,
+        official_api=official,
+        http_loader=CachedPageLoader(HttpPageLoader(), repo),
+        repository=repo,
+    )
+    # 把官方 API 换成会失败的 fake，强制落到 HTTP 路径
+    loader._official_api = failing_official  # noqa: SLF001
+    loader._http_loader = CachedPageLoader(http, repo)  # noqa: SLF001
+
+    page = await loader(jobs[0].url)
+
+    # 旧壳页缓存被无视，重新抓取拿到长正文
+    assert page.content == long_page
+    assert loader.resolution_log[-1]["strategy"] == "http"
+    # 抓到的有效页面覆盖写回缓存
+    cached = repo.get_cached_page(jobs[0].url, max_age_hours=24)
+    assert cached is not None and len(cached.content) >= 120
+
+
+@pytest.mark.asyncio
+async def test_cachedpageloader_ignores_below_threshold_cache(jobs, repo):
+    """CachedPageLoader 自身也要过门槛：短缓存不命中，回源后覆盖缓存。"""
+    from web_task_agent.browser import CachedPageLoader
+
+    shell = BrowserPage(url=jobs[0].url, title="壳", content="热搜", source="browser")
+    repo.cache_page(shell)
+
+    real = BrowserPage(url=jobs[0].url, title="真", content="正文" * 100, source="browser")
+
+    class CountingLoader:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def __call__(self, url: str) -> BrowserPage:
+            self.calls.append(url)
+            return real
+
+    inner = CountingLoader()
+    loader = CachedPageLoader(inner, repo)
+
+    page = await loader(jobs[0].url)
+
+    assert page is real
+    assert inner.calls == [jobs[0].url]  # 短缓存未挡住回源
+    # 第二次调用：有效缓存命中，不回源
+    await loader(jobs[0].url)
+    assert inner.calls == [jobs[0].url]

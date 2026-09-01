@@ -21,6 +21,7 @@ from typing import Protocol
 from urllib import request as url_request
 from urllib.error import URLError
 
+from web_task_agent.browser import MIN_USEFUL_CONTENT_CHARS
 from web_task_agent.keywords import AI_JOB_KEYWORDS, INTERN_TITLE_KEYWORDS
 
 # 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
@@ -127,11 +128,8 @@ def build_discovered_page(job: DiscoveredJob) -> "object":
     )
 
 
-# 低于该长度的正文视为"无有效内容"（美团/腾讯 SPA 返回 4~11 字符的壳；
-# 实测 job-radar 的 jd_text 中位数仅 46 字符——基本全是"标题+部门+城市"，
-# 50 门槛会把这类无信息内容和第三方站的浏览器兼容提示（98 字符）放进管线，
-# 诱发 LLM 幻觉 JD，复现实录 #21）
-MIN_USEFUL_CONTENT_CHARS = 120
+# MIN_USEFUL_CONTENT_CHARS 统一定义在 browser.py（抓取与缓存两条路径共用，
+# #25：门槛收紧前写入的旧壳页缓存曾绕过门槛，空壳页互判重复）
 
 
 class AggregatorPageLoader:
@@ -167,10 +165,13 @@ class AggregatorPageLoader:
                 raise PageEmptyError(f"no loader for non-aggregator URL: {url}")
             return await self._http_loader(url)
 
-        # 1. 缓存
+        # 1. 缓存（命中也过内容门槛——旧壳页缓存不生效，#25）
         if self._repository is not None:
             cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
-            if cached is not None:
+            if (
+                cached is not None
+                and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS
+            ):
                 self._record(url, "cache")
                 return cached
 

@@ -17,6 +17,14 @@ from web_task_agent.search_discovery import discover_job_links
 PageLoader = Callable[[str], Awaitable[BrowserPage]]
 SessionFactory = Callable[[], Any]
 
+# 低于该长度的正文视为"无有效内容"（美团/腾讯 SPA 返回 4~11 字符的壳；
+# 实测 job-radar 的 jd_text 中位数仅 46 字符——基本全是"标题+部门+城市"，
+# 50 门槛会把这类无信息内容和第三方站的浏览器兼容提示（98 字符）放进管线，
+# 诱发 LLM 幻觉 JD，复现实录 #21）。
+# 缓存命中路径（CachedPageLoader / AggregatorPageLoader）同样要过这道门槛，
+# 否则门槛收紧前写入的旧壳页会在 TTL 内继续生效（#25）。
+MIN_USEFUL_CONTENT_CHARS = 120
+
 
 class BrowserConfigurationError(RuntimeError):
     """Raised when the real browser adapter cannot run a requested action."""
@@ -233,7 +241,13 @@ class CachedPageLoader:
 
     async def __call__(self, url: str) -> BrowserPage:
         cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
-        if cached is not None:
+        # 缓存命中也要过内容门槛：门槛收紧（50→120，#21）前写入的旧壳页
+        # （腾讯 SPA 11 字符、第三方站兼容提示 98 字符）在 TTL 内仍会命中，
+        # 空壳页抽出相同 title 后互判重复（#25）。低于门槛视为缓存失效重新抓取。
+        if (
+            cached is not None
+            and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS
+        ):
             return cached
         page = await self._loader(url)
         self._repository.cache_page(page)
