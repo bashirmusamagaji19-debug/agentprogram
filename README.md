@@ -186,6 +186,29 @@ API key。批准后使用 `approval_id` 作为业务数据库幂等键；即使 
 0，重复副作用为 0。该评测使用受控 fixture，不衡量真实招聘网站抽取质量。本功能不需要 GPU、
 云服务器或模型训练。
 
+## 中文岗位真实使用
+
+面向国内招聘站点的真实可用管线（实施记录见 `docs/superpowers/plans/2026-08-31-chinese-job-pipeline.md` 与 `docs/work-log/2026-08-31-*.md`）：
+
+- **数据源**：GitHub 聚合仓库（job-radar 的 `data/jobs.json`，3704 条中按"实习+AI 方向"过滤）通过 `--from-aggregator` 接入；不依赖浏览器登录、验证码或指纹伪装。
+- **内容解析链**：页面缓存（24h TTL，命中过内容门槛）→ 官方 API（腾讯 careers/join.qq.com、美团）→ HTTP 直抓（≥120 字符才算有效）→ 聚合源 jd_text 兜底（同门槛）；每条 URL 记录实际策略到 resolution_log，失败诚实进分类，不伪造内容。
+- **中文化抽取与匹配**：LLM 抽取 schema 含 `skills: string[]`；规则抽取支持中文标签行与 section 式版式（"任职要求："为空值标题行）；技能别名表（大模型↔LLM、检索增强↔RAG 等 18 组）+ ASCII 缩写字母数字边界匹配；岗位 skills 为编号长句时降级为 JD 文本技能词扫描。
+- **匹配口径（16 条人工标注集，`--evaluate-matcher`，样本量小、仅代表该标注分布）**：规则 0.94 / 纯 LLM 0.81 / 混合（规则优先 + LLM 兜底 + 乐观偏差折减 0.55）0.94。纯 LLM 在"方向不匹配但技能词有交集"的岗位上系统性抬分，折减治理修 2/3 个乐观错误并保留语义边界召回；评测报告版本化在 `docs/results/matcher-evaluation/`。
+- **端到端（合成简历，24 岗池）**：4 份差异化合成简历跑全链路，Java 后端/投资岗全 0 的负向对照稳定，算法研究岗 vs 应用开发简历在折减治理后从虚高 0.72 回落到 0.37。人工复核 Top-5 值得投 2 个（假阴性 0：值得投的岗位全部排在 Top-3）——不达"≥3"口径的归因是岗位池结构（研究课题岗占约半数、应用开发岗供给少），不是排序失真。**本轮为管线验证，未使用真实简历**。
+
+```powershell
+# 聚合源端到端（qwen 抽取兜底 + 语义匹配兜底）
+.\.venv\Scripts\web-task-agent.exe --from-aggregator jobs.json --aggregator-limit 24 `
+  --llm-extractor-provider qwen --llm-match --llm-match-provider qwen `
+  --resume-file .\resume.md
+
+# 匹配器三口径评测（规则 / 纯 LLM / 混合，消耗 API）
+.\.venv\Scripts\web-task-agent.exe --evaluate-matcher --llm-match-provider qwen `
+  --evaluation-dir docs\results\matcher-evaluation
+```
+
+**已知边界**（诚实记录，不夸大泛化）：wecruit.hotjob.cn 类第三方站为 JS 壳无官方 API，失败分类兜底；网易 hr.163.com 页面可达但抽取字段质量不稳定；join.qq.com 校招接口依赖其前端未公开承诺的稳定性；标注集 16 条与合成简历结论不代表全量中文招聘站分布。
+
 ## 真实 browser-use adapter 状态
 
 非 `--demo` 模式会走 `BrowserUseClient`，通过 `browser_use.BrowserSession` 打开搜索页并读取页面标题和正文。这个路径用于下一阶段真实网页接入；当前推荐演示和评测仍使用 `--demo`，因为它不依赖登录、验证码、反爬策略或外部网页结构变化。
