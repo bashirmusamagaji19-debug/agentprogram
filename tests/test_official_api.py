@@ -172,6 +172,73 @@ async def test_lookalike_host_not_matched():
 
 
 @pytest.mark.asyncio
+async def test_careers_e1005_falls_back_to_campus_api(monkeypatch: pytest.MonkeyPatch):
+    """社招库 E1005 的岗（青云计划）→ join.qq.com 校招库兜底（阶段 6A）。"""
+    calls: list[str] = []
+    campus_payload = {
+        "data": {
+            "title": "混元多模态-大模型数据挖掘与合成技术研究",
+            "workCityList": ["深圳总部"],
+            "topicDetail": "课题背景：高质量数据是大模型上限的核心壁垒。",
+            "topicRequirement": "学历要求：计算机相关专业的博士/优秀硕士。",
+        }
+    }
+
+    def fake_open_json(self, req):  # noqa: ANN001
+        calls.append(req.full_url)
+        if "careers.tencent.com" in req.full_url:
+            # 与真实 E1005 行为一致：_open_json 已把它分类为岗位不可用
+            raise OfficialApiUnavailableError(
+                f"official API says post unavailable (E1005): {req.full_url}"
+            )
+        return json.loads(json.dumps(campus_payload))
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.OfficialApiContentFetcher._open_json",
+        fake_open_json,
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    content = await fetcher.fetch(
+        "https://careers.tencent.com/jobdesc.html?postId=1231829074687944725"
+    )
+
+    assert len(calls) == 2  # careers 一跳 + campus 一跳
+    assert "join.qq.com" in calls[1]
+    assert "公司：腾讯" in content.content
+    assert "工作地点：深圳总部" in content.content
+    assert "课题背景" in content.content
+    assert "博士" in content.content
+    assert content.title == "混元多模态-大模型数据挖掘与合成技术研究"
+
+
+@pytest.mark.asyncio
+async def test_campus_api_empty_data_raises_unavailable(monkeypatch: pytest.MonkeyPatch):
+    """两库都查不到 → OfficialApiUnavailableError（诚实失败，不伪装）。"""
+    calls: list[str] = []
+
+    def fake_open_json(self, req):  # noqa: ANN001
+        calls.append(req.full_url)
+        if "careers.tencent.com" in req.full_url:
+            raise OfficialApiUnavailableError(f"unavailable: {req.full_url}")
+        return {"data": None}
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.OfficialApiContentFetcher._open_json",
+        fake_open_json,
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    with pytest.raises(OfficialApiUnavailableError, match="tencent campus detail empty"):
+        await fetcher.fetch(
+            "https://careers.tencent.com/jobdesc.html?postId=000000"
+        )
+    # 确认两库都真实尝试过，而非第一跳直接外抛
+    assert len(calls) == 2
+    assert "join.qq.com" in calls[1]
+
+
+@pytest.mark.asyncio
 async def test_official_api_content_rule_extractable(monkeypatch: pytest.MonkeyPatch):
     """官方 API 正文格式可被规则抽取命中——不再每岗强制 LLM 抽取（复现实录 #19）。"""
     from web_task_agent.extractor import PageExtractor

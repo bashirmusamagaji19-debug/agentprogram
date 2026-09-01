@@ -4,9 +4,12 @@
 - 聚合仓库（job-radar）给出的官方详情页（zhaopin.meituan.com、careers.tencent.com
   等）全部是 JS 渲染 SPA，HttpPageLoader 返回空正文（5/5 empty_page）
 - 但大厂官方招聘 API 是公开 JSON 接口，无鉴权，返回完整 JD 字段：
-  - 腾讯: GET /tencentcareer/api/post/ByPostId?postId=…&language=zh-cn
+  - 腾讯社招: GET /tencentcareer/api/post/ByPostId?postId=…&language=zh-cn
       （PostId 从详情页 URL ?postId= 提取；已下线岗位返回 Code=500/E1005，
        表现为 HTTPError 500——诚实走失败分类，不伪装）
+  - 腾讯校招: GET https://join.qq.com/api/v1/jobDetails/getJobDetailsByPostId?postId=…
+      （青云计划等校招/实习岗在 careers 社招库必 E1005，但 postId 命名空间互通——
+       阶段 6 发现，覆盖聚合源 91% 的腾讯岗位池）
   - 美团: POST /api/official/job/getJobList（body 指定 keywords/jobTypeList），
       列表响应自带 jobDuty/jobRequirement——按 jobUnionId 过滤出目标岗位
 
@@ -23,6 +26,9 @@ from urllib import request as url_request
 from urllib.error import URLError
 
 from web_task_agent.browser import PageHttpError, PageTimeoutError
+
+# 腾讯校招库详情接口（join.qq.com，公开无鉴权）
+_TENCENT_CAMPUS_DETAIL_API = "https://join.qq.com/api/v1/jobDetails/getJobDetailsByPostId"
 
 
 class UnsupportedOfficialApiError(RuntimeError):
@@ -70,7 +76,12 @@ class OfficialApiContentFetcher:
             "https://careers.tencent.com/tencentcareer/api/post/ByPostId"
             f"?postId={url_parse.quote(post_id)}&language=zh-cn"
         )
-        payload = self._get_json(api_url, referer="https://careers.tencent.com/")
+        try:
+            payload = self._get_json(api_url, referer="https://careers.tencent.com/")
+        except OfficialApiUnavailableError:
+            # 社招库查不到（E1005）→ 大概率是校招/实习岗（青云计划等），
+            # 落到 join.qq.com 校招库（postId 命名空间互通）
+            return self._fetch_tencent_campus(post_id)
         code = payload.get("Code")
         data = payload.get("Data")
         if code != 200 or not isinstance(data, dict):
@@ -101,6 +112,46 @@ class OfficialApiContentFetcher:
             content=content,
             title=title,
             company=company,
+        )
+
+    # ── 腾讯校招库：join.qq.com（青云计划等 careers 查不到的岗）─────────
+
+    def _fetch_tencent_campus(self, post_id: str) -> OfficialApiContent:
+        """join.qq.com 校招库详情：topicDetail（课题）+ topicRequirement（要求）。
+
+        careers ByPostId E1005 的岗大多在这里——两库 postId 互通。
+        """
+        api_url = (
+            f"{_TENCENT_CAMPUS_DETAIL_API}?"
+            f"postId={url_parse.quote(post_id)}"
+        )
+        payload = self._get_json(api_url, referer="https://join.qq.com/")
+        data = payload.get("data")
+        if not isinstance(data, dict) or not data:
+            raise OfficialApiUnavailableError(
+                f"tencent campus detail empty for postId={post_id}"
+            )
+
+        title = str(data.get("title") or "").strip()
+        # 标准标签行（与社招/美团一致的格式约定，规则抽取直接命中——见 #19）
+        labeled = ["公司：腾讯"]
+        work_cities = "、".join(
+            str(c).strip() for c in (data.get("workCityList") or []) if str(c).strip()
+        )
+        if work_cities:
+            labeled.append(f"工作地点：{work_cities}")
+        for label, key in (("岗位职责", "topicDetail"), ("任职要求", "topicRequirement")):
+            section = str(data.get(key) or "").strip()
+            if section:
+                labeled.append(f"{label}：\n{section}")
+        if len(labeled) <= 1:
+            raise OfficialApiUnavailableError(
+                f"tencent campus detail has no JD content for postId={post_id}"
+            )
+        return OfficialApiContent(
+            content="\n".join(labeled),
+            title=title,
+            company="腾讯",
         )
 
     # ── 美团：列表接口按 jobUnionId 过滤（响应自带 jobDuty/jobRequirement）──
