@@ -62,12 +62,17 @@ class JobMatcher:
                 }
                 llm_fields = self._llm_matcher(llm_payload)
                 # 乐观偏差治理（#24）：规则低分说明关键词证据不足，
-                # LLM 高分折减后采用——防止"会 Python"就在无关岗位上抬分
-                llm_score = round(
-                    float(llm_fields.get("score", rule_result.score)) * self._llm_discount, 2
+                # LLM 高分折减后采用——防止"会 Python"就在无关岗位上抬分。
+                # 下限取规则分（#27）：规则分是真实关键词证据，折减只压 LLM 的
+                # 抬分部分——规则 [0.4,0.6) 的岗位不得被折减翻成 no_match。
+                # LLM 未返回 score 时沿用规则分，不做折减也不加标注
+                # （守卫与取值用同一默认值，#27 修复前两处默认不一致）。
+                raw_llm_score = float(llm_fields.get("score", rule_result.score))
+                llm_score = max(
+                    rule_result.score, round(raw_llm_score * self._llm_discount, 2)
                 )
                 llm_reason = str(llm_fields.get("reason", rule_result.reason))
-                if llm_score < float(llm_fields.get("score", 0)):
+                if llm_score < raw_llm_score:
                     llm_reason = (
                         f"{llm_reason}（规则关键词命中不足，LLM 分数已折减 "
                         f"{self._llm_discount:.2f}）"

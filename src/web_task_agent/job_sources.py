@@ -185,10 +185,16 @@ class AggregatorPageLoader:
                 else:
                     self._record(url, "official-api:unsupported")
             else:
-                page = self._to_page(url, content.content, content.title, "official-api")
-                self._cache(url, page)
-                self._record(url, "official-api")
-                return page
+                # 与 http/jd_text 路径同一门槛（#27）：短官方 API 正文既不能
+                # 进管线（100~119 字符区间绕过 extractor 的 LLM 幻觉护栏），
+                # 也不能写缓存——否则门槛检查会让该 URL 的缓存永远失效，
+                # 每次运行都重调官方 API
+                if len(content.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                    page = self._to_page(url, content.content, content.title, "official-api")
+                    self._cache(url, page)
+                    self._record(url, "official-api")
+                    return page
+                self._record(url, "official-api:too-short")
 
         # 3. HttpPageLoader（服务端渲染站点可直达）
         if self._http_loader is not None:

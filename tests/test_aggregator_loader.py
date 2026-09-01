@@ -27,7 +27,8 @@ class FakeOfficialApi:
             raise OfficialApiUnavailableError(f"unavailable: {url}")
 
         class _Content:
-            content = "岗位职责：官方API正文，长度超过五十个字符阈值，用于确认解析链命中官方接口路径。" * 2
+            # 正文必须过 120 字符门槛（#27 起官方 API 路径与 http/jd_text 同门槛）
+            content = "岗位职责：官方API正文，长度需要超过一百二十个字符的有效内容门槛，用于确认解析链命中官方接口路径，这里持续填充内容确保长度达标，保证测试稳定不抖动不误报。" * 2
             title = "官方API标题"
             company = "官方公司"
 
@@ -269,3 +270,36 @@ async def test_cachedpageloader_ignores_below_threshold_cache(jobs, repo):
     # 第二次调用：有效缓存命中，不回源
     await loader(jobs[0].url)
     assert inner.calls == [jobs[0].url]
+
+
+@pytest.mark.asyncio
+async def test_official_api_short_content_falls_through_without_caching(jobs, repo):
+    """官方 API 短正文（<120 字符）不得进管线也不得写缓存，落后续兜底（#27）。"""
+    class ShortOfficialApi:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def fetch(self, url: str):  # noqa: ANN201
+            self.calls.append(url)
+
+            class _Content:
+                content = "公司：腾讯\n工作地点：深圳"  # 15 字符壳
+                title = "壳岗"
+                company = "腾讯"
+
+            return _Content()
+
+    official = ShortOfficialApi()
+    loader = AggregatorPageLoader(
+        jobs, official_api=official, http_loader=None, repository=repo
+    )
+
+    page = await loader(jobs[0].url)
+
+    # 短正文被门槛挡下 → 落到够长的 jd_text 兜底
+    assert page.source.startswith("aggregator:")
+    assert loader.resolution_log[-2]["strategy"] == "official-api:too-short"
+    # 缓存里不得是 official-api 的短壳——否则该 URL 缓存永远失效、
+    # 每次运行重调 API（#27）；有效 jd_text 兜底页允许写缓存
+    cached = repo.get_cached_page(jobs[0].url, max_age_hours=24)
+    assert cached is not None and "公司：腾讯" not in cached.content

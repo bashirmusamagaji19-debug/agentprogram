@@ -144,7 +144,9 @@ class OfficialApiContentFetcher:
             section = str(data.get(key) or "").strip()
             if section:
                 labeled.append(f"{label}：\n{section}")
-        if len(labeled) <= 1:
+        # 守卫要求至少一个 topic section 非空：只有"公司+城市"的壳正文
+        # （topic 字段全 null，约 15 字符）不得进入管线（#27）
+        if len(labeled) <= 2:
             raise OfficialApiUnavailableError(
                 f"tencent campus detail has no JD content for postId={post_id}"
             )
@@ -245,7 +247,10 @@ class OfficialApiContentFetcher:
                     body = exc.read().decode("utf-8", errors="replace")[:200]
                 except Exception:  # noqa: BLE001
                     pass
-                if '"Code":500' in body or "E1005" in body:
+                # 只认 E1005 业务错误码：Code:500 是腾讯通用错误壳，
+                # 瞬时 500 也带它——用 Code 判定会把可重试错误误判为岗位下线
+                # 并错误触发 join.qq.com 第二跳（#27）
+                if "E1005" in body:
                     raise OfficialApiUnavailableError(
                         f"official API says post unavailable (E1005): {req.full_url}"
                     ) from exc

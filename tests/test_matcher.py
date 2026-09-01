@@ -1,4 +1,5 @@
 from web_task_agent.matcher import JobMatcher
+import pytest
 from web_task_agent.models import JobPosting, UserProfile
 
 
@@ -145,3 +146,56 @@ def test_matcher_falls_back_to_rule_when_llm_errors():
 
     assert result.score == 0.0  # rule result
     assert result.priority == "low"
+
+
+# ── 折减分支边界（#27 修复的三个缺口）────────────────────────────────
+
+
+def test_llm_missing_score_keeps_rule_score_without_discount_note():
+    """LLM 返回缺 score 键：沿用规则分，不折减也不加折减标注（#27）。"""
+    def no_score_llm(payload: dict) -> dict:
+        return {"reason": "LLM 判断", "priority": "high"}  # 缺 score
+
+    matcher = JobMatcher(llm_matcher=no_score_llm)
+    user = UserProfile(keyword="AI", skills=["Python"], resume_text="")
+    job = make_job(title="无关岗", skills=["测试", "Selenium", "Python"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == pytest.approx(0.33)  # 规则分原样
+    assert "折减" not in result.reason
+    # priority 按规则分重算，不吃 LLM 自报的 high
+    assert result.priority == "low"
+
+
+def test_discount_never_below_rule_score():
+    """规则 [0.4,0.6) 有真实关键词证据：折减不得把分数压到规则分以下（#27）。"""
+    def llm(payload: dict) -> dict:
+        return {"score": 0.7, "reason": "勉强", "priority": "medium"}
+
+    matcher = JobMatcher(llm_matcher=llm)
+    user = UserProfile(keyword="AI", skills=["Python", "大模型"], resume_text="")
+    job = make_job(skills=["Python", "大模型", "SQL"])  # 规则 2/3 = 0.67? 不触发兜底
+    # 需要规则分落在 [0.4, 0.6)：3 选 2 是 0.67，改 5 选 2 = 0.4
+    job = make_job(skills=["Python", "大模型", "SQL", "风控", "爬虫"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == pytest.approx(0.40)  # max(规则 0.4, 0.7*0.55=0.385)
+    assert result.score >= 0.40  # 不得翻成 no_match
+    assert "折减" in result.reason  # LLM 分确实被折了，标注保留
+
+
+def test_discount_param_is_configurable():
+    """llm_discount 构造参数可配置（此前全仓库无测试传入）。"""
+    def llm(payload: dict) -> dict:
+        return {"score": 0.8, "reason": "r", "priority": "high"}
+
+    matcher = JobMatcher(llm_matcher=llm, llm_discount=1.0)
+    user = UserProfile(keyword="AI", skills=["Python"], resume_text="")
+    job = make_job(skills=["FastAPI", "SQL"])
+
+    result = matcher.match(user=user, job=job)
+
+    assert result.score == pytest.approx(0.8)  # 不折减
+    assert "折减" not in result.reason

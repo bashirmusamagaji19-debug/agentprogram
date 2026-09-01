@@ -471,7 +471,21 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
             return 2
 
     rule_matcher = JobMatcher()
-    hybrid_matcher = JobMatcher(llm_matcher=llm_matcher) if llm_matcher is not None else None
+    if llm_matcher is not None:
+        # 纯 LLM 口径与混合口径共用同一 llm_matcher：同一行规则低分样本会被
+        # 各调一次（24 次/16 条），且两次响应可能不同导致三列不自洽——
+        # 评测内按 payload 记忆化，两口径共享同一次响应（#27）
+        memo: dict[str, dict] = {}
+
+        def memoized_llm_matcher(payload: dict) -> dict:
+            key = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+            if key not in memo:
+                memo[key] = llm_matcher(payload)
+            return memo[key]
+
+    hybrid_matcher = (
+        JobMatcher(llm_matcher=memoized_llm_matcher) if llm_matcher is not None else None
+    )
 
     rows: list[dict] = []
     llm_call_errors = 0
@@ -506,7 +520,7 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
         # llm_score 实为规则分，"LLM 准确率" 变成混合口径（复现实录 #20）
         if llm_matcher is not None:
             try:
-                llm_fields = llm_matcher(
+                llm_fields = memoized_llm_matcher(
                     {
                         "user_skills": ", ".join(user.skills),
                         "user_resume": user.resume_text,
@@ -564,6 +578,9 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
             round(hybrid_correct / len(hybrid_scored), 2) if hybrid_scored else 0.0
         )
         summary["hybrid_correct"] = hybrid_correct
+        # 分母与 llm 口径对齐（剔除 LLM 调用失败行）——展示分母若用 total，
+        # 会出现 accuracy=1.00 却写 (15/16) 的自相矛盾（#27）
+        summary["hybrid_scored"] = len(hybrid_scored)
         summary["disagreements"] = [
             {"id": r["id"], "note": r["note"], "label": r["label"], "row": r}
             for r in rows
@@ -582,7 +599,7 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
         )
         print(
             f"  hybrid accuracy: {summary['hybrid_accuracy']:.2f} "
-            f"({summary['hybrid_correct']}/{total})"
+            f"({summary['hybrid_correct']}/{summary['hybrid_scored']})"
         )
         if llm_call_errors:
             print(f"  llm call errors: {llm_call_errors} (excluded from accuracy)")
@@ -618,7 +635,7 @@ def write_matcher_evaluation_report(
         )
         lines.append(
             f"- 混合匹配准确率（规则优先 + LLM 兜底 + 乐观偏差折减 0.55）: **{summary['hybrid_accuracy']:.2f}** "
-            f"({summary['hybrid_correct']}/{summary['total']})"
+            f"({summary['hybrid_correct']}/{summary['hybrid_scored']})"
         )
         if summary.get("llm_call_errors"):
             lines.append(

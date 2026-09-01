@@ -311,3 +311,66 @@ def test_timeout_maps_to_page_timeout_error():
     req = url_request.Request("https://10.255.255.1/nonexistent")
     with pytest.raises(PageTimeoutError):
         fetcher._open_json(req)
+
+
+@pytest.mark.asyncio
+async def test_campus_all_topic_fields_null_raises_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """topicDetail/topicRequirement 全 null：只有"公司+城市"的壳正文不得返回（#27）。"""
+    campus_payload = {
+        "data": {
+            "title": "壳岗",
+            "workCityList": ["深圳总部"],
+            "topicDetail": None,
+            "topicRequirement": None,
+        }
+    }
+
+    def fake_open_json(self, req):  # noqa: ANN001
+        if "careers.tencent.com" in req.full_url:
+            raise OfficialApiUnavailableError(f"unavailable: {req.full_url}")
+        return json.loads(json.dumps(campus_payload))
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.OfficialApiContentFetcher._open_json",
+        fake_open_json,
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    with pytest.raises(OfficialApiUnavailableError):
+        await fetcher.fetch(
+            "https://careers.tencent.com/jobdesc.html?postId=1231829074687944725"
+        )
+
+
+@pytest.mark.asyncio
+async def test_generic_code_500_without_e1005_does_not_fall_back_to_campus(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """瞬时 500（Code:500 壳但无 E1005）是服务器错误，不得误触发校招第二跳（#27）。"""
+    import io
+
+    calls: list[str] = []
+
+    def fake_urlopen(req, timeout: float = 0):  # noqa: ANN001, ARG001
+        calls.append(req.full_url)
+        raise HTTPError(
+            req.full_url,
+            500,
+            "Internal Server Error",
+            hdrs=None,
+            fp=io.BytesIO(b'{"Code":500,"CodeDesc":"ServerError","Data":null}'),
+        )
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.url_request.urlopen", fake_urlopen
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    with pytest.raises(PageHttpError):
+        await fetcher.fetch(
+            "https://careers.tencent.com/jobdesc.html?postId=2084123456789012345"
+        )
+
+    assert len(calls) == 1  # 只有一跳，没有 join.qq.com 兜底
