@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+import asyncio
+import os
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from web_task_agent.streamlit_runner import (
+    UiRequestError,
+    UiRunRequest,
+    UiRunResult,
+    decode_resume_upload,
+    parse_seed_urls,
+    parse_skills,
+    read_download_artifact,
+    run_ui_request,
+)
+
+PRIORITY_LABELS = {"high": "高", "medium": "中", "low": "低"}
+ARTIFACT_SPECS = {
+    "json": ("下载 JSON", "application/json"),
+    "report": ("下载 Markdown 报告", "text/markdown"),
+    "dashboard": ("下载 HTML Dashboard", "text/html"),
+    "action_plan": ("下载行动计划", "text/markdown"),
+}
+
+
+def job_result_rows(result: UiRunResult) -> list[dict[str, Any]]:
+    matches = {match.job_id: match for match in result.matches}
+    rows: list[dict[str, Any]] = []
+    for job in result.jobs:
+        match = matches.get(job.url)
+        rows.append(
+            {
+                "岗位": job.title,
+                "公司": job.company,
+                "地点": job.location,
+                "匹配分": match.score if match else 0.0,
+                "优先级": PRIORITY_LABELS.get(match.priority, match.priority) if match else "-",
+                "匹配技能": "、".join(match.matched_skills) if match else "-",
+                "缺失技能": "、".join(match.missing_skills) if match else "-",
+                "岗位链接": job.url,
+            }
+        )
+    return rows
+
+
+def diagnostic_rows(result: UiRunResult) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in result.diagnostics:
+        raw_error = str(item.get("error", "unknown"))
+        category, separator, detail = raw_error.partition(":")
+        rows.append(
+            {
+                "类别": category.strip(),
+                "目标": str(item.get("url", "")),
+                "详情": detail.strip() if separator else raw_error,
+            }
+        )
+    return rows
+
+
+def artifact_download_spec(
+    result: UiRunResult,
+    artifact_key: str,
+) -> tuple[str, str, str, bytes]:
+    label, mime = ARTIFACT_SPECS[artifact_key]
+    file_name, content = read_download_artifact(result, artifact_key)
+    return label, file_name, mime, content
+
+
+def main() -> None:
+    import streamlit as st
+
+    st.set_page_config(page_title="岗位 Agent 运行台", layout="wide")
+    st.title("岗位 Agent 运行台")
+
+    with st.sidebar:
+        st.subheader("运行设置")
+        mode_label = st.segmented_control(
+            "数据模式",
+            ["内置 Demo", "聚合岗位 JSON", "指定岗位 URL"],
+            default="内置 Demo",
+        )
+        use_llm_extractor = st.toggle("LLM 抽取", value=False)
+        extractor_provider = (
+            st.selectbox("抽取模型", ["qwen", "deepseek"])
+            if use_llm_extractor
+            else None
+        )
+        use_llm_match = st.toggle("LLM 匹配", value=False)
+        match_provider = (
+            st.selectbox("匹配模型", ["qwen", "deepseek"])
+            if use_llm_match
+            else None
+        )
+
+    with st.form("agent-run-form"):
+        first, second = st.columns(2)
+        with first:
+            keyword = st.text_input("岗位关键词", value="AI Agent 实习")
+            skills_text = st.text_input("技能标签", value="Python, LangGraph, RAG")
+        with second:
+            location = st.text_input("地点", value="全国")
+            target_count = st.number_input(
+                "目标岗位数", min_value=1, max_value=50, value=10, step=1
+            )
+
+        resume_text = st.text_area("简历文本", height=180)
+        resume_upload = st.file_uploader("简历文件", type=["md", "txt"])
+        aggregator_upload = None
+        seed_url_text = ""
+        if mode_label == "聚合岗位 JSON":
+            aggregator_upload = st.file_uploader("岗位聚合文件", type=["json"])
+        elif mode_label == "指定岗位 URL":
+            seed_url_text = st.text_area("岗位 URL", height=120)
+        submitted = st.form_submit_button("开始搜索", type="primary", width="stretch")
+
+    if submitted:
+        temporary_path: Path | None = None
+        try:
+            combined_resume = resume_text.strip()
+            if resume_upload is not None:
+                uploaded_resume = decode_resume_upload(resume_upload.getvalue())
+                combined_resume = "\n\n".join(
+                    chunk for chunk in (combined_resume, uploaded_resume) if chunk
+                )
+            if aggregator_upload is not None:
+                with tempfile.NamedTemporaryFile(
+                    prefix="job-agent-", suffix=".json", delete=False
+                ) as temporary_file:
+                    temporary_file.write(aggregator_upload.getvalue())
+                    temporary_path = Path(temporary_file.name)
+
+            request = UiRunRequest(
+                keyword=keyword,
+                location=location,
+                target_count=int(target_count),
+                skills=parse_skills(skills_text),
+                resume_text=combined_resume,
+                data_mode={
+                    "内置 Demo": "demo",
+                    "聚合岗位 JSON": "aggregator",
+                    "指定岗位 URL": "seed_urls",
+                }[mode_label or "内置 Demo"],
+                aggregator_path=str(temporary_path) if temporary_path else None,
+                seed_urls=parse_seed_urls(seed_url_text),
+                llm_extractor_provider=extractor_provider,
+                llm_match_provider=match_provider,
+            )
+            with st.spinner("Agent 正在运行..."):
+                st.session_state["latest_ui_result"] = asyncio.run(
+                    run_ui_request(request, environ=os.environ)
+                )
+        except (UiRequestError, ValueError, OSError) as exc:
+            st.error(str(exc))
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"任务运行失败：{type(exc).__name__}: {exc}")
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+    result = st.session_state.get("latest_ui_result")
+    if isinstance(result, UiRunResult):
+        _render_result(st, result)
+
+
+def _render_result(st: Any, result: UiRunResult) -> None:
+    st.subheader("运行结果")
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("有效岗位", result.metrics.valid_jobs)
+    metric_columns[1].metric("访问页面", result.metrics.pages_visited)
+    metric_columns[2].metric("失败页面", result.metrics.failed_pages)
+    metric_columns[3].metric("重复岗位", result.metrics.duplicate_jobs)
+
+    jobs_tab, diagnostics_tab, trace_tab, downloads_tab = st.tabs(
+        ["岗位结果", "失败与诊断", "执行轨迹", "下载"]
+    )
+    with jobs_tab:
+        rows = job_result_rows(result)
+        if rows:
+            st.dataframe(
+                rows,
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "匹配分": st.column_config.ProgressColumn(min_value=0.0, max_value=1.0),
+                    "岗位链接": st.column_config.LinkColumn(display_text="打开"),
+                },
+            )
+        else:
+            st.info("未找到有效岗位。")
+    with diagnostics_tab:
+        rows = diagnostic_rows(result)
+        if rows:
+            st.dataframe(rows, width="stretch", hide_index=True)
+        else:
+            st.success("本次运行没有页面级失败。")
+    with trace_tab:
+        if result.execution_trace:
+            st.dataframe(result.execution_trace, width="stretch", hide_index=True)
+        else:
+            st.info("本次运行没有执行轨迹。")
+    with downloads_tab:
+        for artifact_key in ARTIFACT_SPECS:
+            if artifact_key not in result.artifacts:
+                continue
+            label, file_name, mime, content = artifact_download_spec(result, artifact_key)
+            st.download_button(
+                label,
+                data=content,
+                file_name=file_name,
+                mime=mime,
+                key=f"download-{result.run_id}-{artifact_key}",
+            )
+
+
+if __name__ == "__main__":
+    main()
