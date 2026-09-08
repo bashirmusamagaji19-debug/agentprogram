@@ -21,6 +21,8 @@
 - 云端部署:share.streamlit.io,仓库 `bashirmusamagaji19-debug/agentprogram`,分支 `feature/chinese-job-pipeline`,入口 `streamlit_app.py`,Python 3.12。
 - 公开可见性:Settings → Sharing → "This app is public and searchable" + Save;**用户无痕窗口(无登录态)确认可直接打开**。
 - Demo 模式:用户在云端页面运行内置 Demo 正常。
+- **LLM(qwen)模式云端实测通过**(run-1036e3de):Demo 数据 + 用户简历文本,LLM 匹配开启。证据:①第 3 条匹配 reason 为长篇语义分析(对照简历与 VLM 岗位需求的技能差距判断),区别于规则模板句;②折减标记"(规则关键词命中不足,LLM 分数已折减 0.55)",0.33 = LLM 原始分 0.6 × 0.55,与标注集评测的混合口径折减系数一致(story #24 仲裁逻辑云端生效);前两条 0.67 走规则路径未调 LLM,分层按预期。用户在平台 Secrets 配置 `DASHSCOPE_API_KEY`,`sync_provider_secrets()` 接管注入(首次失败原因是 Secrets 未配置,链路经本地真文件端到端复现排除代码问题)。
+- 本地真文件端到端复现:临时 `~/.streamlit/secrets.toml` + 假 key → `st.secrets` 解析 → `sync_provider_secrets()` 注入 → 校验通过,排除 mock 盲区。
 
 ## 过程教训(详见 `docs/interview-debugging-stories.md` #30-#32)
 
@@ -30,7 +32,7 @@
 
 ## 未验证项 / 诚实边界
 
-- LLM(qwen)模式未在云端实测(用户未配 Secrets);配置路径已由单测覆盖,配置后即可用。
+- deepseek provider 未在云端实测(Secrets 未配置 DEEPSEEK_API_KEY);同一同步路径已由 qwen 验证。
 - 云端出口 IP 对国内招聘站的可达性未测;云端演示以 Demo / 聚合 JSON / 上传模式为主,不依赖实时爬站。
 - health 端点的外部自动化监控不可行(平台门禁),公开验证以真实浏览器无痕窗口为准。
 - `streamlit-runs/` 与 SQLite 在云端为单实例临时状态,重启即失(README 既有声明,不变)。
