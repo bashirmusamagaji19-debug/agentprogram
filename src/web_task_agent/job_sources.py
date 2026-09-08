@@ -190,7 +190,16 @@ class AggregatorPageLoader:
                 # 也不能写缓存——否则门槛检查会让该 URL 的缓存永远失效，
                 # 每次运行都重调官方 API
                 if len(content.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                    # canonical_url：内容实际来源的可浏览详情页（如腾讯校招岗
+                    # 内容来自 join.qq.com，careers 详情页对校招 postId 404）。
+                    # BrowserPage.url 保持"请求 URL"语义（缓存键/诊断一致），
+                    # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
+                    canonical = str(getattr(content, "canonical_url", "") or "").strip()
                     page = self._to_page(url, content.content, content.title, "official-api")
+                    if canonical and canonical != url:
+                        page = page.model_copy(
+                            update={"metadata": {**page.metadata, "canonical_url": canonical}}
+                        )
                     self._cache(url, page)
                     self._record(url, "official-api")
                     return page

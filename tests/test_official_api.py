@@ -374,3 +374,63 @@ async def test_generic_code_500_without_e1005_does_not_fall_back_to_campus(
         )
 
     assert len(calls) == 1  # 只有一跳，没有 join.qq.com 兜底
+
+
+@pytest.mark.asyncio
+async def test_campus_fallback_returns_canonical_join_page_url(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """校招库兜底成功时必须返回 join.qq.com 的可浏览详情页 URL——
+    实习岗 postId 在社招站页面 404（用户实录：结果页链接全是 404），
+    内容来自哪个库，链接就指向哪个库。"""
+    campus_payload = {
+        "data": {
+            "title": "混元多模态-大模型数据挖掘与合成技术研究",
+            "workCityList": ["深圳总部"],
+            "topicDetail": "课题背景：高质量数据是大模型上限的核心壁垒。",
+            "topicRequirement": "学历要求：计算机相关专业的博士/优秀硕士。",
+        }
+    }
+
+    def fake_open_json(self, req):  # noqa: ANN001
+        if "careers.tencent.com" in req.full_url:
+            raise OfficialApiUnavailableError(f"unavailable: {req.full_url}")
+        return json.loads(json.dumps(campus_payload))
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.OfficialApiContentFetcher._open_json",
+        fake_open_json,
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    content = await fetcher.fetch(
+        "https://careers.tencent.com/jobdesc.html?postId=1231829074687944725"
+    )
+
+    assert content.canonical_url == (
+        "https://join.qq.com/post_detail.html?postId=1231829074687944725"
+    )
+
+
+@pytest.mark.asyncio
+async def test_social_hit_keeps_original_url(monkeypatch: pytest.MonkeyPatch):
+    """社招库直接命中时 canonical_url 为空——careers 详情页本身就是有效页面。"""
+    monkeypatch.setattr(
+        "web_task_agent.official_api.OfficialApiContentFetcher._open_json",
+        lambda self, req: {
+            "Code": 200,
+            "Data": {
+                "RecruitPostName": "大模型算法工程师",
+                "ComName": "腾讯",
+                "Responsibility": "1、负责大模型研发。",
+                "Requirement": "1、硕士及以上学历。",
+            },
+        },
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    content = await fetcher.fetch(
+        "https://careers.tencent.com/jobdesc.html?postId=123456"
+    )
+
+    assert content.canonical_url == ""

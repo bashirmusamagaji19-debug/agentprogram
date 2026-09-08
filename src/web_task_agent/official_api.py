@@ -44,6 +44,10 @@ class OfficialApiContent:
     content: str
     title: str = ""
     company: str = ""
+    # 内容实际来源的可浏览详情页 URL。腾讯实习岗（青云计划）postId 在社招站
+    # 页面 404（用户实录），但内容来自 join.qq.com 校招库——此时必须把展示
+    # 链接改写为校招详情页，否则"内容验证通过、链接打不开"。
+    canonical_url: str = ""
 
 
 class OfficialApiContentFetcher:
@@ -154,6 +158,9 @@ class OfficialApiContentFetcher:
             content="\n".join(labeled),
             title=title,
             company="腾讯",
+            canonical_url=(
+                f"https://join.qq.com/post_detail.html?postId={url_parse.quote(post_id)}"
+            ),
         )
 
     # ── 美团：列表接口按 jobUnionId 过滤（响应自带 jobDuty/jobRequirement）──

@@ -1,7 +1,6 @@
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.models import BrowserPage
 
-
 LABELED_JOB_PAGE = BrowserPage(
     url="https://example.com/jobs/ai-engineering-intern",
     title="AI Engineering Intern at Example AI",
@@ -341,3 +340,28 @@ def test_extract_job_filters_non_string_skills_from_llm():
     job = PageExtractor(llm_field_extractor=fake_llm_extract).extract(page)
 
     assert job.skills == ["Python", "SQL"]
+
+
+def test_canonical_metadata_url_becomes_job_url():
+    """腾讯校招实录：内容来自 join.qq.com API，发现 URL（careers 详情页）
+    对校招 postId 404——JobPosting.url 必须落位为可浏览的 canonical_url。"""
+    from web_task_agent.extractor import PageExtractor
+    from web_task_agent.models import BrowserPage
+
+    content = (
+        "公司：腾讯\n"
+        "岗位职责：\n1、负责大模型数据挖掘与合成研究，构建高质量预训练与对齐数据管线，覆盖数据清洗、去重与配比实验。\n"
+        "任职要求：\n1、计算机相关专业硕士及以上学历，"
+        "熟悉 Python 与常见深度学习框架，有大模型数据建设经验者优先。\n"
+    )
+    page = BrowserPage(
+        url="https://careers.tencent.com/jobdesc.html?postId=123",
+        title="混元多模态-大模型数据挖掘与合成技术研究",
+        content=content,
+        source="official-api",
+        metadata={"canonical_url": "https://join.qq.com/post_detail.html?postId=123"},
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.url == "https://join.qq.com/post_detail.html?postId=123"

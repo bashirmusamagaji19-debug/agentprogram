@@ -303,3 +303,33 @@ async def test_official_api_short_content_falls_through_without_caching(jobs, re
     # 每次运行重调 API（#27）；有效 jd_text 兜底页允许写缓存
     cached = repo.get_cached_page(jobs[0].url, max_age_hours=24)
     assert cached is not None and "公司：腾讯" not in cached.content
+
+
+@pytest.mark.asyncio
+async def test_official_api_canonical_url_travels_through_metadata_and_cache(jobs, repo):
+    """官方 API 返回 canonical_url（如腾讯校招 join.qq.com 页）时：
+    - BrowserPage.url 保持发现 URL（缓存键/诊断语义不变）
+    - canonical 经 metadata 透传，缓存 TTL 内的重复运行不丢失
+    """
+    canonical_url = "https://join.qq.com/post_detail.html?postId=X"
+
+    class _CanonicalOfficialApi(FakeOfficialApi):
+        async def fetch(self, url):  # noqa: ANN001, ANN201
+            content = await super().fetch(url)
+            content.canonical_url = canonical_url
+            return content
+
+    loader = AggregatorPageLoader(
+        jobs, official_api=_CanonicalOfficialApi(), http_loader=FakeHttpLoader(), repository=repo
+    )
+
+    page = await loader(jobs[0].url)
+
+    assert page.url == jobs[0].url
+    assert page.metadata["canonical_url"] == canonical_url
+    assert loader.resolution_log[-1]["url"] == jobs[0].url
+    assert loader.resolution_log[-1]["strategy"] == "official-api"
+
+    # 缓存命中路径：canonical 仍在（不再调 API）
+    second = await loader(jobs[0].url)
+    assert second.metadata["canonical_url"] == canonical_url

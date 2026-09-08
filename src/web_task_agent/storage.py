@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from web_task_agent.models import BrowserPage, JobPosting, RunMetrics
 
@@ -73,10 +74,12 @@ class JobRepository:
                     content TEXT NOT NULL,
                     title TEXT NOT NULL,
                     source TEXT NOT NULL,
-                    fetched_at TEXT NOT NULL
+                    fetched_at TEXT NOT NULL,
+                    canonical_url TEXT NOT NULL DEFAULT ''
                 )
                 """
             )
+            self._migrate_page_cache(conn)
 
     def save_jobs(self, jobs: list[JobPosting]) -> None:
         with self._connection() as conn:
@@ -233,7 +236,11 @@ class JobRepository:
         )
 
     def get_cached_page(self, url: str, *, max_age_hours: float = 24.0) -> BrowserPage | None:
-        """命中且未过 TTL 的缓存页；过期或不存在返回 None（调用方重抓）。"""
+        """命中且未过 TTL 的缓存页；过期或不存在返回 None（调用方重抓）。
+
+        canonical_url（内容实际来源的可浏览详情页，见 job_sources 官方 API
+        分支）经 metadata 透传，缓存 TTL 内的重复运行保持链接可打开。
+        """
         row = self._fetch_cache_row(url)
         if row is None:
             return None
@@ -241,19 +248,24 @@ class JobRepository:
         age_hours = (datetime.now(UTC) - fetched_at).total_seconds() / 3600
         if age_hours > max_age_hours:
             return None
+        metadata: dict[str, Any] = {}
+        if row["canonical_url"]:
+            metadata["canonical_url"] = row["canonical_url"]
         return BrowserPage(
             url=row["url"],
             title=row["title"],
             content=row["content"],
             source=row["source"],
+            metadata=metadata,
         )
 
     def cache_page(self, page: BrowserPage) -> None:
         with self._connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO page_cache (url, content, title, source, fetched_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO page_cache
+                    (url, content, title, source, fetched_at, canonical_url)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     page.url,
@@ -261,13 +273,21 @@ class JobRepository:
                     page.title,
                     page.source,
                     datetime.now(UTC).isoformat(),
+                    str(page.metadata.get("canonical_url") or ""),
                 ),
             )
+
+    def _migrate_page_cache(self, conn: sqlite3.Connection) -> None:
+        """旧库补 canonical_url 列（每次运行独立建库，正常走新建分支）。"""
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(page_cache)")}
+        if "canonical_url" not in columns:
+            conn.execute("ALTER TABLE page_cache ADD COLUMN canonical_url TEXT NOT NULL DEFAULT ''")
 
     def _fetch_cache_row(self, url: str) -> sqlite3.Row | None:
         with self._connection() as conn:
             return conn.execute(
-                "SELECT url, content, title, source, fetched_at FROM page_cache WHERE url = ?",
+                "SELECT url, content, title, source, fetched_at, canonical_url"
+                " FROM page_cache WHERE url = ?",
                 (url,),
             ).fetchone()
 

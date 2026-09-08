@@ -6,8 +6,16 @@ from typing import Any
 
 from web_task_agent.models import BrowserPage, JobPosting
 
-
 LlmFieldExtractor = Callable[[BrowserPage], dict[str, str]]
+
+
+def _display_url(page: BrowserPage) -> str:
+    """用户可见的岗位 URL:内容实际来源的可浏览详情页优先。
+
+    腾讯校招岗的正文来自 join.qq.com API,发现 URL(careers.tencent.com
+    详情页)对校招 postId 返回 404——链接必须指向真正能打开的页面。
+    """
+    return str(page.metadata.get("canonical_url") or "").strip() or page.url
 
 
 class PageExtractor:
@@ -59,14 +67,16 @@ class PageExtractor:
         company = fields.get("company") or inferred_fields.get("company") or "Unknown Company"
         location = fields.get("location") or inferred_fields.get("location") or "Unknown Location"
         requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
-        responsibilities = fields.get("responsibilities") or inferred_fields.get("responsibilities", "")
+        responsibilities = (
+            fields.get("responsibilities") or inferred_fields.get("responsibilities", "")
+        )
 
         job = JobPosting(
             title=title,
             company=company,
             location=location,
             source=page.source,
-            url=page.url,
+            url=_display_url(page),
             requirements=requirements,
             responsibilities=responsibilities,
             skills=self._extract_skills(requirements),
@@ -121,7 +131,7 @@ class PageExtractor:
             company=company,
             location=location,
             source=page.source,
-            url=page.url,
+            url=_display_url(page),
             requirements=requirements,
             responsibilities=responsibilities,
             skills=skills,
@@ -370,7 +380,7 @@ class PageExtractor:
         ]
 
     def _clean_skill_list(self, skills: Any) -> list[str]:
-        """LLM skills \u5217\u8868\u7684\u6700\u540E\u9632\u5FA1\uFF1A\u53EA\u7559\u975E\u7A7A\u5B57\u7B26\u4E32\uFF0C\u53BB\u91CD\u4FDD\u5E8F\u3002"""
+        """LLM skills 列表的最后防御：只留非空字符串，去重保序。"""
         if not isinstance(skills, list):
             return []
         seen: set[str] = set()
