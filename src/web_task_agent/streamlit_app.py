@@ -139,8 +139,16 @@ def main() -> None:
             st.caption("直连各厂官方招聘 API 实时拉取,无快照时效问题;发现源随逆向进度扩展。")
             official_specs = st.multiselect(
                 "发现源",
-                ["tencent-campus", "meituan"],
-                default=["tencent-campus", "meituan"],
+                [
+                    "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
+                    "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
+                    "robotera", "fourier", "ubtech",
+                ],
+                default=[
+                    "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
+                    "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
+                    "robotera", "fourier", "ubtech",
+                ],
             )
         use_llm_extractor = st.toggle("LLM 抽取", value=False)
         extractor_provider = (

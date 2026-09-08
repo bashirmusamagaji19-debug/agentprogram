@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from web_task_agent.official_list_source import (
     MEITUAN_LIST_KEYWORDS,
     OfficialListSource,
     _tencent_campus_lister,
+    _unitree_lister,
 )
 
 
@@ -158,3 +161,84 @@ def test_meituan_list_keywords_are_non_empty():
 def test_unknown_spec_raises_value_error():
     with pytest.raises(ValueError, match="unknown spec"):
         OfficialListSource(specs=["nope"])
+
+
+# ── 阶段 3A-2:SaaS 家族与 bespoke 适配器(fake transport 参数化)──
+
+def _fake_transport_for(spec_key: str) -> FakeTransport:
+    """按规格 JSON 的 sample_evidence 构造最小可信响应。"""
+    if spec_key == "unitree":
+        return FakeTransport({
+            "website/job/list": lambda url, body: {
+                "code": 100,
+                "data": {"count": 2, "items": [
+                    {"id": "2046857577249112064", "title": "具身智能软件工程师",
+                     "duty": "负责具身智能系统研发，涵盖感知、决策与控制全栈算法工程"
+                             "落地与部署，参与机器人本体在真实场景中的大规模部署迭代。",
+                     "ability": "熟悉 ROS 与强化学习框架，具备扎实的工程能力，"
+                                "有大模型部署与机器人系统研发经验者优先考虑。",
+                     "cityInfo": "杭州"},
+                    {"id": "999", "title": "海外专员", "duty": "x", "ability": "y", "cityInfo": ""},
+
+
+                ]},
+            }
+        })
+    raise AssertionError(spec_key)
+
+
+@pytest.mark.asyncio
+async def test_unitree_lister_maps_fields_and_filters_non_ai():
+    jobs = await _unitree_lister(_fake_transport_for("unitree"), limit=10)
+
+    assert len(jobs) == 1
+    assert jobs[0].title == "具身智能软件工程师"
+    assert jobs[0].company == "宇树科技"
+    assert jobs[0].url == "https://www.unitree.com/cn/position/2046857577249112064"
+    assert "具身智能系统研发" in jobs[0].jd_text
+
+
+def test_registry_exposes_thirteen_specs():
+    from web_task_agent.official_list_source import _SPECS
+
+    expected = {
+        "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
+        "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
+        "robotera", "fourier", "ubtech",
+    }
+    assert set(_SPECS) == expected
+
+
+def test_moka_envelope_decrypt_roundtrip():
+    """AES 信封解密:密钥随响应自带(necromancer),IV 为 Moka 前端公开常量。"""
+    import base64
+
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+
+    from web_task_agent.official_list_families import _moka_iv_bytes, decrypt_moka_envelope
+
+    key = b"0123456789abcdef"
+    inner = json.dumps({"code": 0, "data": {"jobs": [{"id": "j-1", "title": "x"}]}}).encode("utf-8")
+    cipher = AES.new(key, AES.MODE_CBC, _moka_iv_bytes())
+    envelope = {
+        "data": base64.b64encode(cipher.encrypt(pad(inner, AES.block_size))).decode("ascii"),
+        "necromancer": key.decode("ascii"),
+    }
+
+    decrypted = decrypt_moka_envelope(envelope["data"], envelope["necromancer"])
+
+    assert decrypted["data"]["jobs"][0]["id"] == "j-1"
+
+
+def test_streamlit_multiselect_offers_new_sources():
+    """Streamlit 发现源多选必须覆盖全部注册的 spec(用户可选)。"""
+    import inspect
+
+    from web_task_agent import streamlit_app
+
+    src = inspect.getsource(streamlit_app)
+    for spec in ("tencent-campus", "meituan", "unitree", "xiaomi", "netease",
+                 "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
+                 "robotera", "fourier", "ubtech"):
+        assert f'"{spec}"' in src, f"发现源 {spec} 未出现在 Streamlit UI"
