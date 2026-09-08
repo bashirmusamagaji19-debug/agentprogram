@@ -73,6 +73,8 @@ Streamlit Community Cloud 可直接将入口文件设置为 `streamlit_app.py`�
 
 云端定位是**单实例演示**：`streamlit-runs/` 文件和 SQLite 数据属于实例本地临时状态，重启或重新部署后可能丢失；多个实例之间不共享任务、缓存或历史记录。真实招聘网站还可能受到云出口、反爬和页面变化影响。需要多用户持久化时，应另行接入共享数据库、对象存储和任务队列。
 
+已部署实例（2026-09-08 验证）：`https://agentprogram-lpfrmgsybu89iaffxyzc5f.streamlit.app/`。部署细节与验证边界见 `docs/work-log/2026-09-08-cloud-deploy-verification.md`。注意：Streamlit 平台对自动化/匿名请求（curl 等）统一跳转登录页，外部 health 监控不可行，公开访问以浏览器为准。
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
