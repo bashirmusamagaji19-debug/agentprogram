@@ -216,6 +216,20 @@
 - **解决**：两份报告都版本化（`matcher-evaluation.md` + `variance-run1-0.88.md`），文档里混合口径标注为区间而非单值；不为指标好看去调阈值——压线样本的判定翻转不是能力变化，是采样噪声。
 - **一句话**："对非确定性组件报指标要报区间——单值 0.94 和 0.88 都是真的，哪个出现在报告里取决于 provider 心情。修复自己的代码前先核对计算路径：压线样本的翻转最容易被误诊为新引入的回归。"
 
+### 30. requirements.txt 中文注释 × Windows GBK locale：文件级编码假设在消费端爆掉（2026-09-08 云端部署验证轮）
+
+- **问题**：为云端部署新写的 `requirements.txt` 带中文注释（符合仓库"文档用中文"的惯例），在 Windows 干净 venv 里 `pip install -r` 直接 `UnicodeDecodeError: 'gbk' codec can't decode byte 0xab`——pip 按系统 locale（cp936）读文件，而文件是 UTF-8。
+- **排查**：报错栈指向 requirements 文件解析而不是某个包；Linux 云端（UTF-8 默认 locale）永远复现不了这个坑，恰好是本地仿真先替云端把问题拦了下来——如果直接推上 Streamlit Cloud，构建日志会更隐蔽。
+- **解决**：requirements.txt 注释改 ASCII 并加注释说明"keep ASCII-only for locale-safe pip parsing"；仓库其他 UTF-8 文件（源码、文档）不受影响，因为 Python 3 源码默认 UTF-8、pytest 不走 locale 解码——只有"被外部工具按 locale 读的文件"需要 ASCII 兜底。
+- **一句话**："编码假设要看消费端用什么解码——同一段中文注释，git/pytest/IDE 都当 UTF-8，pip 却按系统 locale 读。跨机器分发的配置文件要么纯 ASCII，要么带 BOM/显式编码声明。"
+
+### 31. Streamlit Cloud Secrets ≠ 环境变量：凭据注入点要顺着"谁在消费"往上游找（2026-09-08 云端部署验证轮）
+
+- **问题**：`build_configured_llm_*` 在构建时直接读 `os.environ` 取 API key，而 Streamlit Community Cloud 的 Secrets 只进 `st.secrets`、不自动注入 `os.environ`——如果只把校验层（`validate_ui_request`）改成读 secrets，会出现"校验通过、运行时 KeyError"的分层裂缝。
+- **排查**：顺着 key 的消费链画图：校验层（可参数化）→ 构建层（`os.environ` 直读）→ HTTP 层（用构建层传的 api_key），发现注入点必须选在构建层之前，否则要改两层签名。
+- **解决**：`sync_provider_secrets()` 在应用启动时把 secrets 一次性补进 `os.environ`（环境变量优先、不覆盖已配置值，本地无 secrets.toml 静默跳过），构建层零改动；配 5 项 TDD 测试覆盖"env 优先/secret 填补/无 secrets 文件不炸"。
+- **一句话**："接平台适配层时先画出凭据/配置的完整消费链，注入点选在'直读全局状态'的那一层上游——只修看得见的校验层，裂缝会平移到运行时才爆。"
+
 ---
 
 ## 附：面试反问预案
