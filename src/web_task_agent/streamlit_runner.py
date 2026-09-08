@@ -24,12 +24,13 @@ from web_task_agent.llm_extractor import (
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfile
 from web_task_agent.official_api import OfficialApiContentFetcher
+from web_task_agent.official_list_source import OfficialListSource
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
 
-UiDataMode = Literal["demo", "aggregator", "seed_urls"]
+UiDataMode = Literal["demo", "aggregator", "seed_urls", "official"]
 
 # job-radar 聚合仓库发布的 jobs.json（GitHub raw，含 official_url/jd_text），
 # 云端/本地都可直接拉取——让 Streamlit 入口无需上传文件即可走真实数据链路。
@@ -76,6 +77,7 @@ class UiRunRequest(BaseModel):
     data_mode: UiDataMode = "demo"
     aggregator_path: str | None = None
     aggregator_url: str | None = None
+    official_specs: list[str] | None = None
     seed_urls: list[str] = Field(default_factory=list)
     llm_extractor_provider: Literal["deepseek", "qwen"] | None = None
     llm_match_provider: Literal["deepseek", "qwen"] | None = None
@@ -288,7 +290,12 @@ async def _build_browser(
     if request.data_mode == "seed_urls":
         return BrowserUseClient(page_loader=page_loader or HttpPageLoader()), request.seed_urls
 
-    source = AggregatorRepoSource(resolve_aggregator_location(request))
+    # official(实时列表)与 aggregator(快照)共用同一内容解析链:
+    # 缓存 → 官方 API 取正文 → HTTP → jd_text 兜底(#33 canonical 保证链接可打开)
+    if request.data_mode == "official":
+        source = OfficialListSource(specs=request.official_specs or None)
+    else:
+        source = AggregatorRepoSource(resolve_aggregator_location(request))
     jobs = await source.discover(limit=request.target_count)
     loader = AggregatorPageLoader(
         jobs,

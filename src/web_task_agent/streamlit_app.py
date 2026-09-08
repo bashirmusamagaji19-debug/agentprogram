@@ -129,11 +129,19 @@ def main() -> None:
         st.subheader("运行设置")
         mode_label = st.segmented_control(
             "数据模式",
-            ["内置 Demo", "聚合岗位（上传/URL）", "指定岗位 URL"],
+            ["内置 Demo", "实时岗位（官方 API）", "聚合岗位（上传/URL）", "指定岗位 URL"],
             default="内置 Demo",
         )
         if mode_label == "内置 Demo":
             st.caption("内置夹具数据,岗位链接指向 example.com,仅用于演示链路。")
+        official_specs = None
+        if mode_label == "实时岗位（官方 API）":
+            st.caption("直连各厂官方招聘 API 实时拉取,无快照时效问题;发现源随逆向进度扩展。")
+            official_specs = st.multiselect(
+                "发现源",
+                ["tencent-campus", "meituan"],
+                default=["tencent-campus", "meituan"],
+            )
         use_llm_extractor = st.toggle("LLM 抽取", value=False)
         extractor_provider = (
             st.selectbox("抽取模型", ["qwen", "deepseek"])
@@ -198,11 +206,13 @@ def main() -> None:
                 resume_text=combined_resume,
                 data_mode={
                     "内置 Demo": "demo",
+                    "实时岗位（官方 API）": "official",
                     "聚合岗位（上传/URL）": "aggregator",
                     "指定岗位 URL": "seed_urls",
                 }[mode_label or "内置 Demo"],
                 aggregator_path=str(temporary_path) if temporary_path else None,
                 aggregator_url=aggregator_url_text.strip() or None,
+                official_specs=official_specs or None,
                 seed_urls=parse_seed_urls(seed_url_text),
                 llm_extractor_provider=extractor_provider,
                 llm_match_provider=match_provider,

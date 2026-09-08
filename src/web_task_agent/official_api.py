@@ -144,12 +144,21 @@ class OfficialApiContentFetcher:
         )
         if work_cities:
             labeled.append(f"工作地点：{work_cities}")
-        for label, key in (("岗位职责", "topicDetail"), ("任职要求", "topicRequirement")):
-            section = str(data.get(key) or "").strip()
+        # 字段布局兼容:青云课题帖用 topicDetail/topicRequirement,
+        # 2027 校招常规帖用 desc/request(实时列表发现时的实录)。
+        # 优先 topic 字段,空则落 desc/request。
+        for label, keys in (
+            ("岗位职责", ("topicDetail", "desc")),
+            ("任职要求", ("topicRequirement", "request")),
+        ):
+            section = next(
+                (str(data.get(key) or "").strip() for key in keys if str(data.get(key) or "").strip()),
+                "",
+            )
             if section:
                 labeled.append(f"{label}：\n{section}")
-        # 守卫要求至少一个 topic section 非空：只有"公司+城市"的壳正文
-        # （topic 字段全 null，约 15 字符）不得进入管线（#27）
+        # 守卫要求至少一个正文 section 非空：只有"公司+城市"的壳正文
+        # （字段全 null/空，约 15 字符）不得进入管线（#27）
         if len(labeled) <= 2:
             raise OfficialApiUnavailableError(
                 f"tencent campus detail has no JD content for postId={post_id}"

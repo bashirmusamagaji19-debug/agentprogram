@@ -434,3 +434,43 @@ async def test_social_hit_keeps_original_url(monkeypatch: pytest.MonkeyPatch):
     )
 
     assert content.canonical_url == ""
+
+
+@pytest.mark.asyncio
+async def test_campus_fallback_accepts_desc_request_fields(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """2027 校招新帖正文在 desc/request 字段(青云课题帖才是 topicDetail/
+    topicRequirement)——字段映射必须兼容两种布局(实时列表发现的岗位实录)。"""
+    campus_payload = {
+        "data": {
+            "title": "AI全栈工程师",
+            "workCityList": ["深圳总部"],
+            "topicDetail": "",
+            "topicRequirement": "",
+            "desc": "1、负责产品业务系统的全栈开发，参与需求分析、架构设计与开发交付，构建基于大模型的全链路应用系统，实现端到端的AI应用落地。",
+            "request": "1、本科及以上学历，计算机相关专业，具备扎实的编程功底与工程实践能力。",
+        }
+    }
+
+    def fake_open_json(self, req):  # noqa: ANN001
+        if "careers.tencent.com" in req.full_url:
+            raise OfficialApiUnavailableError(f"unavailable: {req.full_url}")
+        return json.loads(json.dumps(campus_payload))
+
+    monkeypatch.setattr(
+        "web_task_agent.official_api.OfficialApiContentFetcher._open_json",
+        fake_open_json,
+    )
+    fetcher = OfficialApiContentFetcher()
+
+    content = await fetcher.fetch(
+        "https://careers.tencent.com/jobdesc.html?postId=1282707398326592512"
+    )
+
+    assert "岗位职责" in content.content
+    assert "全栈开发" in content.content
+    assert "任职要求" in content.content
+    assert content.canonical_url == (
+        "https://join.qq.com/post_detail.html?postId=1282707398326592512"
+    )
