@@ -16,6 +16,7 @@ from web_task_agent.streamlit_runner import (
     parse_skills,
     read_download_artifact,
     run_ui_request,
+    sync_provider_secrets,
 )
 
 PRIORITY_LABELS = {"high": "高", "medium": "中", "low": "低"}
@@ -109,6 +110,7 @@ def metric_grid_html(metrics: RunMetrics) -> str:
 def main() -> None:
     import streamlit as st
 
+    sync_provider_secrets()
     st.set_page_config(page_title="岗位 Agent 运行台", layout="wide")
     st.title("岗位 Agent 运行台")
 

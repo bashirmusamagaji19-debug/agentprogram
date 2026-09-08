@@ -37,6 +37,26 @@ PROVIDER_API_KEY_ENV = {
 }
 
 
+def sync_provider_secrets(environ: dict[str, str] | None = None) -> None:
+    """把 Streamlit Secrets 中的 provider key 补进进程环境变量。
+
+    Streamlit Community Cloud 的 Secrets 不会自动注入 os.environ,而
+    build_configured_llm_* 在构建时直接读 os.environ,所以要在应用启动时
+    同步一次。环境变量优先:已配置的值不会被 secrets 改写。
+    本地无 secrets.toml 或无 streamlit 运行时时静默跳过。
+    """
+    target = os.environ if environ is None else environ
+    try:
+        import streamlit as st
+
+        secrets: Mapping[str, Any] = dict(st.secrets)
+    except Exception:
+        return
+    for env_name in PROVIDER_API_KEY_ENV.values():
+        if not str(target.get(env_name, "")).strip() and env_name in secrets:
+            target[env_name] = str(secrets[env_name])
+
+
 class UiRequestError(ValueError):
     """A safe validation error suitable for display in the Web UI."""
 

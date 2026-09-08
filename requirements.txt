@@ -1,0 +1,8 @@
+# 云端部署(Streamlit Community Cloud 等)专用最小依赖。
+# 不含 browser-use:浏览器路径在云端演示中不可用(browser.py 为懒加载),
+# Demo / 聚合 JSON / HTTP 抓取与 LLM 抽取、匹配不依赖它。
+streamlit>=1.41,<2
+langgraph>=0.2.60
+langgraph-checkpoint-sqlite>=3.1,<4
+pydantic>=2.7
+python-dotenv>=1.0
