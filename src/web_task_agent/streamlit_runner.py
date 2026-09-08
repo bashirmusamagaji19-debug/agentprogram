@@ -31,6 +31,12 @@ from web_task_agent.workflow import WebTaskWorkflow
 
 UiDataMode = Literal["demo", "aggregator", "seed_urls"]
 
+# job-radar 聚合仓库发布的 jobs.json（GitHub raw，含 official_url/jd_text），
+# 云端/本地都可直接拉取——让 Streamlit 入口无需上传文件即可走真实数据链路。
+DEFAULT_AGGREGATOR_URL = (
+    "https://raw.githubusercontent.com/Jasmine-Liu-min/job-radar/main/data/jobs.json"
+)
+
 PROVIDER_API_KEY_ENV = {
     "deepseek": "DEEPSEEK_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
@@ -69,6 +75,7 @@ class UiRunRequest(BaseModel):
     resume_text: str = ""
     data_mode: UiDataMode = "demo"
     aggregator_path: str | None = None
+    aggregator_url: str | None = None
     seed_urls: list[str] = Field(default_factory=list)
     llm_extractor_provider: Literal["deepseek", "qwen"] | None = None
     llm_match_provider: Literal["deepseek", "qwen"] | None = None
@@ -76,6 +83,7 @@ class UiRunRequest(BaseModel):
 
 class UiRunResult(BaseModel):
     run_id: str
+    data_mode: UiDataMode = "demo"
     jobs: list[JobPosting] = Field(default_factory=list)
     matches: list[MatchResult] = Field(default_factory=list)
     metrics: RunMetrics
@@ -117,8 +125,12 @@ def validate_ui_request(
     *,
     environ: Mapping[str, str],
 ) -> None:
-    if request.data_mode == "aggregator" and not request.aggregator_path:
-        raise UiRequestError("请上传聚合岗位 JSON 文件。")
+    if request.data_mode == "aggregator":
+        has_url = bool((request.aggregator_url or "").strip())
+        if not request.aggregator_path and not has_url:
+            raise UiRequestError("请上传聚合岗位 JSON 文件，或填写聚合数据 URL。")
+        if has_url and not _is_http_url(request.aggregator_url.strip()):
+            raise UiRequestError("聚合数据 URL 必须是有效的 HTTP(S) 地址。")
     if request.data_mode == "seed_urls":
         if not request.seed_urls:
             raise UiRequestError("请至少填写一个 HTTP(S) 岗位 URL。")
@@ -146,6 +158,17 @@ def validate_ui_request(
 def _is_http_url(value: str) -> bool:
     parsed = urlparse(value)
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def resolve_aggregator_location(request: UiRunRequest) -> str:
+    """聚合模式数据位置:上传文件优先,否则用聚合数据 URL。
+
+    URL 场景(AggregatorRepoSource 原生支持 raw URL)让云端演示
+    不依赖本地上传即可走真实数据链路。
+    """
+    if request.aggregator_path:
+        return request.aggregator_path
+    return (request.aggregator_url or "").strip()
 
 
 async def run_ui_request(
@@ -238,6 +261,7 @@ async def run_ui_request(
     )
     return UiRunResult(
         run_id=run_id,
+        data_mode=request.data_mode,
         jobs=state.jobs,
         matches=state.matches,
         metrics=state.metrics,
@@ -264,7 +288,7 @@ async def _build_browser(
     if request.data_mode == "seed_urls":
         return BrowserUseClient(page_loader=page_loader or HttpPageLoader()), request.seed_urls
 
-    source = AggregatorRepoSource(request.aggregator_path or "")
+    source = AggregatorRepoSource(resolve_aggregator_location(request))
     jobs = await source.discover(limit=request.target_count)
     loader = AggregatorPageLoader(
         jobs,

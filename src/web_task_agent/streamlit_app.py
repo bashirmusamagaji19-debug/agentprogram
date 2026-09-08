@@ -8,6 +8,7 @@ from typing import Any
 
 from web_task_agent.models import RunMetrics
 from web_task_agent.streamlit_runner import (
+    DEFAULT_AGGREGATOR_URL,
     UiRequestError,
     UiRunRequest,
     UiRunResult,
@@ -72,6 +73,16 @@ def artifact_download_spec(
     return label, file_name, mime, content
 
 
+def demo_mode_notice(result: UiRunResult) -> str:
+    """Demo 模式结果必须诚实标注:数据是内置夹具,不是真实岗位。"""
+    if result.data_mode != "demo":
+        return ""
+    return (
+        "⚠️ **演示数据**：本次结果来自内置夹具页面（example.com），不是真实岗位。"
+        "要跑真实招聘数据，请在左侧数据模式中切换为「聚合岗位（上传/URL）」。"
+    )
+
+
 def metric_grid_html(metrics: RunMetrics) -> str:
     values = (
         ("有效岗位", metrics.valid_jobs),
@@ -118,9 +129,11 @@ def main() -> None:
         st.subheader("运行设置")
         mode_label = st.segmented_control(
             "数据模式",
-            ["内置 Demo", "聚合岗位 JSON", "指定岗位 URL"],
+            ["内置 Demo", "聚合岗位（上传/URL）", "指定岗位 URL"],
             default="内置 Demo",
         )
+        if mode_label == "内置 Demo":
+            st.caption("内置夹具数据,岗位链接指向 example.com,仅用于演示链路。")
         use_llm_extractor = st.toggle("LLM 抽取", value=False)
         extractor_provider = (
             st.selectbox("抽取模型", ["qwen", "deepseek"])
@@ -148,9 +161,15 @@ def main() -> None:
         resume_text = st.text_area("简历文本", height=180)
         resume_upload = st.file_uploader("简历文件", type=["md", "txt"])
         aggregator_upload = None
+        aggregator_url_text = ""
         seed_url_text = ""
-        if mode_label == "聚合岗位 JSON":
+        if mode_label == "聚合岗位（上传/URL）":
+            st.caption(
+                "两种数据来源二选一：上传本地聚合 JSON，或直接拉取聚合仓库发布的"
+                " jobs.json（默认已填 job-radar 真实岗位库）。"
+            )
             aggregator_upload = st.file_uploader("岗位聚合文件", type=["json"])
+            aggregator_url_text = st.text_input("聚合数据 URL", value=DEFAULT_AGGREGATOR_URL)
         elif mode_label == "指定岗位 URL":
             seed_url_text = st.text_area("岗位 URL", height=120)
         submitted = st.form_submit_button("开始搜索", type="primary", width="stretch")
@@ -179,10 +198,11 @@ def main() -> None:
                 resume_text=combined_resume,
                 data_mode={
                     "内置 Demo": "demo",
-                    "聚合岗位 JSON": "aggregator",
+                    "聚合岗位（上传/URL）": "aggregator",
                     "指定岗位 URL": "seed_urls",
                 }[mode_label or "内置 Demo"],
                 aggregator_path=str(temporary_path) if temporary_path else None,
+                aggregator_url=aggregator_url_text.strip() or None,
                 seed_urls=parse_seed_urls(seed_url_text),
                 llm_extractor_provider=extractor_provider,
                 llm_match_provider=match_provider,
@@ -206,6 +226,9 @@ def main() -> None:
 
 def _render_result(st: Any, result: UiRunResult) -> None:
     st.subheader("运行结果")
+    notice = demo_mode_notice(result)
+    if notice:
+        st.warning(notice)
     st.markdown(metric_grid_html(result.metrics), unsafe_allow_html=True)
 
     jobs_tab, diagnostics_tab, trace_tab, downloads_tab = st.tabs(

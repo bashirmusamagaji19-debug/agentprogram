@@ -12,19 +12,25 @@ from web_task_agent.streamlit_app import (
     metric_grid_html,
 )
 from web_task_agent.streamlit_runner import (
+    DEFAULT_AGGREGATOR_URL,
     PROVIDER_API_KEY_ENV,
+    UiRequestError,
+    UiRunRequest,
     UiRunResult,
+    resolve_aggregator_location,
     sync_provider_secrets,
+    validate_ui_request,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def make_result(tmp_path: Path) -> UiRunResult:
+def make_result(tmp_path: Path, data_mode: str = "demo") -> UiRunResult:
     report = tmp_path / "report.md"
     report.write_text("# report", encoding="utf-8")
     return UiRunResult(
         run_id="run-ui",
+        data_mode=data_mode,
         jobs=[
             JobPosting(
                 title="AI Agent 实习生",
@@ -169,3 +175,72 @@ def test_sync_provider_secrets_ignores_missing_secrets_file(monkeypatch) -> None
     sync_provider_secrets(environ)
 
     assert environ == {}
+
+
+def test_validate_aggregator_mode_accepts_url_only() -> None:
+    validate_ui_request(
+        UiRunRequest(
+            data_mode="aggregator",
+            aggregator_url=DEFAULT_AGGREGATOR_URL,
+        ),
+        environ={},
+    )
+
+
+def test_validate_aggregator_mode_requires_file_or_url() -> None:
+    import pytest
+
+    with pytest.raises(UiRequestError, match="上传.*或.*URL"):
+        validate_ui_request(UiRunRequest(data_mode="aggregator"), environ={})
+
+
+def test_validate_aggregator_mode_rejects_non_http_url() -> None:
+    import pytest
+
+    with pytest.raises(UiRequestError, match="HTTP"):
+        validate_ui_request(
+            UiRunRequest(data_mode="aggregator", aggregator_url="ftp://example.com/j.json"),
+            environ={},
+        )
+
+
+def test_resolve_aggregator_location_prefers_uploaded_file() -> None:
+    location = resolve_aggregator_location(
+        UiRunRequest(
+            data_mode="aggregator",
+            aggregator_path="C:/tmp/jobs.json",
+            aggregator_url=DEFAULT_AGGREGATOR_URL,
+        )
+    )
+
+    assert location == "C:/tmp/jobs.json"
+
+
+def test_resolve_aggregator_location_falls_back_to_url() -> None:
+    location = resolve_aggregator_location(
+        UiRunRequest(data_mode="aggregator", aggregator_url=DEFAULT_AGGREGATOR_URL)
+    )
+
+    assert location == DEFAULT_AGGREGATOR_URL
+
+
+def test_default_aggregator_url_is_job_radar_raw_json() -> None:
+    assert DEFAULT_AGGREGATOR_URL.startswith("https://")
+    assert DEFAULT_AGGREGATOR_URL.endswith("jobs.json")
+
+
+def test_ui_run_result_carries_data_mode(tmp_path: Path) -> None:
+    result = make_result(tmp_path)
+
+    assert result.data_mode == "demo"
+
+
+def test_demo_notice_marks_fixture_data(tmp_path: Path) -> None:
+    from web_task_agent.streamlit_app import demo_mode_notice
+
+    notice = demo_mode_notice(make_result(tmp_path))
+
+    assert "example.com" in notice
+    assert "演示" in notice or "夹具" in notice
+
+    assert demo_mode_notice(make_result(tmp_path, data_mode="aggregator")) == ""
