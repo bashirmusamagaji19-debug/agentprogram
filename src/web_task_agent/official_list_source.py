@@ -633,6 +633,7 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/{id}",
             company="银河通用",
             detail_fetch=True,
+            probe_detail=True,
         ),
         "robotera": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
@@ -641,6 +642,7 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/campus-recruitment/robotera/163878/{id}",
             company="星动纪元",
             paging="page",
+            probe_detail=True,
         ),
         "fourier": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
@@ -648,6 +650,7 @@ def _family_specs() -> dict[str, object]:
             site_id=147078,
             url_tmpl="https://app.mokahr.com/campus-recruitment/fftai/147078#/job/{id}",
             company="傅利叶智能",
+            probe_detail=True,
         ),
     "jd": _jd_lister,
     "pinduoduo": _pinduoduo_lister,
@@ -725,6 +728,7 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/social-recruitment/astribot/144861#/job/{id}",
             company="星尘智能",
             require_intern_words=False,
+            probe_detail=True,
         ),
 
         "dexmal": make_feishu_hire_lister(
@@ -757,6 +761,7 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/social-recruitment/moonshot/148506#/job/{id}",
             company="月之暗面",
             require_intern_words=False,
+            probe_detail=True,
         ),
 
         "zhipu": make_feishu_hire_lister(
@@ -780,6 +785,7 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/social-recruitment/step/94904#/job/{id}",
             company="阶跃星辰",
             require_intern_words=False,
+            probe_detail=True,
         ),
 
         "deepseek": make_moka_lister(
@@ -789,6 +795,7 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/social-recruitment/high-flyer/140576#/job/{id}",
             company="深度求索",
             require_intern_words=False,
+            probe_detail=True,
         ),
 
         "baichuan": make_feishu_hire_lister(
@@ -823,6 +830,7 @@ def _family_specs() -> dict[str, object]:
             company="燧原科技",
             require_intern_words=False,
             detail_fetch=True,  # 列表不带 JD,详情接口补正文
+            probe_detail=True,
         ),
     }
 

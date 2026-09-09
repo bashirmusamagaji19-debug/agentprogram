@@ -24,6 +24,20 @@ def _tier_of(page: BrowserPage) -> str:
     return str(page.metadata.get("tier") or "").strip()
 
 
+def _url_verification_of(page: BrowserPage) -> str:
+    """页面可打开性:由 loader 的正文来源策略决定(用户点击前甄别 SPA 空页)。"""
+    origin = str(page.metadata.get("content_origin") or "").strip()
+    if origin == "detail-probed":
+        return "detail-probed"
+    if origin == "official-api":
+        return "api-verified"
+    if origin.startswith("jd_text"):
+        return "list-attested"
+    if origin == "http":
+        return "http-fetched"
+    return "unverified"
+
+
 class PageExtractor:
     _LABELS = {
         "title": {"title", "job title", "position", "职位名称", "职位", "岗位名称", "岗位"},
@@ -94,6 +108,7 @@ class PageExtractor:
             responsibilities=responsibilities,
             skills=self._extract_skills(requirements),
             tier=_tier_of(page),
+            url_verification=_url_verification_of(page),
             category=classify_job_category(title),
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(
@@ -151,6 +166,7 @@ class PageExtractor:
             responsibilities=responsibilities,
             skills=skills,
             tier=_tier_of(page),
+            url_verification=_url_verification_of(page),
             category=classify_job_category(title),
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(

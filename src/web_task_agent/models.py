@@ -67,6 +67,9 @@ class JobPosting(BaseModel):
     confidence: float = 0.0
     tier: str = ""  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
     category: str = ""  # 岗位类型:算法/工程/产品/运营/设计/其他
+    # 页面可打开性:api-verified(正文来自官方详情接口)/list-attested(列表自带,
+    # id 有效性未独立验证)/http-fetched/unverified — 用户点击前甄别 SPA 空页
+    url_verification: str = "unverified"
 
     @field_validator("title", "company", "location", "source", "url")
     @classmethod

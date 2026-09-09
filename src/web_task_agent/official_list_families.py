@@ -145,6 +145,7 @@ def make_moka_lister(
     company: str,
     paging: str = "offset",  # moka 站点分页风格:offset(limit/offset) 或 page(pageNo/pageSize)
     detail_fetch: bool = False,  # 列表不带 JD 时逐条调详情接口补正文
+    probe_detail: bool = False,  # 列表自带 JD 也逐条调详情 — 顺便验证页面可打开性(甄别 SPA 空页)
     require_intern_words: bool = True,
 ):
     """Moka POST /api/outer/ats-apply/website/jobs/v2 适配器工厂。
@@ -190,6 +191,47 @@ def make_moka_lister(
                     continue
                 plain = _strip_html(str(item.get("jobDescription") or ""))
                 job_id = str(item.get("id") or "").strip()
+                origin = "jd_text-fallback"
+                if probe_detail and job_id:
+                    # 详情探测 = 岗位存在性甄别(SPA 空页防护):
+                    # - 接口正常且岗位有数据 → detail-probed(页面可渲染)
+                    # - 接口正常但无此岗数据 → 跳过该岗位(已下线,不浪费用户点击)
+                    # - 网络异常/格式异常 → 不误杀,保留列表 JD 标 list-attested
+                    verdict = "probe-error"
+                    detail_plain = ""
+                    try:
+                        detail = transport.open_json(
+                            "POST",
+                            _moka_detail_url(api_url),
+                            body={
+                                "siteId": site_id, "orgId": org_id,
+                                "jobId": job_id, "locale": "zh-CN",
+                            },
+                        )
+                        denv = detail if "necromancer" in detail else (detail.get("data") or {})
+                        if "necromancer" in denv:
+                            din = decrypt_moka_envelope(denv["data"], denv["necromancer"])
+                            data = din.get("data") or {}
+                            # 仅当结构里有 job 键且为空才判"岗位不存在"(平台明确无此岗);
+                            # 各租户详情结构差异(如无 job 键)→ 不误杀,退化 list-attested
+                            if isinstance(data, dict) and "job" in data:
+                                djob = data.get("job") or {}
+                                detail_plain = _strip_html(
+                                    str(djob.get("jobDescription") or "")
+                                )
+                                verdict = "probed-ok" if (djob or detail_plain) else "probed-missing"
+                            else:
+                                verdict = "probe-error"
+                        else:
+                            verdict = "probe-error"
+                    except Exception:  # noqa: BLE001 — 网络异常不误杀
+                        verdict = "probe-error"
+                    if verdict == "probed-missing":
+                        continue
+                    if verdict == "probed-ok":
+                        origin = "detail-probed"
+                        if len(plain) < 80 and detail_plain:
+                            plain = detail_plain
                 if len(plain) < 80 and detail_fetch and job_id:
                     try:
                         detail = transport.open_json(
@@ -223,6 +265,7 @@ def make_moka_lister(
                         ).strip(),
                         jd_text=plain,
                         source="moka",
+                        content_origin=origin,
                     )
                 )
                 if len(jobs) >= limit:

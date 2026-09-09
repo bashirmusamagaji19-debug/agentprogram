@@ -75,7 +75,8 @@ class JobRepository:
                     title TEXT NOT NULL,
                     source TEXT NOT NULL,
                     fetched_at TEXT NOT NULL,
-                    canonical_url TEXT NOT NULL DEFAULT ''
+                    canonical_url TEXT NOT NULL DEFAULT '',
+                    content_origin TEXT NOT NULL DEFAULT ''
                 )
                 """
             )
@@ -251,6 +252,8 @@ class JobRepository:
         metadata: dict[str, Any] = {}
         if row["canonical_url"]:
             metadata["canonical_url"] = row["canonical_url"]
+        if row["content_origin"]:
+            metadata["content_origin"] = row["content_origin"]
         return BrowserPage(
             url=row["url"],
             title=row["title"],
@@ -264,8 +267,8 @@ class JobRepository:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO page_cache
-                    (url, content, title, source, fetched_at, canonical_url)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (url, content, title, source, fetched_at, canonical_url, content_origin)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     page.url,
@@ -274,6 +277,7 @@ class JobRepository:
                     page.source,
                     datetime.now(UTC).isoformat(),
                     str(page.metadata.get("canonical_url") or ""),
+                    str(page.metadata.get("content_origin") or ""),
                 ),
             )
 
@@ -282,11 +286,13 @@ class JobRepository:
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(page_cache)")}
         if "canonical_url" not in columns:
             conn.execute("ALTER TABLE page_cache ADD COLUMN canonical_url TEXT NOT NULL DEFAULT ''")
+        if "content_origin" not in columns:
+            conn.execute("ALTER TABLE page_cache ADD COLUMN content_origin TEXT NOT NULL DEFAULT ''")
 
     def _fetch_cache_row(self, url: str) -> sqlite3.Row | None:
         with self._connection() as conn:
             return conn.execute(
-                "SELECT url, content, title, source, fetched_at, canonical_url"
+                "SELECT url, content, title, source, fetched_at, canonical_url, content_origin"
                 " FROM page_cache WHERE url = ?",
                 (url,),
             ).fetchone()

@@ -67,6 +67,7 @@ def test_job_result_rows_join_jobs_with_match_results(tmp_path: Path) -> None:
         {
             "岗位": "AI Agent 实习生",
             "公司": "示例科技",
+            "页面核验": "—",
             "梯队": "—",
             "类别": "—",
             "地点": "北京",

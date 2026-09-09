@@ -42,7 +42,8 @@ class DiscoveredJob:
     jd_text: str = ""  # aggregator 提供的 JD 兜底内容，可为空
     source: str = "aggregator"
     tags: list[str] = field(default_factory=list)
-    tier: str = ""  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
+    tier: str = ""
+    content_origin: str = ""  # 正文来源:loader 各分支/detail-probed(liser 内探测)  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
 
 
 class JobSource(Protocol):
@@ -134,6 +135,7 @@ def build_discovered_page(job: DiscoveredJob) -> "object":
             "discovered_title": job.title,
             "discovered_company": job.company,
             "tier": job.tier,
+            "content_origin": job.content_origin,
         },
     )
 
@@ -183,7 +185,7 @@ class AggregatorPageLoader:
                 and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS
             ):
                 self._record(url, "cache")
-                return cached
+                return cached  # origin 已在缓存 metadata 中(storage 列透传)
 
         # 2. 官方 API（支持域名的 SPA 页优先走结构化接口）
         if self._official_api is not None:
@@ -206,10 +208,15 @@ class AggregatorPageLoader:
                     # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
                     canonical = str(getattr(content, "canonical_url", "") or "").strip()
                     page = self._to_page(url, content.content, content.title, "official-api")
-                    if canonical and canonical != url:
-                        page = page.model_copy(
-                            update={"metadata": {**page.metadata, "canonical_url": canonical}}
-                        )
+                    page = page.model_copy(
+                        update={
+                            "metadata": {
+                                **page.metadata,
+                                "content_origin": "official-api",
+                                **({"canonical_url": canonical} if canonical else {}),
+                            }
+                        }
+                    )
                     self._cache(url, page)
                     self._record(url, "official-api")
                     return page
@@ -223,6 +230,9 @@ class AggregatorPageLoader:
                 self._record(url, f"http-failed:{type(exc).__name__}")
             else:
                 if len(page.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                    page = page.model_copy(
+                        update={"metadata": {**page.metadata, "content_origin": "http"}}
+                    )
                     self._cache(url, page)
                     self._record(url, "http")
                     return page
@@ -233,6 +243,15 @@ class AggregatorPageLoader:
         #    放进管线只会诱发 LLM 幻觉）
         if len(job.jd_text.strip()) >= MIN_USEFUL_CONTENT_CHARS:
             page = build_discovered_page(job)
+            page = page.model_copy(
+                update={
+                    "metadata": {
+                        **page.metadata,
+                        "content_origin": page.metadata.get("content_origin")
+                        or "jd_text-fallback",
+                    }
+                }
+            )
             self._cache(url, page)
             self._record(url, "jd_text-fallback")
             return page

@@ -32,12 +32,20 @@ ARTIFACT_SPECS = {
 def job_result_rows(result: UiRunResult) -> list[dict[str, Any]]:
     matches = {match.job_id: match for match in result.matches}
     rows: list[dict[str, Any]] = []
+    verification_labels = {
+        "api-verified": "✓ 官方API已验",
+        "detail-probed": "✓ 详情已探",
+        "list-attested": "列表自证",
+        "http-fetched": "✓ HTTP抓取",
+        "unverified": "—",
+    }
     for job in result.jobs:
         match = matches.get(job.url)
         rows.append(
             {
                 "岗位": job.title,
                 "公司": job.company,
+                "页面核验": verification_labels.get(job.url_verification, "—"),
                 "梯队": job.tier or "—",
                 "类别": job.category or "—",
                 "地点": job.location,
