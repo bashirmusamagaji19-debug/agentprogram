@@ -227,6 +227,29 @@ def artifact_download_spec(
     return label, file_name, mime, content
 
 
+# 公开演示成本保护:每会话 LLM 运行次数上限(qwen 额度是真实成本)
+LLM_SESSION_LIMIT = 3
+
+
+def llm_budget_remaining(budget: dict) -> int:
+    return max(0, LLM_SESSION_LIMIT - int(budget.get("llm_runs", 0)))
+
+
+def should_consume_llm_budget(request: UiRunRequest) -> bool:
+    """仅当本次运行真的会调 LLM(非 Demo 数据 + 勾选了任一 LLM 开关)才占预算。"""
+    uses_llm = bool(request.llm_match_provider or request.llm_extractor_provider)
+    return uses_llm and request.data_mode != "demo"
+
+
+def consume_llm_budget(budget: dict) -> None:
+    if llm_budget_remaining(budget) <= 0:
+        raise UiRequestError(
+            f"本会话 LLM 运行次数已达上限({LLM_SESSION_LIMIT} 次)——"
+            "演示额度有限,可切换为内置 Demo 模式继续体验,或稍后重试。"
+        )
+    budget["llm_runs"] = int(budget.get("llm_runs", 0)) + 1
+
+
 def demo_mode_notice(result: UiRunResult) -> str:
     """Demo 模式结果必须诚实标注:数据是内置夹具,不是真实岗位。"""
     if result.data_mode != "demo":
@@ -414,6 +437,8 @@ def main() -> None:
                 llm_extractor_provider=extractor_provider,
                 llm_match_provider=match_provider,
             )
+            if should_consume_llm_budget(request):
+                consume_llm_budget(st.session_state.setdefault("llm_budget", {}))
             with st.spinner("Agent 正在运行..."):
                 st.session_state["latest_ui_result"] = asyncio.run(
                     run_ui_request(request, environ=os.environ)

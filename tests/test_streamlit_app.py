@@ -281,3 +281,43 @@ def test_demo_notice_marks_fixture_data(tmp_path: Path) -> None:
     assert "演示" in notice or "夹具" in notice
 
     assert demo_mode_notice(make_result(tmp_path, data_mode="aggregator")) == ""
+
+
+# ── 公开演示的成本保护:LLM 会话限流 ──
+
+def test_llm_run_budget_allows_then_blocks():
+    """公开演示定位:任何人可体验,但 LLM 额度有限 —
+    每会话限 3 次 LLM 运行,超出后拒绝并提示。"""
+    from web_task_agent.streamlit_app import llm_budget_remaining, consume_llm_budget
+
+    budget: dict = {}
+    assert llm_budget_remaining(budget) == 3
+
+    consume_llm_budget(budget)
+    consume_llm_budget(budget)
+    assert llm_budget_remaining(budget) == 1
+
+    consume_llm_budget(budget)
+    assert llm_budget_remaining(budget) == 0
+
+    import pytest
+    from web_task_agent.streamlit_runner import UiRequestError
+
+    with pytest.raises(UiRequestError, match="LLM"):
+        consume_llm_budget(budget)  # 超限必须拒绝,不能负数
+
+
+def test_demo_mode_does_not_consume_llm_budget():
+    """Demo 模式不调 LLM,不占预算。"""
+    from web_task_agent.streamlit_app import consume_llm_budget, should_consume_llm_budget
+
+    budget: dict = {}
+    request = UiRunRequest(data_mode="demo", llm_match_provider="qwen")
+
+    assert not should_consume_llm_budget(request)
+
+    request = UiRunRequest(
+        data_mode="official", official_specs=["tencent-campus"], llm_match_provider="qwen"
+    )
+    assert should_consume_llm_budget(request)
+    consume_llm_budget(budget)
