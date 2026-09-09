@@ -4,6 +4,13 @@
 
 **Goal:** 先让 Streamlit 云端在实例重启后保留运行记录和下载产物，再按并发和用户隔离需求演进为 API、队列和 Worker 架构。
 
+> **修订(2026-09-09,评审后)**:
+> 1. **owner_id 认证来源补齐** — Community Cloud 无用户系统,采用**单共享 owner + 访问口令**:Secrets 配 `APP_PASSCODE`,首次访问输入,`owner_id` 固定为 `"demo"`;越权测试退化为"无口令者查不到"
+> 2. **Task 4(阶段 B)推迟** — Community Cloud 无法跑常驻 Worker,且暂无真实多用户需求;触发条件:出现真实多用户/长任务需求时重启此计划
+> 3. **psycopg/对象存储 SDK 必须 lazy import** — 不配数据库的本地环境不强制装
+> 4. Task 3 验收先本地仿真(File adapter + 新进程连同一目录验证重启恢复),真部署验收在其后
+> 5. 笔误修正:`\.venv` → `.venv`
+
 **Architecture:** 阶段 A 在现有 Streamlit 薄层下增加 `RunStore`、`ArtifactStore` 抽象，使用 PostgreSQL-compatible 数据库存运行元数据和 S3-compatible 对象存储保存产物；本地开发保留 SQLite/filesystem adapter。阶段 B 将同步执行移动到 FastAPI + Redis 队列 + Worker，Streamlit 只创建任务、轮询状态和获取签名下载 URL。现有 `WebTaskWorkflow` 不改业务语义。
 
 **Tech Stack:** Python 3.11+, Pydantic, psycopg 3, PostgreSQL, S3-compatible storage (R2/S3/Supabase Storage), Streamlit, FastAPI, Redis queue, pytest.
@@ -85,7 +92,7 @@ Streamlit 侧栏显示当前 owner 最近 10 次运行；刷新页面通过 `Run
 
 - [ ] **Step 6: 验证重启和越权场景**
 
-运行 `\.venv\Scripts\python.exe -m pytest tests/test_persistent_streamlit.py -q`；手动部署后创建 run、重启实例、再次打开页面，确认历史记录和下载仍可用。
+运行 `.venv\Scripts\python.exe -m pytest tests/test_persistent_streamlit.py -q`；手动部署后创建 run、重启实例、再次打开页面，确认历史记录和下载仍可用。
 
 - [ ] **Step 7: 提交阶段 A**
 
@@ -119,7 +126,7 @@ Streamlit 侧栏显示当前 owner 最近 10 次运行；刷新页面通过 `Run
 
 提交信息：`docs: document persistent cloud deployment verification`。
 
-## Task 4: 阶段 B API、队列和 Worker（仅在阶段 A 稳定后执行）
+## Task 4: 阶段 B API、队列和 Worker（**已推迟** — Community Cloud 无法跑常驻 Worker;暂无真实多用户需求。触发条件:出现真实多用户/长任务需求时重启此计划。以下原始内容保留作参考）
 
 **Files:**
 - Create: `src/web_task_agent/api.py`
