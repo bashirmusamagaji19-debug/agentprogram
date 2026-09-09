@@ -7,9 +7,12 @@ from pathlib import Path
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics
 from web_task_agent.streamlit_app import (
     artifact_download_spec,
+    artifact_cards_html,
     diagnostic_rows,
     job_result_rows,
     metric_grid_html,
+    mode_hint,
+    run_status,
 )
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
@@ -109,6 +112,37 @@ def test_metric_grid_switches_to_two_columns_on_mobile() -> None:
     assert "repeat(2, minmax(0, 1fr))" in html
     assert "有效岗位" in html
     assert ">3<" in html
+
+
+def test_run_status_distinguishes_ready_success_and_partial_failure(tmp_path: Path) -> None:
+    assert run_status(None) == ("待运行", "配置任务后开始一次岗位扫描", "ready")
+    assert run_status(make_result(tmp_path)) == ("已完成", "1 个有效岗位 · 1 个页面失败", "warning")
+
+
+def test_mode_hint_explains_each_data_mode() -> None:
+    assert "内置夹具" in mode_hint("demo")
+    assert "官方招聘 API" in mode_hint("official")
+    assert "聚合岗位" in mode_hint("aggregator")
+    assert "指定岗位 URL" in mode_hint("seed_urls")
+
+
+def test_metric_grid_contains_status_classes_and_accessible_labels() -> None:
+    html = metric_grid_html(RunMetrics(run_id="run-ui", valid_jobs=3, failed_pages=1))
+
+    assert 'class="ui-metric-grid"' in html
+    assert 'class="ui-metric ui-metric-success"' in html
+    assert 'class="ui-metric ui-metric-warning"' in html
+    assert 'aria-label="有效岗位 3"' in html
+
+
+def test_artifact_cards_html_lists_available_downloads(tmp_path: Path) -> None:
+    result = make_result(tmp_path)
+
+    html = artifact_cards_html(result)
+
+    assert "Markdown 报告" in html
+    assert "本次运行的可复核结果" in html
+    assert "report.md" in html
 
 
 def test_cloud_requirements_cover_runtime_deps_without_browser_use() -> None:

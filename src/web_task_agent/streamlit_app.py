@@ -28,6 +28,150 @@ ARTIFACT_SPECS = {
     "action_plan": ("下载行动计划", "text/markdown"),
 }
 
+MODE_HINTS = {
+    "demo": "内置夹具数据：适合快速查看完整链路，不访问公网。",
+    "official": "实时连接官方招聘 API：按来源发现岗位，再验证正文和可打开链接。",
+    "aggregator": "聚合岗位：从上传文件或 jobs.json 读取岗位，再执行统一验证和匹配。",
+    "seed_urls": "指定岗位 URL：适合验证单个或一组真实岗位页面。",
+}
+
+ARTIFACT_DESCRIPTIONS = {
+    "json": "机器可读的完整运行状态、岗位、匹配和诊断。",
+    "report": "本次运行的可复核结果，适合阅读和分享。",
+    "dashboard": "可筛选岗位、匹配分和执行轨迹的 HTML 页面。",
+    "action_plan": "根据岗位缺口生成的投递和技能补强计划。",
+}
+
+
+def mode_hint(data_mode: str) -> str:
+    return MODE_HINTS.get(data_mode, "选择一种数据来源开始运行。")
+
+
+def run_status(result: UiRunResult | None) -> tuple[str, str, str]:
+    if result is None:
+        return "待运行", "配置任务后开始一次岗位扫描", "ready"
+    failure_count = max(result.metrics.failed_pages, len(result.diagnostics))
+    if failure_count:
+        return (
+            "已完成",
+            f"{result.metrics.valid_jobs} 个有效岗位 · {failure_count} 个页面失败",
+            "warning",
+        )
+    return "已完成", f"{result.metrics.valid_jobs} 个有效岗位 · 页面访问正常", "success"
+
+
+def app_styles() -> str:
+    return """
+<style>
+:root {
+  --ui-ink: #16211d;
+  --ui-muted: #66736d;
+  --ui-border: #dce5df;
+  --ui-surface: #ffffff;
+  --ui-canvas: #f4f7f5;
+  --ui-green: #18794e;
+  --ui-green-soft: #e6f4eb;
+  --ui-warning: #a46114;
+  --ui-warning-soft: #fff5e5;
+  --ui-shadow: 0 10px 30px rgba(20, 47, 34, .06);
+}
+.stApp { background: var(--ui-canvas); color: var(--ui-ink); }
+[data-testid="stHeader"] { background: transparent; }
+.block-container { max-width: 1440px; padding-top: 2.4rem; padding-bottom: 4rem; }
+[data-testid="stSidebar"] { background: #14231d; border-right: 1px solid #243b30; }
+[data-testid="stSidebar"] > div:first-child { padding: 1.4rem 1rem 2rem; }
+[data-testid="stSidebar"] * { color: #e9f2ec; }
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+[data-testid="stSidebar"] .ui-sidebar-caption { color: #a9bbb0 !important; }
+[data-testid="stSidebar"] [data-baseweb="select"],
+[data-testid="stSidebar"] [data-baseweb="input"],
+[data-testid="stSidebar"] [data-testid="stTextInputRootElement"],
+[data-testid="stSidebar"] [data-testid="stNumberInputContainer"] { background: #20362b; border-color: #365545; }
+[data-testid="stSidebar"] [data-baseweb="select"] *,
+[data-testid="stSidebar"] input { color: #f2f8f3 !important; }
+.ui-brand { display:flex; align-items:flex-start; justify-content:space-between; gap:1.5rem; margin-bottom:2rem; }
+.ui-brand-mark { display:flex; align-items:center; gap:.7rem; }
+.ui-brand-dot { width:13px; height:13px; border-radius:4px; background:var(--ui-green); box-shadow:0 0 0 5px #d8efe1; }
+.ui-eyebrow { color:var(--ui-green); font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.35rem; }
+.ui-brand h1 { color:var(--ui-ink); font-size:2rem; line-height:1.1; letter-spacing:-.04em; margin:0; }
+.ui-brand p { color:var(--ui-muted); margin:.45rem 0 0; font-size:.95rem; }
+.ui-status { display:flex; align-items:center; gap:.55rem; white-space:nowrap; border:1px solid var(--ui-border); border-radius:999px; background:var(--ui-surface); padding:.5rem .8rem; color:var(--ui-muted); font-size:.82rem; box-shadow:var(--ui-shadow); }
+.ui-status strong { color:var(--ui-ink); }
+.ui-status-dot { width:8px; height:8px; border-radius:50%; background:#9ca8a1; }
+.ui-status-success .ui-status-dot { background:var(--ui-green); }
+.ui-status-warning .ui-status-dot { background:#d68b2b; }
+.ui-sidebar-brand { padding:.3rem .3rem 1.3rem; border-bottom:1px solid #2b4637; margin-bottom:1.2rem; }
+.ui-sidebar-brand strong { display:block; color:#fff; font-size:1.1rem; letter-spacing:-.02em; }
+.ui-sidebar-brand span { color:#9eb5a7; font-size:.78rem; }
+.ui-sidebar-label { color:#8faa9b; font-size:.67rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin:1.2rem .2rem .55rem; }
+.ui-mode-hint { border:1px solid rgba(148, 191, 164, .26); background:rgba(103, 157, 119, .12); border-radius:10px; padding:.65rem .7rem; color:#c7dbcd; font-size:.78rem; line-height:1.45; margin:.55rem 0 1rem; }
+[data-testid="stForm"] { border:1px solid var(--ui-border); border-radius:16px; background:var(--ui-surface); box-shadow:var(--ui-shadow); padding:1.35rem 1.45rem 1.5rem; }
+.ui-form-title { color:var(--ui-ink); font-size:1.05rem; font-weight:750; margin-bottom:.15rem; }
+.ui-form-caption { color:var(--ui-muted); font-size:.84rem; margin-bottom:1.1rem; }
+.ui-section-label { color:var(--ui-green); font-size:.7rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin:1rem 0 .45rem; }
+.ui-result-header { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin:2rem 0 .9rem; }
+.ui-result-header h2 { color:var(--ui-ink); margin:0; letter-spacing:-.03em; }
+.ui-result-header p { color:var(--ui-muted); margin:.25rem 0 0; font-size:.86rem; }
+.ui-result-chip { border-radius:999px; background:var(--ui-green-soft); color:var(--ui-green); padding:.35rem .65rem; font-size:.75rem; font-weight:700; }
+.ui-metric-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; margin:0 0 1.1rem; }
+.ui-metric { border:1px solid var(--ui-border); border-radius:12px; background:var(--ui-surface); padding:.9rem 1rem; box-shadow:var(--ui-shadow); }
+.ui-metric span { display:block; color:var(--ui-muted); font-size:.78rem; margin-bottom:.35rem; }
+.ui-metric strong { display:block; color:var(--ui-ink); font-size:1.55rem; letter-spacing:-.04em; }
+.ui-metric-success { border-top:3px solid var(--ui-green); }
+.ui-metric-warning { border-top:3px solid #d68b2b; }
+.ui-metric-neutral { border-top:3px solid #9ca8a1; }
+.ui-empty { border:1px dashed var(--ui-border); border-radius:12px; background:#fbfcfb; padding:1.4rem; color:var(--ui-muted); text-align:center; }
+.ui-download-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; margin-bottom:1rem; }
+.ui-download-card { border:1px solid var(--ui-border); border-radius:12px; background:var(--ui-surface); padding:1rem; min-height:116px; }
+.ui-download-card strong { display:block; color:var(--ui-ink); margin-bottom:.3rem; }
+.ui-download-card span { display:block; color:var(--ui-muted); font-size:.8rem; line-height:1.45; }
+.ui-download-card code { display:block; color:#7a877e; font-size:.7rem; margin-top:.55rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+@media (max-width: 760px) {
+  .block-container { padding:1.35rem .9rem 3rem; }
+  .ui-brand { display:block; margin-bottom:1.35rem; }
+  .ui-status { display:inline-flex; margin-top:1rem; }
+  .ui-brand h1 { font-size:1.65rem; }
+  .ui-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ui-download-grid { grid-template-columns:1fr; }
+  [data-testid="stForm"] { padding:.95rem; }
+}
+</style>
+"""
+
+
+def brand_header_html(result: UiRunResult | None) -> str:
+    status, detail, tone = run_status(result)
+    return f"""
+<div class="ui-brand">
+  <div>
+    <div class="ui-eyebrow">AI career workspace</div>
+    <div class="ui-brand-mark"><span class="ui-brand-dot"></span><h1>岗位 Agent 运行台</h1></div>
+    <p>从官方岗位发现到可解释匹配，把一次求职搜索变成一份可复核结果。</p>
+  </div>
+  <div class="ui-status ui-status-{tone}"><span class="ui-status-dot"></span><span><strong>{status}</strong> · {detail}</span></div>
+</div>
+"""
+
+
+def artifact_cards_html(result: UiRunResult) -> str:
+    cards = []
+    labels = {
+        "json": "JSON 结果",
+        "report": "Markdown 报告",
+        "dashboard": "HTML Dashboard",
+        "action_plan": "行动计划",
+    }
+    for artifact_key, (label, _) in ARTIFACT_SPECS.items():
+        path = result.artifacts.get(artifact_key)
+        if path is None:
+            continue
+        cards.append(
+            f'<div class="ui-download-card"><strong>{labels[artifact_key]}</strong>'
+            f'<span>{ARTIFACT_DESCRIPTIONS[artifact_key]}</span>'
+            f'<code>{path.name}</code></div>'
+        )
+    return '<div class="ui-download-grid">' + "".join(cards) + "</div>"
+
 
 def job_result_rows(result: UiRunResult) -> list[dict[str, Any]]:
     matches = {match.job_id: match for match in result.matches}
@@ -95,14 +239,14 @@ def demo_mode_notice(result: UiRunResult) -> str:
 
 def metric_grid_html(metrics: RunMetrics) -> str:
     values = (
-        ("有效岗位", metrics.valid_jobs),
-        ("访问页面", metrics.pages_visited),
-        ("失败页面", metrics.failed_pages),
-        ("重复岗位", metrics.duplicate_jobs),
+        ("有效岗位", metrics.valid_jobs, "success"),
+        ("访问页面", metrics.pages_visited, "neutral"),
+        ("失败页面", metrics.failed_pages, "warning" if metrics.failed_pages else "neutral"),
+        ("重复岗位", metrics.duplicate_jobs, "warning" if metrics.duplicate_jobs else "neutral"),
     )
     items = "".join(
-        f'<div class="ui-metric"><span>{label}</span><strong>{value}</strong></div>'
-        for label, value in values
+        f'<div class="ui-metric ui-metric-{tone}" aria-label="{label} {value}"><span>{label}</span><strong>{value}</strong></div>'
+        for label, value, tone in values
     )
     return f"""
 <style>
@@ -113,13 +257,17 @@ def metric_grid_html(metrics: RunMetrics) -> str:
   margin-bottom: 1rem;
 }}
 .ui-metric {{
-  border: 1px solid #D8DEE7;
-  border-radius: 6px;
+  border: 1px solid #DCE5DF;
+  border-radius: 12px;
   background: #FFFFFF;
-  padding: 0.75rem;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 10px 30px rgba(20, 47, 34, .06);
 }}
-.ui-metric span {{ display: block; color: #5F6B7A; font-size: 0.8rem; }}
-.ui-metric strong {{ display: block; color: #17202A; font-size: 1.45rem; }}
+.ui-metric span {{ display: block; color: #66736D; font-size: 0.78rem; margin-bottom:.35rem; }}
+.ui-metric strong {{ display: block; color: #16211D; font-size: 1.55rem; letter-spacing:-.04em; }}
+.ui-metric-success {{ border-top: 3px solid #18794E; }}
+.ui-metric-warning {{ border-top: 3px solid #D68B2B; }}
+.ui-metric-neutral {{ border-top: 3px solid #9CA8A1; }}
 @media (max-width: 640px) {{
   .ui-metric-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
 }}
@@ -133,20 +281,33 @@ def main() -> None:
 
     sync_provider_secrets()
     st.set_page_config(page_title="岗位 Agent 运行台", layout="wide")
-    st.title("岗位 Agent 运行台")
+    result = st.session_state.get("latest_ui_result")
+    st.markdown(app_styles(), unsafe_allow_html=True)
+    st.markdown(brand_header_html(result if isinstance(result, UiRunResult) else None), unsafe_allow_html=True)
 
     with st.sidebar:
-        st.subheader("运行设置")
+        st.markdown(
+            '<div class="ui-sidebar-brand"><strong>岗位 Agent</strong><span>实时发现 · 可解释匹配</span></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="ui-sidebar-label">数据来源</div>', unsafe_allow_html=True)
         mode_label = st.segmented_control(
             "数据模式",
             ["内置 Demo", "实时岗位（官方 API）", "聚合岗位（上传/URL）", "指定岗位 URL"],
             default="内置 Demo",
         )
+        mode_key = {
+            "内置 Demo": "demo",
+            "实时岗位（官方 API）": "official",
+            "聚合岗位（上传/URL）": "aggregator",
+            "指定岗位 URL": "seed_urls",
+        }[mode_label or "内置 Demo"]
+        st.markdown(f'<div class="ui-mode-hint">{mode_hint(mode_key)}</div>', unsafe_allow_html=True)
         if mode_label == "内置 Demo":
-            st.caption("内置夹具数据,岗位链接指向 example.com,仅用于演示链路。")
+            st.caption("岗位链接指向 example.com，仅用于演示链路。")
         official_specs = None
         if mode_label == "实时岗位（官方 API）":
-            st.caption("直连各厂官方招聘 API 实时拉取,无快照时效问题;发现源随逆向进度扩展。")
+            st.caption("可按来源缩小扫描范围，减少等待时间。")
             official_specs = st.multiselect(
                 "发现源",
                 [
@@ -172,13 +333,14 @@ def main() -> None:
                     "modelbest", "shengshu", "enflame",
                 ],
             )
-        use_llm_extractor = st.toggle("LLM 抽取", value=False)
+        st.markdown('<div class="ui-sidebar-label">模型能力</div>', unsafe_allow_html=True)
+        use_llm_extractor = st.toggle("启用 LLM 抽取", value=False)
         extractor_provider = (
             st.selectbox("抽取模型", ["qwen", "deepseek"])
             if use_llm_extractor
             else None
         )
-        use_llm_match = st.toggle("LLM 匹配", value=False)
+        use_llm_match = st.toggle("启用 LLM 匹配", value=False)
         match_provider = (
             st.selectbox("匹配模型", ["qwen", "deepseek"])
             if use_llm_match
@@ -186,6 +348,9 @@ def main() -> None:
         )
 
     with st.form("agent-run-form"):
+        st.markdown('<div class="ui-form-title">配置一次岗位扫描</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ui-form-caption">先设定搜索范围，再让 Agent 发现、验证并解释岗位匹配。</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ui-section-label">搜索条件</div>', unsafe_allow_html=True)
         first, second = st.columns(2)
         with first:
             keyword = st.text_input("岗位关键词", value="AI Agent 实习")
@@ -196,7 +361,8 @@ def main() -> None:
                 "目标岗位数", min_value=1, max_value=50, value=10, step=1
             )
 
-        resume_text = st.text_area("简历文本", height=180)
+        st.markdown('<div class="ui-section-label">候选人信息（可选）</div>', unsafe_allow_html=True)
+        resume_text = st.text_area("简历文本", height=180, placeholder="粘贴简历摘要，Agent 会用它解释匹配技能和缺口。")
         resume_upload = st.file_uploader("简历文件", type=["md", "txt"])
         aggregator_upload = None
         aggregator_url_text = ""
@@ -210,7 +376,8 @@ def main() -> None:
             aggregator_url_text = st.text_input("聚合数据 URL", value=DEFAULT_AGGREGATOR_URL)
         elif mode_label == "指定岗位 URL":
             seed_url_text = st.text_area("岗位 URL", height=120)
-        submitted = st.form_submit_button("开始搜索", type="primary", width="stretch")
+        st.markdown('<div class="ui-section-label">数据输入</div>', unsafe_allow_html=True)
+        submitted = st.form_submit_button("开始运行岗位 Agent", type="primary", width="stretch")
 
     if submitted:
         temporary_path: Path | None = None
@@ -265,7 +432,12 @@ def main() -> None:
 
 
 def _render_result(st: Any, result: UiRunResult) -> None:
-    st.subheader("运行结果")
+    status, detail, tone = run_status(result)
+    st.markdown(
+        f'<div class="ui-result-header"><div><h2>运行结果</h2><p>{detail} · Run ID {result.run_id}</p></div>'
+        f'<span class="ui-result-chip">{status}</span></div>',
+        unsafe_allow_html=True,
+    )
     notice = demo_mode_notice(result)
     if notice:
         st.warning(notice)
@@ -300,6 +472,7 @@ def _render_result(st: Any, result: UiRunResult) -> None:
         else:
             st.info("本次运行没有执行轨迹。")
     with downloads_tab:
+        st.markdown(artifact_cards_html(result), unsafe_allow_html=True)
         for artifact_key in ARTIFACT_SPECS:
             if artifact_key not in result.artifacts:
                 continue
