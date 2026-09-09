@@ -10,6 +10,8 @@ from web_task_agent.official_list_source import (
     _SPECS,
     MEITUAN_LIST_KEYWORDS,
     OfficialListSource,
+    _baidu_lister,
+    _bing_serp_lister,
     _byd_lister,
     _ctrip_lister,
     _geely_lister,
@@ -30,7 +32,9 @@ class FakeTransport:
         self.responders = responders
         self.calls: list[tuple[str, str]] = []  # (method, url)
 
-    def open_json(self, method: str, url: str, *, body: dict | None = None) -> dict:
+    def open_json(
+        self, method: str, url: str, *, body: dict | None = None, form: bool = False
+    ) -> dict:
         self.calls.append((method, url))
         for pattern, responder in self.responders.items():
             if pattern in url:
@@ -231,7 +235,9 @@ def test_registry_exposes_all_specs():
             "nio",
             "liauto",
             "byd",
-            "geely"
+            "geely",
+            "baidu",
+            "bing-serp"
     ])
     assert set(_SPECS) == expected
 
@@ -1046,3 +1052,91 @@ async def test_geely_lister_paginates_and_stops_at_limit():
         "https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/a-1"
     ]
     assert list_offsets == [0]  # 达到 limit 即停,不再翻页
+
+
+# ── 阶段 3 收尾:百度(form 表单)+ 3B Bing SERP ──
+
+def _baidu_payload(recruit_type: str, items: list[dict]) -> dict:
+    return {"status": "ok", "data": {"total": len(items), "list": items}}
+
+
+@pytest.mark.asyncio
+async def test_baidu_lister_maps_fields_and_stops_on_ratelimit():
+    """百度:form 表单请求,列表自带 workContent/serviceCondition;
+    限流(status=no-auth)时诚实返回已获取部分。"""
+    calls: list[dict] = []
+
+    def responder(url: str, body: dict) -> dict:
+        calls.append(body)
+        if body["recruitType"] == "INTERN" and body["keyWord"] == "大模型":
+            return _baidu_payload("INTERN", [
+                {
+                    "name": "大模型评测实习生(J94494)",
+                    "postId": "eb731a6f-40f7",
+                    "workContent": "1、负责大模型效果评测体系建设" + "x" * 80,
+                    "serviceCondition": "1、计算机相关专业本科及以上" + "y" * 80,
+                    "workPlace": "北京",
+                },
+                {"name": "前台行政专员", "postId": "other-id",
+                 "workContent": "短", "serviceCondition": ""},
+            ])
+        # 第二个查询即触发限流(冷却型,复核实录)
+        return {"status": "no-auth", "message": "illegal-visit"}
+
+    transport = FakeTransport({"getPostListNew": responder})
+    jobs = await _baidu_lister(transport, limit=10)
+
+    assert len(jobs) == 1
+    assert jobs[0].company == "百度"
+    assert jobs[0].source == "baidu"
+    expected_url = "https://talent.baidu.com/jobs/detail/INTERN/eb731a6f-40f7"
+    assert jobs[0].url == expected_url
+    assert "大模型效果评测体系建设" in jobs[0].jd_text
+    # form 表单 + keyWord 服务端过滤口径
+    assert calls[0]["recruitType"] == "INTERN"
+    assert calls[0]["keyWord"] == "大模型"
+
+
+def test_fake_transport_signature_supports_form():
+    """FakeTransport.open_json 必须与 DefaultTransport 同签名(form 参数)。"""
+    import inspect
+
+    sig = inspect.signature(FakeTransport.open_json)
+    assert "form" in sig.parameters
+
+
+@pytest.mark.asyncio
+async def test_bing_serp_lister_extracts_and_dedupes():
+    """3B:SERP HTML → discover_job_links → DiscoveredJob;跨查询去重。"""
+
+    serp_html = (
+        '<li class="b_algo"><h2><a href="https://careers.tencent.com/jobdesc.html?postId=1">a</a></h2></li>'
+        '<li class="b_algo"><h2><a href="https://hr.163.com/job-detail.html?id=65260">b</a></h2></li>'
+        '<li class="b_algo"><h2><a href="https://www.example.com/other">c</a></h2></li>'
+    )
+
+    class FakeHtmlTransport:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def fetch_html(self, url: str) -> str:
+            self.queries.append(url)
+            return serp_html
+
+        def open_json(self, method: str, url: str, *, body=None, form: bool = False) -> dict:
+            raise AssertionError("serp lister must not call open_json")
+
+    transport = FakeHtmlTransport()
+    jobs = await _bing_serp_lister(transport, limit=10)
+
+    assert len(jobs) == 2  # example.com 被域过滤;两个查询同结果去重
+    assert jobs[0].url == "https://careers.tencent.com/jobdesc.html?postId=1"
+    assert jobs[0].source == "bing-serp"
+    assert len(transport.queries) >= 2
+
+
+def test_registry_now_has_22_specs():
+    from web_task_agent.official_list_source import _SPECS
+
+    assert {"baidu", "bing-serp"} <= set(_SPECS)
+    assert len(_SPECS) == 23

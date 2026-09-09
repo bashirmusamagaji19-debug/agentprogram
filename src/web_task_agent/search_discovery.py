@@ -89,17 +89,70 @@ def _looks_like_job_url(url: str) -> bool:
     parsed = urlparse(url)
     host = (parsed.hostname or "").casefold()
     path = parsed.path.casefold()
-    if "google." in host:
+    if "google." in host or "bing.com" in host:
         return False
     known_hosts = (
+        # 美国站点(项目早期口径)
         "greenhouse.io",
         "lever.co",
         "ashbyhq.com",
         "myworkdayjobs.com",
         "smartrecruiters.com",
+        # 国内站点(阶段 3B:逆向已覆盖的官方招聘域,见
+        # docs/results/official-api-specs-2026-09-08.json)
+        "tencent.com",
+        "meituan.com",
+        "hr.163.com",
+        "campus.jd.com",
+        "talent.baidu.com",
+        "xiaohongshu.com",
+        "mihoyo.com",
+        "openout.mihoyo.com",
+        "career.huawei.com",
+        "pddglobalhr.com",
+        "careers.ctrip.com",
+        "nio.cn",
+        "lixiang.com",
+        "xiaopeng.jobs.feishu.cn",
+        "jobs.feishu.cn",
+        "f.mioffice.cn",
+        "job.byd.com",
+        "campus.geely.com",
+        "hr.xiaomi.com",
+        "api.unitree.com",
+        "www.unitree.com",
+        "agirobot.jobs.feishu.cn",
+        "mokahr.com",
+        "zhiye.com",
+        "nowcoder.com",
+        "shixiseng.com",
     )
     if any(host.endswith(known) for known in known_hosts):
         return True
-    if host.startswith(("jobs.", "careers.")):
+    if host.startswith(("jobs.", "careers.", "hr.", "campus.", "talent.", "zhaopin.")):
         return True
-    return any(marker in path for marker in ("/jobs/", "/job/", "/careers/", "/positions/"))
+    return any(
+        marker in path
+        for marker in (
+            "/jobs/",
+            "/job/",
+            "/careers/",
+            "/positions/",
+            "/position",
+            "/jobdetail",
+            "/job-detail",
+            "/jobdesc",
+            "/internship",
+            "/campus/",
+        )
+    )
+
+
+# 阶段 3B 默认查询(实验性):SERP 时效受搜索引擎收录限制,
+# 价值在发现新站点与官方列表源之外的补充,不保证实时。
+DEFAULT_SERP_QUERIES = (
+    "site:careers.tencent.com 大模型 实习",
+    "site:campus.kuaishou.com 大模型",
+    "大模型 算法 实习 招聘",
+    "具身智能 机器人 招聘",
+)

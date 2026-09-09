@@ -63,44 +63,100 @@ class DefaultTransport:
         except ImportError:
             self._cffi = None
 
-    def open_json(self, method: str, url: str, *, body: dict | None = None) -> dict:
+    def open_json(
+        self,
+        method: str,
+        url: str,
+        *,
+        body: dict | None = None,
+        form: bool = False,
+    ) -> dict:
         last_error: Exception | None = None
         for _ in range(2):  # 网络抖动(瞬时 SSL EOF)重试一次,复核实录
             if self._cffi is not None:
                 try:
-                    return self._open_cffi(method, url, body)
+                    return self._open_cffi(method, url, body, form)
                 except Exception as exc:  # noqa: BLE001 — cffi 失败回退 urllib
                     last_error = exc
             try:
-                return self._open_urllib(method, url, body)
+                return self._open_urllib(method, url, body, form)
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
         raise last_error  # type: ignore[misc]
 
-    def _open_cffi(self, method: str, url: str, body: dict | None) -> dict:
+    def _open_cffi(self, method: str, url: str, body: dict | None, form: bool) -> dict:
         # 指纹网关(飞书招聘系)按 JA3 过滤原生 TLS 栈,必须 impersonate;
         # 压缩显式限 gzip(br/zstd 解压在部分环境不可用,复核实录)
+        if body is None:
+            data = None
+            json_payload = None
+        elif form:
+            data = url_parse.urlencode(body)
+            json_payload = None
+        else:
+            data = None
+            json_payload = body
         response = self._cffi.request(
             method,
             url,
-            json=body if body is not None else None,
+            data=data,
+            json=json_payload,
             headers={"Accept-Encoding": "gzip, deflate"},
             impersonate="chrome124",
             timeout=30,
         )
         return _loads_maybe_compressed(response.content)
 
-    def _open_urllib(self, method: str, url: str, body: dict | None) -> dict:
-        data = json.dumps(body).encode("utf-8") if body is not None else None
+    def _open_urllib(self, method: str, url: str, body: dict | None, form: bool) -> dict:
+        if body is None:
+            data = None
+        elif form:
+            data = url_parse.urlencode(body).encode("utf-8")
+        else:
+            data = json.dumps(body).encode("utf-8")
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0",
             "Accept": "application/json",
         }
         if body is not None:
-            headers["Content-Type"] = "application/json"
+            headers["Content-Type"] = (
+                "application/x-www-form-urlencoded" if form else "application/json"
+            )
         req = url_request.Request(url, data=data, headers=headers, method=method)  # noqa: S310
         with url_request.urlopen(req, timeout=30) as response:  # noqa: S310
             return _loads_maybe_compressed(response.read())
+
+    def fetch_html(self, url: str) -> str:
+        """抓取 HTML 文本(SERP 解析用),双通道与重试语义同 open_json。"""
+        last_error: Exception | None = None
+        for _ in range(2):
+            if self._cffi is not None:
+                try:
+                    response = self._cffi.request(
+                        "GET",
+                        url,
+                        headers={"Accept-Encoding": "gzip, deflate"},
+                        impersonate="chrome124",
+                        timeout=30,
+                    )
+                    return _text_maybe_compressed(response.content)
+                except Exception:  # noqa: BLE001 — 回退 urllib
+                    pass
+            try:
+                req = url_request.Request(  # noqa: S310
+                    url,
+                    headers={
+                        "User-Agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0"
+                        )
+                    },
+                    method="GET",
+                )
+                with url_request.urlopen(req, timeout=30) as response:
+                    return _text_maybe_compressed(response.read())
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+        raise last_error  # type: ignore[misc]
 
 
 def _loads_maybe_compressed(raw: bytes) -> dict:
@@ -113,6 +169,18 @@ def _loads_maybe_compressed(raw: bytes) -> dict:
     elif raw[:1] == b"\x78":
         raw = zlib.decompress(raw)
     return json.loads(raw.decode("utf-8"))
+
+
+def _text_maybe_compressed(raw: bytes) -> str:
+    """同 _loads_maybe_compressed 的解压逻辑,但返回文本(HTML 抓取用)。"""
+    import gzip
+    import zlib
+
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    elif raw[:1] == b"\x78":
+        raw = zlib.decompress(raw)
+    return raw.decode("utf-8", errors="replace")
 
 
 # 腾讯校招库:标题过滤口径与 job-radar 模式(is_intern_ai_job)一致 ——
@@ -164,6 +232,84 @@ async def _tencent_campus_lister(transport, limit: int) -> list[DiscoveredJob]: 
             if len(jobs) >= limit:
                 break
         page_no += 1
+    return jobs
+
+
+_BAIDU_LIST_API = "https://talent.baidu.com/httservice/getPostListNew"
+# 百度限流为冷却型(连续请求触发 no-auth illegal-visit,冷却后恢复,复核实录),
+# 故 keyWord 集合克制且类目间串行。
+_BAIDU_RECRUIT_TYPES = ("INTERN", "GRADUATE", "SOCIAL")
+_BAIDU_KEYWORDS = ["大模型", "AI", "算法", "机器人"]
+
+
+async def _baidu_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """百度:POST getPostListNew(form 表单),列表自带 workContent/serviceCondition 全文。
+
+    job URL https://talent.baidu.com/jobs/detail/{recruitType}/{postId}。
+    遇到限流(status=no-auth)时停止翻页,返回已获取结果(诚实部分产出)。
+    """
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    for recruit_type in _BAIDU_RECRUIT_TYPES:
+        if len(jobs) >= limit:
+            break
+        for keyword in _BAIDU_KEYWORDS:
+            if len(jobs) >= limit:
+                break
+            page_no = 1
+            while len(jobs) < limit and page_no <= 3:
+                payload = transport.open_json(
+                    "POST",
+                    _BAIDU_LIST_API,
+                    body={
+                        "recruitType": recruit_type,
+                        "pageSize": 50,
+                        "curPage": page_no,
+                        "keyWord": keyword,
+                        "postType": "",
+                        "workPlace": "",
+                        "projectType": "",
+                    },
+                    form=True,
+                )
+                if str(payload.get("status")) != "ok":
+                    return jobs  # 限流/异常:诚实返回已获取部分
+                items = (payload.get("data") or {}).get("list") or []
+                if not items:
+                    break
+                for item in items:
+                    title = str(item.get("name") or "").strip()
+                    post_id = str(item.get("postId") or "").strip()
+                    if not title or not post_id or not _title_in_domain(title):
+                        continue
+                    url = (
+                        f"https://talent.baidu.com/jobs/detail/"
+                        f"{recruit_type}/{url_parse.quote(post_id)}"
+                    )
+                    if url in seen:
+                        continue
+                    plain = (
+                        f"岗位职责：\n{item.get('workContent', '')}\n"
+                        f"任职要求：\n{item.get('serviceCondition', '')}"
+                    ).strip()
+                    if len(plain) < 80:
+                        continue
+                    seen.add(url)
+                    jobs.append(
+                        DiscoveredJob(
+                            url=url,
+                            title=title,
+                            company="百度",
+                            location=str(
+                                item.get("workPlace") or item.get("cityName") or ""
+                            ).strip(),
+                            jd_text=plain,
+                            source="baidu",
+                        )
+                    )
+                    if len(jobs) >= limit:
+                        break
+                page_no += 1
     return jobs
 
 
@@ -1221,6 +1367,48 @@ async def _geely_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: 
     return jobs
 
 
+_BING_SERP_URL = "https://cn.bing.com/search?q={query}&mkt=zh-CN&count=30"
+
+
+async def _bing_serp_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """阶段 3B(实验性):Bing SERP 岗位链接发现。
+
+    定位:发现官方列表源之外的新站点/新链接;时效受搜索引擎收录限制,
+    无正文来源的域在内容链会被诚实过滤。DiscoveredJob.title 留空
+    (标题由后续抽取/官方 API 提供),jd_text 为空走兜底链。
+    """
+    from urllib.parse import quote_plus
+
+    from web_task_agent.search_discovery import DEFAULT_SERP_QUERIES, discover_job_links
+
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    for query in DEFAULT_SERP_QUERIES:
+        if len(jobs) >= limit:
+            break
+        try:
+            html = transport.fetch_html(_BING_SERP_URL.format(query=quote_plus(query)))
+        except Exception:  # noqa: BLE001 — 单查询失败不影响其余
+            continue
+        for url in discover_job_links(html, base_url=_BING_SERP_URL):
+            if url in seen:
+                continue
+            seen.add(url)
+            jobs.append(
+                DiscoveredJob(
+                    url=url,
+                    title="",
+                    company="",
+                    location="",
+                    jd_text="",
+                    source="bing-serp",
+                )
+            )
+            if len(jobs) >= limit:
+                break
+    return jobs
+
+
 _SPECS: dict[str, object] = {
     "tencent-campus": _tencent_campus_lister,
     "meituan": _meituan_lister,
@@ -1229,6 +1417,8 @@ _SPECS: dict[str, object] = {
     "netease": _netease_lister,
     "xiaohongshu": _xiaohongshu_lister,
     "mihoyo": _mihoyo_lister,
+    "baidu": _baidu_lister,
+    "bing-serp": _bing_serp_lister,
     **_family_specs(),
 }
 

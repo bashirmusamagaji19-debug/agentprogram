@@ -43,6 +43,14 @@
 - **美团波动**:昨日冒烟 3 条,收尾冒烟 0 条(curl 交叉验证同样为空,message=成功)——服务端岗位数据刷新/批次结束,非适配器缺陷;适配器逻辑保留,等待数据恢复
 - 最终:21 发现源中 20 家冒烟产出有效岗位;467 passed
 
+## 阶段 3 最终收尾(同日)
+
+- **百度补接**:适配器上线(form 表单 + INTERN/GRADUATE/SOCIAL 三类循环 + keyWord 服务端过滤)。限流为**冷却型**:no-auth illegal-visit 出现后冷却一段时间即恢复(实测三次:通→封→通),适配器遇 no-auth 诚实返回已获取部分。冒烟波动记录:单次冒烟可能遇限流拿 0 条,重试即恢复。
+- **3B Bing SERP(实验性)上线**:SearchEngineSource 与其他发现源同构(_SPECS["bing-serp"]);discover_job_links 域名表精确化(门户级宽后缀 baidu.com/jd.com 等改为精确官方域,防百科/知道误收);cn.bing.com 端点。**实验结论(诚实)**:Bing 对脚本请求返回的结果不稳定(带 Cookie 的 curl 与无 Cookie 的 cffi 拿到不同内容),且 SERP 中岗位链接密度低——代码保留作实验能力,官方列表 API 直连(20 源)才是有效路径,泛搜查询保留"新站发现"用途。
+- 传输层升级:form 表单支持(百度)、fetch_html(SERP)。
+- 美团复查:服务端 jobList 仍空(curl 交叉验证),适配器保留。
+- 最终:471 passed;23 发现源中 20 家稳定产出有效岗位,百度/美团受服务端波动,bing-serp 实验性。
+
 ## 测试与交付
 
 - 450 passed(ruff 收敛至改动文件全绿);发现源 13 个全部注册 + Streamlit 多选默认全选
