@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web Task Agent Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #667085;
+      --line: #d9dee7;
+      --accent: #2563eb;
+      --good: #0f766e;
+      --warn: #b45309;
+      --low: #b91c1c;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .metric strong {
+      font-size: 24px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      font-size: 13px;
+      color: var(--muted);
+      background: #f9fafb;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      margin: 0 4px 4px 0;
+      font-size: 12px;
+    }
+    .priority-high { color: var(--good); font-weight: 700; }
+    .priority-medium { color: var(--warn); font-weight: 700; }
+    .priority-low { color: var(--low); font-weight: 700; }
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(160px, 220px));
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .control label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .control input,
+    .control select {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+    }
+    .result-count {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .gap-summary {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 18px;
+    }
+    .gap-summary h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .gap-summary ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .gap-summary li {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: #f9fafb;
+      font-size: 13px;
+    }
+    @media (max-width: 760px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Web Task Agent Dashboard</h1>
+    <div class="subtitle">关键词：AI Agent 实习 · 地点：全国 · 技能：<span class="pill">Python</span> <span class="pill">LLM</span> <span class="pill">RAG</span> <span class="pill">LangGraph</span> <span class="pill">Agent</span></div>
+    <section class="metrics">
+      <div class="metric"><span>访问页面数</span><strong>47</strong></div>
+      <div class="metric"><span>发现岗位数</span><strong>47</strong></div>
+      <div class="metric"><span>有效岗位数</span><strong>39</strong></div>
+      <div class="metric"><span>重复岗位数</span><strong>1</strong></div>
+      <div class="metric"><span>失败页面数</span><strong>3</strong></div>
+      <div class="metric"><span>编排模式</span><strong>langgraph</strong></div>
+    </section>
+    <section class="gap-summary">
+      <h2>Input Trace</h2>
+      <p>Seed URL mode</p><ul><li><a href="https://careers.tencent.com/jobdesc.html?postId=1282707398326592512">https://careers.tencent.com/jobdesc.html?postId=1282707398326592512</a></li>
+<li><a href="https://www.unitree.com/cn/position/2060189838933491712">https://www.unitree.com/cn/position/2060189838933491712</a></li>
+<li><a href="https://xiaomi.jobs.f.mioffice.cn/internship/position/7670443502493092134/detail">https://xiaomi.jobs.f.mioffice.cn/internship/position/7670443502493092134/detail</a></li>
+<li><a href="https://hr.163.com/job-detail.html?id=65260">https://hr.163.com/job-detail.html?id=65260</a></li>
+<li><a href="https://job.xiaohongshu.com/campus/position/20830">https://job.xiaohongshu.com/campus/position/20830</a></li>
+<li><a href="https://jobs.mihoyo.com/#/campus/position/7111">https://jobs.mihoyo.com/#/campus/position/7111</a></li>
+<li><a href="https://zhaopin.sgcc.com.cn/sgcchr/static/home.html">https://zhaopin.sgcc.com.cn/sgcchr/static/home.html</a></li>
+<li><a href="https://xiaopeng.jobs.feishu.cn/campus/position/7680157290796173618">https://xiaopeng.jobs.feishu.cn/campus/position/7680157290796173618</a></li>
+<li><a href="https://agirobot.jobs.feishu.cn/internrecruitment/position/7683034237406546239/detail">https://agirobot.jobs.feishu.cn/internrecruitment/position/7683034237406546239/detail</a></li>
+<li><a href="https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/3c594649-7f7f-4cec-ae3a-01e9bb5ead9e">https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/3c594649-7f7f-4cec-ae3a-01e9bb5ead9e</a></li>
+<li><a href="https://app.mokahr.com/campus-recruitment/robotera/163878/aec8e087-cf9e-4cdc-99b5-ba7bb1749131">https://app.mokahr.com/campus-recruitment/robotera/163878/aec8e087-cf9e-4cdc-99b5-ba7bb1749131</a></li>
+<li><a href="https://app.mokahr.com/campus-recruitment/fftai/147078#/job/b0e26e45-ede7-45d8-b944-d96027201436">https://app.mokahr.com/campus-recruitment/fftai/147078#/job/b0e26e45-ede7-45d8-b944-d96027201436</a></li>
+<li><a href="https://campus.jd.com/#/details?id=9095">https://campus.jd.com/#/details?id=9095</a></li>
+<li><a href="https://careers.pddglobalhr.com/campus/grad/detail?positionId=43b706c2-9d86-47de-a99d-fcd35405799f">https://careers.pddglobalhr.com/campus/grad/detail?positionId=43b706c2-9d86-47de-a99d-fcd35405799f</a></li>
+<li><a href="https://careers.ctrip.com/campus/job-detail/MJ036681">https://careers.ctrip.com/campus/job-detail/MJ036681</a></li>
+<li><a href="https://career.huawei.com/cn/job-details?advertisementId=39004">https://career.huawei.com/cn/job-details?advertisementId=39004</a></li>
+<li><a href="https://nio.jobs.feishu.cn/index/position/detail/7486123409668786483">https://nio.jobs.feishu.cn/index/position/detail/7486123409668786483</a></li>
+<li><a href="https://www.lixiang.com/employ/detail/19219.html">https://www.lixiang.com/employ/detail/19219.html</a></li>
+<li><a href="https://job.byd.com/portal/pc/#/skiller/skillerPositionDetails?id=1803338074273374210">https://job.byd.com/portal/pc/#/skiller/skillerPositionDetails?id=1803338074273374210</a></li>
+<li><a href="https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/00b70766-bbbc-478a-9f5f-a731381450b4">https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/00b70766-bbbc-478a-9f5f-a731381450b4</a></li>
+<li><a href="https://ubtrobot.zhiye.com/intern/detail/511081721">https://ubtrobot.zhiye.com/intern/detail/511081721</a></li>
+<li><a href="https://dx3a2bminsq.jobs.feishu.cn/index/position/7681570577845176622">https://dx3a2bminsq.jobs.feishu.cn/index/position/7681570577845176622</a></li>
+<li><a href="https://galaxea.zhiye.com/social/detail/621129214">https://galaxea.zhiye.com/social/detail/621129214</a></li>
+<li><a href="https://tarsrobot.jobs.feishu.cn/referral/position/7673865005364119862">https://tarsrobot.jobs.feishu.cn/referral/position/7673865005364119862</a></li>
+<li><a href="https://x2-robot.jobs.feishu.cn/index/position/detail/7680549651082578185">https://x2-robot.jobs.feishu.cn/index/position/detail/7680549651082578185</a></li>
+<li><a href="https://career.limxdynamics.com/index/position/7683114416728344841">https://career.limxdynamics.com/index/position/7683114416728344841</a></li>
+<li><a href="https://ai2robotics.jobs.feishu.cn/094992/position/7547312036872980782">https://ai2robotics.jobs.feishu.cn/094992/position/7547312036872980782</a></li>
+<li><a href="https://app.mokahr.com/social-recruitment/astribot/144861#/job/fcfa57a9-eb9d-45de-a1d3-bae3506cbebe">https://app.mokahr.com/social-recruitment/astribot/144861#/job/fcfa57a9-eb9d-45de-a1d3-bae3506cbebe</a></li>
+<li><a href="https://dexmal-inc.jobs.feishu.cn/index/position/7679060456242415881">https://dexmal-inc.jobs.feishu.cn/index/position/7679060456242415881</a></li>
+<li><a href="https://booster.jobs.feishu.cn/index/position/detail/7673455520690276649">https://booster.jobs.feishu.cn/index/position/detail/7673455520690276649</a></li>
+<li><a href="https://app.mokahr.com/social-recruitment/moonshot/148506#/job/d8fd3980-8a73-4b59-b0f4-4bdead3b77b9">https://app.mokahr.com/social-recruitment/moonshot/148506#/job/d8fd3980-8a73-4b59-b0f4-4bdead3b77b9</a></li>
+<li><a href="https://zhipu-ai.jobs.feishu.cn/index/position/7623240518135499017">https://zhipu-ai.jobs.feishu.cn/index/position/7623240518135499017</a></li>
+<li><a href="https://vrfi1sk8a0.jobs.feishu.cn/index/position/7682323969436928265">https://vrfi1sk8a0.jobs.feishu.cn/index/position/7682323969436928265</a></li>
+<li><a href="https://app.mokahr.com/social-recruitment/step/94904#/job/5b2ab068-9591-4644-9c78-dbe4862177a3">https://app.mokahr.com/social-recruitment/step/94904#/job/5b2ab068-9591-4644-9c78-dbe4862177a3</a></li>
+<li><a href="https://app.mokahr.com/social-recruitment/high-flyer/140576#/job/01416da2-3c8a-4a20-bbb3-1c925d0facf1">https://app.mokahr.com/social-recruitment/high-flyer/140576#/job/01416da2-3c8a-4a20-bbb3-1c925d0facf1</a></li>
+<li><a href="https://cq6qe6bvfr6.jobs.feishu.cn/646926/position/7654879972347152650/detail">https://cq6qe6bvfr6.jobs.feishu.cn/646926/position/7654879972347152650/detail</a></li>
+<li><a href="https://modelbest.jobs.feishu.cn/career/position/7683082405229775158/detail">https://modelbest.jobs.feishu.cn/career/position/7683082405229775158/detail</a></li>
+<li><a href="https://shengshu.jobs.feishu.cn/index/position/7681258986549184795">https://shengshu.jobs.feishu.cn/index/position/7681258986549184795</a></li>
+<li><a href="https://careers.tencent.com/jobdesc.html?postId=1282707395466077184">https://careers.tencent.com/jobdesc.html?postId=1282707395466077184</a></li>
+<li><a href="https://www.unitree.com/cn/position/2046857577249112064">https://www.unitree.com/cn/position/2046857577249112064</a></li>
+<li><a href="https://xiaomi.jobs.f.mioffice.cn/internship/position/7670851327552194858/detail">https://xiaomi.jobs.f.mioffice.cn/internship/position/7670851327552194858/detail</a></li>
+<li><a href="https://hr.163.com/job-detail.html?id=74090">https://hr.163.com/job-detail.html?id=74090</a></li>
+<li><a href="https://job.xiaohongshu.com/campus/position/20815">https://job.xiaohongshu.com/campus/position/20815</a></li>
+<li><a href="https://jobs.mihoyo.com/#/campus/position/8924">https://jobs.mihoyo.com/#/campus/position/8924</a></li>
+<li><a href="https://zhaopin.sgcc.com.cn/sgcchr/static/unitPart.html?bullet_id=f423534d65af47dfa96f24a60eec26f9&amp;particulars=true">https://zhaopin.sgcc.com.cn/sgcchr/static/unitPart.html?bullet_id=f423534d65af47dfa96f24a60eec26f9&amp;particulars=true</a></li>
+<li><a href="https://xiaopeng.jobs.feishu.cn/campus/position/7678909256494221587">https://xiaopeng.jobs.feishu.cn/campus/position/7678909256494221587</a></li>
+<li><a href="https://agirobot.jobs.feishu.cn/internrecruitment/position/7682997813654915374/detail">https://agirobot.jobs.feishu.cn/internrecruitment/position/7682997813654915374/detail</a></li>
+<li><a href="https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/78f061b8-8e4c-4233-9e73-e47caa088536">https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/78f061b8-8e4c-4233-9e73-e47caa088536</a></li>
+<li><a href="https://app.mokahr.com/campus-recruitment/robotera/163878/eb7a0a60-7888-4fb5-a9e7-f5c7901e26dd">https://app.mokahr.com/campus-recruitment/robotera/163878/eb7a0a60-7888-4fb5-a9e7-f5c7901e26dd</a></li>
+<li><a href="https://app.mokahr.com/campus-recruitment/fftai/147078#/job/32ddf5c0-71f3-4f3b-8025-f79210108fa4">https://app.mokahr.com/campus-recruitment/fftai/147078#/job/32ddf5c0-71f3-4f3b-8025-f79210108fa4</a></li></ul><p>URL Errors</p><ul><li><a href="https://zhaopin.sgcc.com.cn/sgcchr/static/home.html">https://zhaopin.sgcc.com.cn/sgcchr/static/home.html</a> -> PageEmptyError: aggregator page has no usable content (official API/http/jd_text all failed or below 120 chars): https://zhaopin.sgcc.com.cn/sgcchr/static/home.html</li>
+<li><a href="https://job.byd.com/portal/pc/#/skiller/skillerPositionDetails?id=1803338074273374210">https://job.byd.com/portal/pc/#/skiller/skillerPositionDetails?id=1803338074273374210</a> -> PageEmptyError: aggregator page has no usable content (official API/http/jd_text all failed or below 120 chars): https://job.byd.com/portal/pc/#/skiller/skillerPositionDetails?id=1803338074273374210</li>
+<li><a href="https://zhaopin.sgcc.com.cn/sgcchr/static/unitPart.html?bullet_id=f423534d65af47dfa96f24a60eec26f9&amp;particulars=true">https://zhaopin.sgcc.com.cn/sgcchr/static/unitPart.html?bullet_id=f423534d65af47dfa96f24a60eec26f9&amp;particulars=true</a> -> PageEmptyError: aggregator page has no usable content (official API/http/jd_text all failed or below 120 chars): https://zhaopin.sgcc.com.cn/sgcchr/static/unitPart.html?bullet_id=f423534d65af47dfa96f24a60eec26f9&amp;particulars=true</li></ul>
+    </section>
+    <section class="gap-summary">
+      <h2>相关产物</h2>
+      <ul><li><a href="../reports/run-843296ac.md">Markdown 报告</a></li>
+<li><a href="../action-plans/run-843296ac.md">行动计划</a></li></ul>
+    </section>
+    <section class="gap-summary">
+      <h2>Agent 执行轨迹</h2>
+      <ul><li><strong>planner</strong>: selected 50 seed URLs</li>
+<li><strong>browser</strong>: opened 47 pages; failed 3 URLs</li>
+<li><strong>extractor</strong>: extracted 47 job candidates</li>
+<li><strong>verifier</strong>: kept 39 valid jobs; removed 1 duplicates; filtered 7 jobs</li>
+<li><strong>matcher</strong>: scored 39 job matches</li>
+<li><strong>reporter</strong>: persisted 39 jobs and wrote Markdown report</li></ul>
+    </section>
+    <section class="gap-summary">
+      <h2>技能缺口汇总</h2>
+      <ul><li>C++: 3 个岗位</li>
+<li>硕士及以上学历: 3 个岗位</li>
+<li>硕士及以上学历（当前为本科）: 3 个岗位</li>
+<li>多模态: 2 个岗位</li>
+<li>2年以上开发者运营/DevRel/技术布道经验: 1 个岗位</li>
+<li>3D人体动画/骨骼建模: 1 个岗位</li>
+<li>3D建模或手办设计基础: 1 个岗位</li>
+<li>3D检测与多目标跟踪（BEVFusion、ByteTrack等）: 1 个岗位</li>
+<li>5年以上大模型相关技术招聘经验: 1 个岗位</li>
+<li>ACM/Kaggle/数学建模等竞赛获奖经历: 1 个岗位</li>
+<li>Adobe Creative Suite（Photoshop/Illustrator）: 1 个岗位</li>
+<li>Agentic RL（强化学习与 Agent 结合）相关经验: 1 个岗位</li>
+<li>AI 产品全链路闭环能力（需求洞察→方案设计→效果验证→规模化复用）: 1 个岗位</li>
+<li>AIGC 数据运营 / 多媒体内容审核 / 模型评测实战经验: 1 个岗位</li>
+<li>ARM NEON/GPU加速（CUDA/OpenCL/SIMD）: 1 个岗位</li>
+<li>arXiv论文追踪与学术社区运营经验: 1 个岗位</li>
+<li>ASR/OCR/动作识别/切镜点等多媒体分析技术基础: 1 个岗位</li>
+<li>AudioLLM 或多模态大模型训练经验: 1 个岗位</li>
+<li>Basic understanding of B2B business models and sales processes: 1 个岗位</li>
+<li>BEV感知、Point系列模型、Transformer在视觉感知中的应用: 1 个岗位</li>
+<li>C++ 工程能力: 1 个岗位</li>
+<li>C++/CUDA 算子优化: 1 个岗位</li>
+<li>C++/Rust 高性能编程: 1 个岗位</li>
+<li>C++（5年以上Linux平台开发经验）: 1 个岗位</li>
+<li>C/C++: 1 个岗位</li>
+<li>CUDA 编程与模型推理加速: 1 个岗位</li>
+<li>CUDA/TensorRT部署: 1 个岗位</li>
+<li>diffusion / flow matching / DiT 等视频生成模型原理: 1 个岗位</li>
+<li>Diffusion/DiT生成模型深度经验: 1 个岗位</li>
+<li>Experience creating technical/AI-related marketing content: 1 个岗位</li>
+<li>Experience tracking growth metrics (impressions, conversion, leads): 1 个岗位</li>
+<li>Exposure to U.S. market or global audiences: 1 个岗位</li>
+<li>Fluent English (writing and communication) — not evidenced in resume: 1 个岗位</li>
+<li>Function Calling 工具调用工程化落地经验（非仅链路，含错误恢复、审计、权限控制）: 1 个岗位</li>
+<li>GTest单元测试、perf/VTune性能分析: 1 个岗位</li>
+<li>Hadoop/Spark/Flink 等大数据框架经验: 1 个岗位</li>
+<li>Hands-on experience with X (Twitter) / LinkedIn content creation or growth: 1 个岗位</li>
+<li>Human Motion Generation: 1 个岗位</li>
+<li>IK/FK运动学: 1 个岗位</li>
+<li>IMU/磁编码器/电磁跟踪等运动传感器研究或应用经历: 1 个岗位</li>
+<li>IT产品设计方法论（如用户旅程地图、PRD撰写、A/B测试设计）: 1 个岗位</li>
+<li>Kubernetes: 1 个岗位</li>
+<li>Linux内核机制（进程调度、内存映射、零拷贝）: 1 个岗位</li>
+<li>Linux深度使用与推理优化（如TensorRT、ONNX Runtime、量化部署）: 1 个岗位</li>
+<li>LoRA/QLoRA 微调技术: 1 个岗位</li>
+<li>MetaHuman / Unreal Engine: 1 个岗位</li>
+<li>NeurIPS/ICLR/ACL等顶会人才网络: 1 个岗位</li>
+<li>NeuroPilot/SNPE: 1 个岗位</li>
+<li>NLP/RL/深度学习算法招聘背景: 1 个岗位</li>
+<li>NPU/GPU SOC底层编程: 1 个岗位</li>
+<li>Occupancy感知（SurroundOcc、TPVFormer等）: 1 个岗位</li>
+<li>Offer谈判与高端人才说服影响力: 1 个岗位</li>
+<li>prompt engineering: 1 个岗位</li>
+<li>Prompt Engineering 深度实践（如系统化模板设计、评估与迭代）: 1 个岗位</li>
+<li>Prompt Engineering（PE）实战经验: 1 个岗位</li>
+<li>Prompt 工程系统化实践（如模板管理、评估、A/B测试）: 1 个岗位</li>
+<li>Reward modeling（RM）相关概念与数据需求理解: 1 个岗位</li>
+<li>ROS/ROS2、Isaac Sim/MuJoCo/Gazebo 等仿真平台: 1 个岗位</li>
+<li>ROS/URDF/实时SDK开发、嵌入式部署或光学动捕系统验证经验: 1 个岗位</li>
+<li>ROS2 / Cyber RT: 1 个岗位</li>
+<li>ROS2/DDS/MQTT跨进程通信: 1 个岗位</li>
+<li>sim2real（电机建模、通讯延迟模拟、噪声建模）: 1 个岗位</li>
+<li>SLAM/路径规划/传感器驱动等机器人核心算法工程化经验: 1 个岗位</li>
+<li>Spark / Flink / Hadoop 大数据技术栈: 1 个岗位</li>
+<li>STL/模板/智能指针/多线程（std::thread、OpenMP）: 1 个岗位</li>
+<li>Talent Sourcing Prompt工程能力: 1 个岗位</li>
+<li>TCP/UDP/串口通信: 1 个岗位</li>
+<li>TensorFlow（未提及）: 1 个岗位</li>
+<li>TensorRT: 1 个岗位</li>
+<li>Transformer 架构深入理解: 1 个岗位</li>
+<li>Transformer 架构深度原理理解: 1 个岗位</li>
+<li>Transformer 深度原理与 VLM 架构调优能力: 1 个岗位</li>
+<li>VLA/WAM 模型架构（如 RT-1、OpenVLA、π0）: 1 个岗位</li>
+<li>VLA/具身智能顶会论文（ICRA/CoRL/ECCV/NeurIPS）: 1 个岗位</li>
+<li>VLA（视觉-语言-动作）模型研发经验: 1 个岗位</li>
+<li>VLA（视觉-语言-动作）模型集成经验: 1 个岗位</li>
+<li>VLM/VLA 模型架构与训练经验: 1 个岗位</li>
+<li>VLM（视觉语言模型）训练与优化经验: 1 个岗位</li>
+<li>三维姿态表示与坐标变换（四元数、旋转矩阵、欧拉角、刚体位姿推导）: 1 个岗位</li>
+<li>专业级文本标注经验（如多轮对话标注、语义角色标注等）: 1 个岗位</li>
+<li>世界模型（WAM）/具身智能基座模型预训练经验: 1 个岗位</li>
+<li>人体/机器人运动学理论（前向/逆向运动学、骨骼建模、关节约束）: 1 个岗位</li>
+<li>人体参数标定、初始姿态对齐、传感器-骨骼坐标系映射: 1 个岗位</li>
+<li>人工评测体系建设经验（标注规范设计、质检流程、benchmark 维护）: 1 个岗位</li>
+<li>从模型训练到实机部署调试的端到端经验: 1 个岗位</li>
+<li>仿真工具（Isaac Sim、Webots）: 1 个岗位</li>
+<li>企业级办公场景/协同办公业务理解: 1 个岗位</li>
+<li>全身运动规划（WAM）、扩散策略/流匹配动作建模: 1 个岗位</li>
+<li>全身运动跟踪器: 1 个岗位</li>
+<li>具身智能/机器人操作背景（VLA、强化学习、多模态大模型）: 1 个岗位</li>
+<li>具身智能相关概念（VLM/VLA、机器人本体/控制/仿真）: 1 个岗位</li>
+<li>具身智能（Embodied AI）/VLA（Vision-Language-Action）领域经验: 1 个岗位</li>
+<li>具身智能（Embodied AI）领域研究经验: 1 个岗位</li>
+<li>内容安全 / 风控 / 反作弊领域业务理解: 1 个岗位</li>
+<li>分布式系统开发经验（如微服务治理、Kafka/RocketMQ）: 1 个岗位</li>
+<li>分布式训练（DeepSpeed/FSDP）: 1 个岗位</li>
+<li>力触觉/IMU 多模态融合: 1 个岗位</li>
+<li>动作重定向（Motion Retargeting）: 1 个岗位</li>
+<li>包装与印刷设计知识: 1 个岗位</li>
+<li>博士学历（岗位明确要求2027届全日制博士研究生）: 1 个岗位</li>
+<li>双足/机械臂真机调试与整机联调: 1 个岗位</li>
+<li>品牌视觉系统构建经验: 1 个岗位</li>
+<li>国家级/省级科研项目实质性承担经历（需明确算法任务与验证方法）: 1 个岗位</li>
+<li>图形学（Graphics）: 1 个岗位</li>
+<li>多传感器融合（尤其面向动作捕捉的误差建模与漂移修正）: 1 个岗位</li>
+<li>多传感器融合（相机+激光雷达+IMU）: 1 个岗位</li>
+<li>多模态大模型: 1 个岗位</li>
+<li>多模态大模型从0到1预训练全流程（含分布式训练）: 1 个岗位</li>
+<li>多模态大模型实战经验（ViT、CLIP、RT-2、OpenVLA）: 1 个岗位</li>
+<li>多模态大模型理论与训练经验（如CLIP、Flamingo、Qwen-VL、LLaVA等）: 1 个岗位</li>
+<li>多模态大模型（VLM）部署经验: 1 个岗位</li>
+<li>多模态学习: 1 个岗位</li>
+<li>多模态数据处理（图像/视频/文本对齐）: 1 个岗位</li>
+<li>多模态生成技术（如图像/视频/3D/动作生成）: 1 个岗位</li>
+<li>多模态算法/计算机视觉实践经验: 1 个岗位</li>
+<li>多模态驱动生成（Text/Audio-to-Motion, Lip Sync）: 1 个岗位</li>
+<li>多视图几何: 1 个岗位</li>
+<li>多进程/分布式系统集成经验: 1 个岗位</li>
+<li>大型企业数字化转型项目经验: 1 个岗位</li>
+<li>大型技术活动（Hackathon/Workshop）组织经验: 1 个岗位</li>
+<li>大模型训练: 1 个岗位</li>
+<li>大模型预训练/后训练（SFT/RLHF/OPD）实战经验: 1 个岗位</li>
+<li>大规模分布式训练实战经验: 1 个岗位</li>
+<li>大规模动捕数据训练: 1 个岗位</li>
+<li>大规模模型预训练 / PEFT 实战经验: 1 个岗位</li>
+<li>大规模语音数据处理pipeline开发经验: 1 个岗位</li>
+<li>学术论文发表或技术报告产出: 1 个岗位</li>
+<li>实时系统优化、驱动/通信模块开发: 1 个岗位</li>
+<li>强化学习: 1 个岗位</li>
+<li>强化学习/模仿学习/Sim2Real/遥操作数据采集实践: 1 个岗位</li>
+<li>强化学习/模仿学习/端到端策略（工程化落地经验）: 1 个岗位</li>
+<li>强化学习（PPO/RLHF/DPO）、模仿学习（BC/DAgger）、世界模型: 1 个岗位</li>
+<li>强化学习（RL）: 1 个岗位</li>
+<li>强化学习（RL）项目经验: 1 个岗位</li>
+<li>强化学习（尤其用于LLM对齐）: 1 个岗位</li>
+<li>情感类AI社区深度使用经历（如长期参与豆包/星火/文心一言等社区反馈、评测）: 1 个岗位</li>
+<li>招聘漏斗数据驱动优化经验: 1 个岗位</li>
+<li>插画与表情包创作能力: 1 个岗位</li>
+<li>数据挖掘竞赛（如Kaggle、天池）或相关成果: 1 个岗位</li>
+<li>数据清洗与标注质量评估方法论: 1 个岗位</li>
+<li>智能驾驶场景理解: 1 个岗位</li>
+<li>机器人/AI顶会论文: 1 个岗位</li>
+<li>机器人/自动驾驶量产项目经验: 1 个岗位</li>
+<li>机器人/视频/异构感知数据处理经验: 1 个岗位</li>
+<li>机器人仿真工具链（Mujoco/PyBullet/Isaac Sim）: 1 个岗位</li>
+<li>机器人仿真平台（Isaac Gym / MuJoCo / PyBullet）: 1 个岗位</li>
+<li>机器人发明专利: 1 个岗位</li>
+<li>机器人感知（图像/点云/多传感器融合/定位）: 1 个岗位</li>
+<li>机器人控制或具身智能（embodied AI）领域背景: 1 个岗位</li>
+<li>机器人本体控制与真机部署经验: 1 个岗位</li>
+<li>机器人相关专业背景: 1 个岗位</li>
+<li>机器人真机调试: 1 个岗位</li>
+<li>机器人领域数据采集、清洗、标注与数据集构建实践: 1 个岗位</li>
+<li>机器人领域经验（ROS/ROS2、运动学、关节动作序列处理）: 1 个岗位</li>
+<li>机器学习: 1 个岗位</li>
+<li>模仿学习（BC/Diffusion Policy/Flow Matching）与强化学习（PPO/SAC）: 1 个岗位</li>
+<li>模型压缩（剪枝/量化/蒸馏）: 1 个岗位</li>
+<li>模型训练/微调实战（尤其扩散模型、Transformer-based生成模型）: 1 个岗位</li>
+<li>模型量化/剪枝/转换: 1 个岗位</li>
+<li>海量数据挖掘项目经验: 1 个岗位</li>
+<li>深度学习: 1 个岗位</li>
+<li>深度学习感知算法（3年经验）: 1 个岗位</li>
+<li>深度学习模型独立训练与评测的完整经验（如调参、消融、指标分析）: 1 个岗位</li>
+<li>游戏研发流程理解（美术/动画/TA/关卡等生产环节）: 1 个岗位</li>
+<li>潮玩文创行业研究与竞品分析经验: 1 个岗位</li>
+<li>状态估计（卡尔曼滤波、因子图优化等）、信号处理、概率建模能力: 1 个岗位</li>
+<li>生产级 trouble-shooting 能力（如日志链路追踪、JVM/OS级调优）: 1 个岗位</li>
+<li>百亿参数级模型训练经验: 1 个岗位</li>
+<li>真实机器人场景落地经验: 1 个岗位</li>
+<li>真机实验经验（机械臂/移动机器人/人形机器人平台）: 1 个岗位</li>
+<li>真机调试与工业场景部署经验: 1 个岗位</li>
+<li>真机部署与实时控制经验: 1 个岗位</li>
+<li>硕士/博士在读（用户为2027届本科生）: 1 个岗位</li>
+<li>硕士及以上学历（岗位硬性要求）: 1 个岗位</li>
+<li>硕士及以上学历（当前为本科在读，2027届）: 1 个岗位</li>
+<li>硕士及以上学历（当前为本科，2027届）: 1 个岗位</li>
+<li>端侧推理优化（时延/内存/精度平衡）: 1 个岗位</li>
+<li>端侧部署与推理加速（投机解码/MTP/INT4量化）: 1 个岗位</li>
+<li>线上系统稳定性保障与性能调优实战经验: 1 个岗位</li>
+<li>经典数据挖掘算法深度实践（如决策树、SVM、Boosting、关联分析等）: 1 个岗位</li>
+<li>统计学建模与特征工程实战经验: 1 个岗位</li>
+<li>自动化/机器人/电子专业硕士或博士在读（当前为计算机本科）: 1 个岗位</li>
+<li>自动化机器学习（AutoML）工具使用经验: 1 个岗位</li>
+<li>自然语言处理: 1 个岗位</li>
+<li>英文工作语言能力（未提及）: 1 个岗位</li>
+<li>英语技术文档阅读与跨团队沟通能力（未明确体现）: 1 个岗位</li>
+<li>视觉-语言-动作多模态对齐与联合训练: 1 个岗位</li>
+<li>视觉/时序多传感器建模能力: 1 个岗位</li>
+<li>视觉设计（UI/平面/IP设计）: 1 个岗位</li>
+<li>视频内容质量评估能力（语义不符、崩坏、动作异常、镜头/音画问题识别）: 1 个岗位</li>
+<li>计算机视觉（CV）: 1 个岗位</li>
+<li>计算机视觉（CV）基础: 1 个岗位</li>
+<li>计算机视觉（CV）基础与多模态模型（ViT, CLIP, LLaVA, QwenVL）: 1 个岗位</li>
+<li>语义/全景分割（SegFormer、Mask2Former等）: 1 个岗位</li>
+<li>语音方向顶会论文发表: 1 个岗位</li>
+<li>跨组织协同与项目管理实操经验: 1 个岗位</li>
+<li>运动控制/动力学建模: 1 个岗位</li>
+<li>运动规划与控制（MPC、轨迹优化、力控等）: 1 个岗位</li>
+<li>金融行业/生态圈基础知识: 1 个岗位</li>
+<li>集合/并发框架深度掌握（如 Java 并发包或 Python asyncio + 分布式锁等工程化实践）: 1 个岗位</li>
+<li>面向开发者的技术内容产出（博客/B站/公众号等个人影响力）: 1 个岗位</li>
+<li>音频理解算法（VAD/ASR/声纹/情绪/声音事件/副语言理解）: 1 个岗位</li>
+<li>音频驱动动作生成、动捕、3D内容理解等垂直方向经验: 1 个岗位</li>
+<li>顶会论文发表（NeurIPS/ICML/CVPR/RSS/CoRL 等）或国际机器人赛事获奖: 1 个岗位</li>
+<li>顶级会议论文发表: 1 个岗位</li>
+<li>顶级会议论文发表（ICML/NeurIPS/CVPR等）: 1 个岗位</li>
+<li>预训练/后训练（SFT, DPO, RLHF）工程经验: 1 个岗位</li>
+<li>高并发、多机房容灾、大规模在线推理框架经验: 1 个岗位</li>
+<li>高度重复性文本工作的长期耐心训练（简历未体现相关实习或项目）: 1 个岗位</li>
+<li>高水平论文发表或竞赛获奖经历: 1 个岗位</li>
+<li>高阶人才Mapping与冷启动沟通能力: 1 个岗位</li></ul>
+    </section>
+    <section class="controls" aria-label="Dashboard controls">
+      <div class="control">
+        <label for="job-search">搜索岗位</label>
+        <input id="job-search" type="search" placeholder="岗位、公司、地点或技能">
+      </div>
+      <div class="control">
+        <label for="priority-filter">优先级</label>
+        <select id="priority-filter">
+          <option value="all">全部</option>
+          <option value="high">high</option>
+          <option value="medium">medium</option>
+          <option value="low">low</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="sort-by">排序</label>
+        <select id="sort-by">
+          <option value="score-desc">匹配分数从高到低</option>
+          <option value="score-asc">匹配分数从低到高</option>
+          <option value="title-asc">岗位标题 A-Z</option>
+        </select>
+      </div>
+    </section>
+    <p class="result-count">当前显示 <span id="visible-count">39</span> 个岗位</p>
+    <table>
+      <thead>
+        <tr>
+          <th>岗位</th>
+          <th>公司 / 地点</th>
+          <th>技能</th>
+          <th>匹配分数</th>
+          <th>优先级</th>
+          <th>缺失技能</th>
+          <th>链接</th>
+        </tr>
+      </thead>
+      <tbody id="job-rows">
+        <tr data-score="1.00" data-priority="high" data-title="ai全栈工程师" data-search="ai全栈工程师 腾讯 深圳总部、北京、上海、广州、成都、杭州 1、熟练掌握主流前后端技术栈 具备扎实的计算机基础知识和全栈工程能力 能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 ai 编程工具 能通过 ai 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式 熟悉rag技术、agent原理（包括 tool use、planning、memory 等） 有相关实践经验； 4、 具备系统设计能力 了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 ai 前沿技术有浓厚兴趣 愿意主动探索ai在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力 有较强的责任心 能高效配合团队完成项目交付。 rag 大模型 agent">
+  <td>AI全栈工程师</td>
+  <td>腾讯<br><span>深圳总部、北京、上海、广州、成都、杭州</span></td>
+  <td><span class="pill">1、熟练掌握主流前后端技术栈</span> <span class="pill">具备扎实的计算机基础知识和全栈工程能力</span> <span class="pill">能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具</span> <span class="pill">能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式</span> <span class="pill">熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等）</span> <span class="pill">有相关实践经验； 4、 具备系统设计能力</span> <span class="pill">了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣</span> <span class="pill">愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力</span> <span class="pill">有较强的责任心</span> <span class="pill">能高效配合团队完成项目交付。</span></td>
+  <td>1.00</td>
+  <td class="priority-high">high</td>
+  <td>暂无</td>
+  <td><a href="https://join.qq.com/post_detail.html?postId=1282707398326592512">打开</a></td>
+</tr>
+<tr data-score="0.33" data-priority="low" data-title="大模型算法实习生" data-search="大模型算法实习生 小米 unknown location 1. 硕士及以上学历在读 人工智能、计算机科学、电子信息技术等相关专业 有python开发经验； 2. 深入掌握transformer架构 熟悉各种神经网络结构及背后数学原理； 3. 具备以下至少一到两个方向的研究或实践经验：大语言模型、多模态大模型、大模型后训练、大模型预训练、强化学习； 4. 对端侧大模型有设计应用经验者优先；5. 在ai或nlp相关顶级会议 如 icml / neurips / iclr / aaai / acl / cvpr / emnlp 等发表论文者优先； python llm rag langgraph agent fastapi pytorch 基础 docker transformer 架构深入理解 大模型预训练/后训练（sft/rlhf/opd）实战经验 模型压缩（剪枝/量化/蒸馏） 端侧部署与推理加速（投机解码/mtp/int4量化） 多模态大模型 强化学习（尤其用于llm对齐） 顶级会议论文发表 硕士及以上学历（当前为本科在读，2027届）">
+  <td>大模型算法实习生</td>
+  <td>小米<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 硕士及以上学历在读</span> <span class="pill">人工智能、计算机科学、电子信息技术等相关专业</span> <span class="pill">有python开发经验； 2. 深入掌握Transformer架构</span> <span class="pill">熟悉各种神经网络结构及背后数学原理； 3. 具备以下至少一到两个方向的研究或实践经验：大语言模型、多模态大模型、大模型后训练、大模型预训练、强化学习； 4. 对端侧大模型有设计应用经验者优先；5. 在AI或NLP相关顶级会议</span> <span class="pill">如 ICML / NeurIPS / ICLR / AAAI / ACL / CVPR / EMNLP 等发表论文者优先；</span></td>
+  <td>0.33</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">Transformer 架构深入理解</span> <span class="pill">大模型预训练/后训练（SFT/RLHF/OPD）实战经验</span> <span class="pill">模型压缩（剪枝/量化/蒸馏）</span> <span class="pill">端侧部署与推理加速（投机解码/MTP/INT4量化）</span> <span class="pill">多模态大模型</span> <span class="pill">强化学习（尤其用于LLM对齐）</span> <span class="pill">顶级会议论文发表</span> <span class="pill">硕士及以上学历（当前为本科在读，2027届）</span></td>
+  <td><a href="https://xiaomi.jobs.f.mioffice.cn/internship/position/7670443502493092134/detail">打开</a></td>
+</tr>
+<tr data-score="0.60" data-priority="medium" data-title="大模型算法实习生" data-search="大模型算法实习生 网易 unknown location 硕士及以上学历 计算机、人工智能、自然语言处理、机器学习等相关专业优先； 具备优秀的动手能力 熟练掌握 linux 环境下的 python/pytorch 开发 代码风格规范； 拥有扎实的算法理论基础和丰富的算法研发经验 对大模型及相关领域算法有深入研究和理解； 具备高度的责任心和自驱力 优秀的沟通能力和团队协作精神 能够积极推动项目落地； 具备以下经验者优先： 智能 agent 相关项目经验 了解 agent 的核心思想和常用框架 有 agent 搭建或应用经验； rag (检索增强生成) 相关实习或研究经历 熟悉 rag 流程的各个环节 包括文档解析、向量检索等； 大模型训练、微调、评测经验 熟悉常用的大模型训练框架和优化方法； 多模态文档识别与理解经验 熟悉 ocr、版面分析、信息抽取等技术 有处理复杂文档的经验。 我们希望你： 对大模型技术充满热情 渴望探索前沿算法并将其应用于实际场景； 具备优秀的学习能力和解决问题的能力 能够快速适应新的技术和挑战； 乐于分享和交流 能够积极参与团队合作 共同推动技术创新。 python rag 大模型 pytorch agent 向量检索 自然语言处理 机器学习 多模态 大模型训练">
+  <td>大模型算法实习生</td>
+  <td>网易<br><span>Unknown Location</span></td>
+  <td><span class="pill">硕士及以上学历</span> <span class="pill">计算机、人工智能、自然语言处理、机器学习等相关专业优先； 具备优秀的动手能力</span> <span class="pill">熟练掌握 Linux 环境下的 Python/PyTorch 开发</span> <span class="pill">代码风格规范； 拥有扎实的算法理论基础和丰富的算法研发经验</span> <span class="pill">对大模型及相关领域算法有深入研究和理解； 具备高度的责任心和自驱力</span> <span class="pill">优秀的沟通能力和团队协作精神</span> <span class="pill">能够积极推动项目落地； 具备以下经验者优先： 智能 Agent 相关项目经验</span> <span class="pill">了解 Agent 的核心思想和常用框架</span> <span class="pill">有 Agent 搭建或应用经验； RAG (检索增强生成) 相关实习或研究经历</span> <span class="pill">熟悉 RAG 流程的各个环节</span> <span class="pill">包括文档解析、向量检索等； 大模型训练、微调、评测经验</span> <span class="pill">熟悉常用的大模型训练框架和优化方法； 多模态文档识别与理解经验</span> <span class="pill">熟悉 OCR、版面分析、信息抽取等技术</span> <span class="pill">有处理复杂文档的经验。 我们希望你： 对大模型技术充满热情</span> <span class="pill">渴望探索前沿算法并将其应用于实际场景； 具备优秀的学习能力和解决问题的能力</span> <span class="pill">能够快速适应新的技术和挑战； 乐于分享和交流</span> <span class="pill">能够积极参与团队合作</span> <span class="pill">共同推动技术创新。</span></td>
+  <td>0.60</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">自然语言处理</span> <span class="pill">机器学习</span> <span class="pill">多模态</span> <span class="pill">大模型训练</span></td>
+  <td><a href="https://hr.163.com/job-detail.html?id=65260">打开</a></td>
+</tr>
+<tr data-score="0.23" data-priority="low" data-title="【27届实习】product engineer-产品工程师（ai与全栈方向）-tns" data-search="【27届实习】product engineer-产品工程师（ai与全栈方向）-tns 小红书 unknown location 1、本科及以上学历 计算机科学、软件工程或相关专业 分布式系统开发经验、相关业务实习经验优先。 2、具备扎实的编程基础 精通集合/并发框架 深刻理解分布式存储、计算、消息队列（如kafka/rocketmq等）、微服务治理等核心技术原理与应用。 3、拥有丰富的线上系统稳定性保障和性能调优经验 具备复杂生产环境下的快速故障定位（trouble-shooting）和解决能力。 4、具备大数据平台研发经验 熟练掌握并应用spark、hadoop、flink等主流大数据处理技术栈。 5、具备良好的数据敏感度和逻辑分析能力 能够进行深层次的数据探查和业务问题分析 对业务风险有较强的洞察力（业务sense）；有数据分析或算法模型落地经验者优先。 6、拥有内容安全、风险控制、反作弊等相关领域业务经验者优先考虑。 7、优秀的沟通协作能力和责任心 能够积极主动地推动项目进展和解决复杂问题。 8、具备较强的学习能力和技术热情 能快速适应业务需求和技术变化。 python llm rag langgraph agent fastapi pytorch 基础 docker git 协作与单元测试 计算机科学专业背景 多 agent 协作系统开发经验 rag 知识库问答系统（含文档解析、向量检索、重排） 分布式系统开发经验（如微服务治理、kafka/rocketmq） 线上系统稳定性保障与性能调优实战经验 spark / flink / hadoop 大数据技术栈 内容安全 / 风控 / 反作弊领域业务理解 高并发、多机房容灾、大规模在线推理框架经验 生产级 trouble-shooting 能力（如日志链路追踪、jvm/os级调优） 集合/并发框架深度掌握（如 java 并发包或 python asyncio + 分布式锁等工程化实践）">
+  <td>【27届实习】Product Engineer-产品工程师（AI与全栈方向）-TnS</td>
+  <td>小红书<br><span>Unknown Location</span></td>
+  <td><span class="pill">1、本科及以上学历</span> <span class="pill">计算机科学、软件工程或相关专业</span> <span class="pill">分布式系统开发经验、相关业务实习经验优先。 2、具备扎实的编程基础</span> <span class="pill">精通集合/并发框架</span> <span class="pill">深刻理解分布式存储、计算、消息队列（如Kafka/RocketMQ等）、微服务治理等核心技术原理与应用。 3、拥有丰富的线上系统稳定性保障和性能调优经验</span> <span class="pill">具备复杂生产环境下的快速故障定位（trouble-shooting）和解决能力。 4、具备大数据平台研发经验</span> <span class="pill">熟练掌握并应用Spark、Hadoop、Flink等主流大数据处理技术栈。 5、具备良好的数据敏感度和逻辑分析能力</span> <span class="pill">能够进行深层次的数据探查和业务问题分析</span> <span class="pill">对业务风险有较强的洞察力（业务sense）；有数据分析或算法模型落地经验者优先。 6、拥有内容安全、风险控制、反作弊等相关领域业务经验者优先考虑。 7、优秀的沟通协作能力和责任心</span> <span class="pill">能够积极主动地推动项目进展和解决复杂问题。 8、具备较强的学习能力和技术热情</span> <span class="pill">能快速适应业务需求和技术变化。</span></td>
+  <td>0.23</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">分布式系统开发经验（如微服务治理、Kafka/RocketMQ）</span> <span class="pill">线上系统稳定性保障与性能调优实战经验</span> <span class="pill">Spark / Flink / Hadoop 大数据技术栈</span> <span class="pill">内容安全 / 风控 / 反作弊领域业务理解</span> <span class="pill">高并发、多机房容灾、大规模在线推理框架经验</span> <span class="pill">生产级 trouble-shooting 能力（如日志链路追踪、JVM/OS级调优）</span> <span class="pill">集合/并发框架深度掌握（如 Java 并发包或 Python asyncio + 分布式锁等工程化实践）</span></td>
+  <td><a href="https://job.xiaohongshu.com/campus/position/20830">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="语音理解算法实习生" data-search="语音理解算法实习生 米哈游 unknown location 1、硕士及以上学历 计算机相关专业；具备良好的学习能力、逻辑思维能力、自驱力 沟通协作能力 2、较强的动手能力 精通使用python 以及pytorch/tensorflow等深度学习框架 3、具备音频理解算法相关实践经验 包括但不限于vad/asr/声纹/情绪/声音事件检测/副语言理解方向的一种或多种 熟悉 transformer 架构 能够根据实际问题优化算法 4、具有大模型（audiollm 或多模态）训练经验者优先 有完整的大规模音频数据处理实践经验者优先 5、有语音方向顶会（如neurips iclr icml icassp interspeech等）文章者优先 python pytorch 基础 llm 大模型应用经验（rag/agent） transformer 架构理解（隐含于langgraph/rag项目中） 动手能力与工程实践（fastapi、docker、git、单元测试） 协作与沟通能力（开源项目经历） 音频理解算法（vad/asr/声纹/情绪/声音事件/副语言理解） audiollm 或多模态大模型训练经验 大规模语音数据处理pipeline开发经验 语音方向顶会论文发表 硕士及以上学历（当前为本科，2027届） tensorflow（未提及）">
+  <td>语音理解算法实习生</td>
+  <td>米哈游<br><span>Unknown Location</span></td>
+  <td><span class="pill">1、硕士及以上学历</span> <span class="pill">计算机相关专业；具备良好的学习能力、逻辑思维能力、自驱力</span> <span class="pill">沟通协作能力 2、较强的动手能力</span> <span class="pill">精通使用Python</span> <span class="pill">以及pytorch/tensorflow等深度学习框架 3、具备音频理解算法相关实践经验</span> <span class="pill">包括但不限于VAD/ASR/声纹/情绪/声音事件检测/副语言理解方向的一种或多种</span> <span class="pill">熟悉 Transformer 架构</span> <span class="pill">能够根据实际问题优化算法 4、具有大模型（AudioLLM 或多模态）训练经验者优先</span> <span class="pill">有完整的大规模音频数据处理实践经验者优先 5、有语音方向顶会（如NeurIPS</span> <span class="pill">ICLR</span> <span class="pill">ICML</span> <span class="pill">ICASSP</span> <span class="pill">INTERSPEECH等）文章者优先</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">音频理解算法（VAD/ASR/声纹/情绪/声音事件/副语言理解）</span> <span class="pill">AudioLLM 或多模态大模型训练经验</span> <span class="pill">大规模语音数据处理pipeline开发经验</span> <span class="pill">语音方向顶会论文发表</span> <span class="pill">硕士及以上学历（当前为本科，2027届）</span> <span class="pill">TensorFlow（未提及）</span></td>
+  <td><a href="https://jobs.mihoyo.com/#/campus/position/7111">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="具身智能算法实习生" data-search="具身智能算法实习生 小鹏汽车 unknown location 任职要求 1、计算机、自动化、机器人、电子等相关专业在读硕士 / 博士 每周可实习 4 天及以上 能连续实习 6 个月以上者优先。 2、熟悉深度学习基础 掌握 python 与 pytorch 具备独立完成模型训练、调试与评测的能力。 3、有具身智能 / 机器人操作方向的相关背景 了解 vla、强化学习或多模态大模型中的一个或多个方向。 4、有真机实验经验 实际操作过机械臂、移动机器人或其他实体机器人平台 熟悉从模型到实机的调试过程。 5、有数据相关的实践经验 做过数据采集、处理或数据集构建 对数据质量与算法效果的关系有自己的理解。 6、对具身智能有热情 动手能力强 愿意扎进真实问题里 能承担有明确产出要求的工作。 加分项 1、有顶会论文（cvpr / iccv / neurips / icml / icra / corl / rss 等）或开源项目。 2、参与过完整的机器人系统项目 有从算法到实机落地的端到端经验。 3、有大规模数据处理或数据闭环相关的实践。 4、有机器人竞赛经历。 python pytorch 基础 rag langgraph agent docker git 协作与单元测试 项目经历中体现的系统设计与工程落地能力 具身智能/机器人操作背景（vla、强化学习、多模态大模型） 真机实验经验（机械臂/移动机器人/人形机器人平台） 从模型训练到实机部署调试的端到端经验 机器人领域数据采集、清洗、标注与数据集构建实践 自动化/机器人/电子专业硕士或博士在读（当前为计算机本科） 深度学习模型独立训练与评测的完整经验（如调参、消融、指标分析）">
+  <td>具身智能算法实习生</td>
+  <td>小鹏汽车<br><span>Unknown Location</span></td>
+  <td><span class="pill">任职要求 1、计算机、自动化、机器人、电子等相关专业在读硕士 / 博士</span> <span class="pill">每周可实习 4 天及以上</span> <span class="pill">能连续实习 6 个月以上者优先。 2、熟悉深度学习基础</span> <span class="pill">掌握 Python 与 PyTorch</span> <span class="pill">具备独立完成模型训练、调试与评测的能力。 3、有具身智能 / 机器人操作方向的相关背景</span> <span class="pill">了解 VLA、强化学习或多模态大模型中的一个或多个方向。 4、有真机实验经验</span> <span class="pill">实际操作过机械臂、移动机器人或其他实体机器人平台</span> <span class="pill">熟悉从模型到实机的调试过程。 5、有数据相关的实践经验</span> <span class="pill">做过数据采集、处理或数据集构建</span> <span class="pill">对数据质量与算法效果的关系有自己的理解。 6、对具身智能有热情</span> <span class="pill">动手能力强</span> <span class="pill">愿意扎进真实问题里</span> <span class="pill">能承担有明确产出要求的工作。 加分项 1、有顶会论文（CVPR / ICCV / NeurIPS / ICML / ICRA / CoRL / RSS 等）或开源项目。 2、参与过完整的机器人系统项目</span> <span class="pill">有从算法到实机落地的端到端经验。 3、有大规模数据处理或数据闭环相关的实践。 4、有机器人竞赛经历。</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">具身智能/机器人操作背景（VLA、强化学习、多模态大模型）</span> <span class="pill">真机实验经验（机械臂/移动机器人/人形机器人平台）</span> <span class="pill">从模型训练到实机部署调试的端到端经验</span> <span class="pill">机器人领域数据采集、清洗、标注与数据集构建实践</span> <span class="pill">自动化/机器人/电子专业硕士或博士在读（当前为计算机本科）</span> <span class="pill">深度学习模型独立训练与评测的完整经验（如调参、消融、指标分析）</span></td>
+  <td><a href="https://xiaopeng.jobs.feishu.cn/campus/position/7680157290796173618">打开</a></td>
+</tr>
+<tr data-score="0.07" data-priority="low" data-title="【共创】视觉设计师" data-search="【共创】视觉设计师 智元机器人 unknown location 承担主要目标/关键任务 1、周边产品设计 （1）完成各类周边产品的视觉设计：盲盒手办、毛绒玩具、徽章、文化衫、礼品、3c周边等 （2）负责产品的包装设计、吊牌设计、详情页主视觉、宣传海报等 （3）完成机器人ip的多场景延展：表情包、插画、海报、产品应用等 2、部门宣传设计 （1）完成部门宣传物料设计：活动海报、内宣素材等 （2）配合企业文化活动 输出视觉创意方案 传递企业文化 3、创意提案与系列规划 （1）负责公司节礼、福利内购产品、商务接待礼赠等产品设计输出 （2）研究潮玩文创行业趋势 输出竞品分析和设计趋势报告 视觉设计（ui/平面/ip设计） adobe creative suite（photoshop/illustrator） 3d建模或手办设计基础 插画与表情包创作能力 包装与印刷设计知识 潮玩文创行业研究与竞品分析经验 品牌视觉系统构建经验">
+  <td>【共创】视觉设计师</td>
+  <td>智元机器人<br><span>Unknown Location</span></td>
+  <td><span class="pill">承担主要目标/关键任务 1、周边产品设计 （1）完成各类周边产品的视觉设计：盲盒手办、毛绒玩具、徽章、文化衫、礼品、3C周边等 （2）负责产品的包装设计、吊牌设计、详情页主视觉、宣传海报等 （3）完成机器人IP的多场景延展：表情包、插画、海报、产品应用等 2、部门宣传设计 （1）完成部门宣传物料设计：活动海报、内宣素材等 （2）配合企业文化活动</span> <span class="pill">输出视觉创意方案</span> <span class="pill">传递企业文化 3、创意提案与系列规划 （1）负责公司节礼、福利内购产品、商务接待礼赠等产品设计输出 （2）研究潮玩文创行业趋势</span> <span class="pill">输出竞品分析和设计趋势报告</span></td>
+  <td>0.07</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">视觉设计（UI/平面/IP设计）</span> <span class="pill">Adobe Creative Suite（Photoshop/Illustrator）</span> <span class="pill">3D建模或手办设计基础</span> <span class="pill">插画与表情包创作能力</span> <span class="pill">包装与印刷设计知识</span> <span class="pill">潮玩文创行业研究与竞品分析经验</span> <span class="pill">品牌视觉系统构建经验</span></td>
+  <td><a href="https://agirobot.jobs.feishu.cn/internrecruitment/position/7683034237406546239/detail">打开</a></td>
+</tr>
+<tr data-score="0.48" data-priority="medium" data-title="agentic rl开发实习生" data-search="agentic rl开发实习生 银河通用 unknown location 计算机、自动化、数学、电子工程等相关专业本科及以上在读 精通 python 编程语言 有良好的代码风格和编程习惯 了解大语言模型的基本工作原理 有 llm 相关项目或课程经验 有至少 1 个完整的软件开发项目经验 熟悉 git 版本控制工具 具备快速学习能力和解决问题的能力 对 ai 技术有浓厚兴趣 具备良好的沟通能力和团队协作精神 能够按时完成分配的任务 加分项（算法背景优先） 有机器学习、深度学习基础 熟悉 pytorch/tensorflow 等深度学习框架 有 agent、rag、prompt 工程相关的项目或研究经验 有计算机视觉、自然语言处理、机器人控制相关的开发经验 参加过 acm、kaggle、全国大学生数学建模竞赛等并取得优异成绩 有开源项目贡献经历 或在相关领域发表过论文 熟悉 c++/rust 等高性能编程语言 了解 docker、kubernetes 等容器化技术 python llm rag langgraph agent fastapi pytorch 基础 docker git 多 agent 协作系统开发 rag 知识库问答系统 开源项目参与经验 单元测试实践 agentic rl（强化学习与 agent 结合）相关经验 vla（视觉-语言-动作）模型集成经验 机器人控制或具身智能（embodied ai）领域背景 c++/rust 高性能编程 kubernetes acm/kaggle/数学建模等竞赛获奖经历 prompt 工程系统化实践（如模板管理、评估、a/b测试）">
+  <td>Agentic RL开发实习生</td>
+  <td>银河通用<br><span>Unknown Location</span></td>
+  <td><span class="pill">计算机、自动化、数学、电子工程等相关专业本科及以上在读 精通 Python 编程语言</span> <span class="pill">有良好的代码风格和编程习惯 了解大语言模型的基本工作原理</span> <span class="pill">有 LLM 相关项目或课程经验 有至少 1 个完整的软件开发项目经验</span> <span class="pill">熟悉 Git 版本控制工具 具备快速学习能力和解决问题的能力</span> <span class="pill">对 AI 技术有浓厚兴趣 具备良好的沟通能力和团队协作精神</span> <span class="pill">能够按时完成分配的任务 加分项（算法背景优先） 有机器学习、深度学习基础</span> <span class="pill">熟悉 PyTorch/TensorFlow 等深度学习框架 有 Agent、RAG、Prompt 工程相关的项目或研究经验 有计算机视觉、自然语言处理、机器人控制相关的开发经验 参加过 ACM、Kaggle、全国大学生数学建模竞赛等并取得优异成绩 有开源项目贡献经历</span> <span class="pill">或在相关领域发表过论文 熟悉 C++/Rust 等高性能编程语言 了解 Docker、Kubernetes 等容器化技术</span></td>
+  <td>0.48</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">Agentic RL（强化学习与 Agent 结合）相关经验</span> <span class="pill">VLA（视觉-语言-动作）模型集成经验</span> <span class="pill">机器人控制或具身智能（embodied AI）领域背景</span> <span class="pill">C++/Rust 高性能编程</span> <span class="pill">Kubernetes</span> <span class="pill">ACM/Kaggle/数学建模等竞赛获奖经历</span> <span class="pill">Prompt 工程系统化实践（如模板管理、评估、A/B测试）</span></td>
+  <td><a href="https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/3c594649-7f7f-4cec-ae3a-01e9bb5ead9e">打开</a></td>
+</tr>
+<tr data-score="0.30" data-priority="low" data-title="【校招】具身大模型算法工程师（vla）" data-search="【校招】具身大模型算法工程师（vla） 星动纪元 unknown location 1.计算机科学、人工智能、自然语言处理、计算机视觉等相关领域的硕士或博士学位； 2.精通 python 编程语言 具有扎实的深度学习基础 熟练掌握至少一种主流深度学习框架（如 pytorch tensorflow flax 等）； 3.深入理解 transformer 架构体系 熟悉 llm 和 vlm 的基础原理和常见模型（如 gpt 系列 llama 系列 vit clip llava qwenvl 等）。 4.具备大规模模型预训练、peft、强化学习的实际项目经验； 5.在模型perception、understanding、reasoning、多模态特征对齐等一个或多个方向有深入研究或实践经验； 6.具备极强的工作热情和创造力 对所从事的工作有使命感 善于团队合作； 符合以下一项或多项条件者优先考虑： 1.在视频生成、vla、强化学习、端到端自动驾驶领域有深入项目经验； 2.在顶级 ai 会议/期刊（如 neurips icml iclr cvpr iccv acl emnlp 等）发表过高影响力论文 或是知名开源项目的主要贡献者； python llm rag langgraph agent pytorch 基础 多 agent 协作系统（体现 reasoning 与 task planning 能力） rag 系统（体现 understanding 与 retrieval-augmented reasoning） 计算机视觉（cv）基础与多模态模型（vit, clip, llava, qwenvl） 具身智能（embodied ai）/vla（vision-language-action）领域经验 强化学习（rl）项目经验 大规模模型预训练 / peft 实战经验 机器人/视频/异构感知数据处理经验 transformer 深度原理与 vlm 架构调优能力 硕士及以上学历（岗位硬性要求）">
+  <td>【校招】具身大模型算法工程师（VLA）</td>
+  <td>星动纪元<br><span>Unknown Location</span></td>
+  <td><span class="pill">1.计算机科学、人工智能、自然语言处理、计算机视觉等相关领域的硕士或博士学位； 2.精通 Python 编程语言</span> <span class="pill">具有扎实的深度学习基础</span> <span class="pill">熟练掌握至少一种主流深度学习框架（如 PyTorch</span> <span class="pill">TensorFlow</span> <span class="pill">Flax 等）； 3.深入理解 Transformer 架构体系</span> <span class="pill">熟悉 LLM 和 VLM 的基础原理和常见模型（如 GPT 系列</span> <span class="pill">Llama 系列</span> <span class="pill">ViT</span> <span class="pill">CLIP</span> <span class="pill">LLaVA</span> <span class="pill">QwenVL 等）。 4.具备大规模模型预训练、PEFT、强化学习的实际项目经验； 5.在模型perception、understanding、reasoning、多模态特征对齐等一个或多个方向有深入研究或实践经验； 6.具备极强的工作热情和创造力</span> <span class="pill">对所从事的工作有使命感</span> <span class="pill">善于团队合作； 符合以下一项或多项条件者优先考虑： 1.在视频生成、VLA、强化学习、端到端自动驾驶领域有深入项目经验； 2.在顶级 AI 会议/期刊（如 NeurIPS</span> <span class="pill">ICML</span> <span class="pill">ICLR</span> <span class="pill">CVPR</span> <span class="pill">ICCV</span> <span class="pill">ACL</span> <span class="pill">EMNLP 等）发表过高影响力论文</span> <span class="pill">或是知名开源项目的主要贡献者；</span></td>
+  <td>0.30</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">计算机视觉（CV）基础与多模态模型（ViT, CLIP, LLaVA, QwenVL）</span> <span class="pill">具身智能（Embodied AI）/VLA（Vision-Language-Action）领域经验</span> <span class="pill">强化学习（RL）项目经验</span> <span class="pill">大规模模型预训练 / PEFT 实战经验</span> <span class="pill">机器人/视频/异构感知数据处理经验</span> <span class="pill">Transformer 深度原理与 VLM 架构调优能力</span> <span class="pill">硕士及以上学历（岗位硬性要求）</span></td>
+  <td><a href="https://app.mokahr.com/campus-recruitment/robotera/163878/aec8e087-cf9e-4cdc-99b5-ba7bb1749131">打开</a></td>
+</tr>
+<tr data-score="0.75" data-priority="high" data-title="【2027届校招】infra算法工程师" data-search="【2027届校招】infra算法工程师 傅利叶智能 unknown location 2027届本科及以上毕业生 计算机、软件工程、人工智能、自动化、机器人等相关专业优先。 具备扎实的计算机基础 熟悉数据结构、操作系统、计算机网络等基础知识。 熟练掌握 python / c++ 中至少一种编程语言 具备良好的代码能力和工程实践能力。 了解深度学习基本原理 熟悉 pytorch 等主流深度学习框架 有模型训练、推理或相关项目经验。 对 gpu 计算、并行计算、分布式系统或高性能计算有一定了解 并对系统性能优化具有兴趣。 具备较强的问题分析和学习能力 能够从算法、框架、系统等不同层面分析和解决问题。 对大模型、具身智能、机器人、vla/vlm等方向有浓厚兴趣 有相关项目、科研或实践经历者优先。 python 大模型 pytorch 深度学习">
+  <td>【2027届校招】Infra算法工程师</td>
+  <td>傅利叶智能<br><span>Unknown Location</span></td>
+  <td><span class="pill">2027届本科及以上毕业生</span> <span class="pill">计算机、软件工程、人工智能、自动化、机器人等相关专业优先。 具备扎实的计算机基础</span> <span class="pill">熟悉数据结构、操作系统、计算机网络等基础知识。 熟练掌握 Python / C++ 中至少一种编程语言</span> <span class="pill">具备良好的代码能力和工程实践能力。 了解深度学习基本原理</span> <span class="pill">熟悉 PyTorch 等主流深度学习框架</span> <span class="pill">有模型训练、推理或相关项目经验。 对 GPU 计算、并行计算、分布式系统或高性能计算有一定了解</span> <span class="pill">并对系统性能优化具有兴趣。 具备较强的问题分析和学习能力</span> <span class="pill">能够从算法、框架、系统等不同层面分析和解决问题。 对大模型、具身智能、机器人、VLA/VLM等方向有浓厚兴趣</span> <span class="pill">有相关项目、科研或实践经历者优先。</span></td>
+  <td>0.75</td>
+  <td class="priority-high">high</td>
+  <td><span class="pill">深度学习</span></td>
+  <td><a href="https://app.mokahr.com/campus-recruitment/fftai/147078#/job/b0e26e45-ede7-45d8-b944-d96027201436">打开</a></td>
+</tr>
+<tr data-score="0.34" data-priority="low" data-title="算法工程师-数据挖掘" data-search="算法工程师-数据挖掘 京东 unknown location 1. 2026年10月1日至2027年9月30日期间毕业 统招本科及以上学历； 2. 计算机/数学/统计/金融等专业优先； 3. 熟悉使用python/r等编程工具中的一种 了解hadoop/spark/flink等主流大数据框架； 4. 熟悉常用数据挖掘、机器学习算法 如决策树、聚类、逻辑回归 关联分析、svm 神经网络 boosting等 有海量数据挖掘的项目经验者佳； 5. 对金融生态圈有基本认识 有互联网思维 工作积极主动、责任心和抗压能力强； 6. 熟练使用ai开发工具与平台 有利用ai编程助手（如github copilot）辅助算法开发的经验；有数据挖掘竞赛或ai应用成果者优先； 7. 对ai新技术保持好奇心 乐于主动学习并快速掌握新的ai知识和功能 积极拥抱新技术； 8. 符合京东价值观：客户为先、创新、拼搏、担当、感恩、诚信。 python llm rag langgraph agent fastapi pytorch 基础 docker git 协作与单元测试 ai应用项目经验（多agent系统、rag问答系统） 主动学习新技术（llm/agent领域实践） 计算机专业本科背景 hadoop/spark/flink 等大数据框架经验 经典数据挖掘算法深度实践（如决策树、svm、boosting、关联分析等） 海量数据挖掘项目经验 金融行业/生态圈基础知识 统计学建模与特征工程实战经验 自动化机器学习（automl）工具使用经验 数据挖掘竞赛（如kaggle、天池）或相关成果">
+  <td>算法工程师-数据挖掘</td>
+  <td>京东<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 2026年10月1日至2027年9月30日期间毕业</span> <span class="pill">统招本科及以上学历； 2. 计算机/数学/统计/金融等专业优先； 3. 熟悉使用Python/R等编程工具中的一种</span> <span class="pill">了解Hadoop/Spark/Flink等主流大数据框架； 4. 熟悉常用数据挖掘、机器学习算法</span> <span class="pill">如决策树、聚类、逻辑回归</span> <span class="pill">关联分析、SVM</span> <span class="pill">神经网络</span> <span class="pill">boosting等</span> <span class="pill">有海量数据挖掘的项目经验者佳； 5. 对金融生态圈有基本认识</span> <span class="pill">有互联网思维</span> <span class="pill">工作积极主动、责任心和抗压能力强； 6. 熟练使用AI开发工具与平台</span> <span class="pill">有利用AI编程助手（如GitHub Copilot）辅助算法开发的经验；有数据挖掘竞赛或AI应用成果者优先； 7. 对AI新技术保持好奇心</span> <span class="pill">乐于主动学习并快速掌握新的AI知识和功能</span> <span class="pill">积极拥抱新技术； 8. 符合京东价值观：客户为先、创新、拼搏、担当、感恩、诚信。</span></td>
+  <td>0.34</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">Hadoop/Spark/Flink 等大数据框架经验</span> <span class="pill">经典数据挖掘算法深度实践（如决策树、SVM、Boosting、关联分析等）</span> <span class="pill">海量数据挖掘项目经验</span> <span class="pill">金融行业/生态圈基础知识</span> <span class="pill">统计学建模与特征工程实战经验</span> <span class="pill">自动化机器学习（AutoML）工具使用经验</span> <span class="pill">数据挖掘竞赛（如Kaggle、天池）或相关成果</span></td>
+  <td><a href="https://campus.jd.com/#/details?id=9095">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="ai辅助办公应用建设专家" data-search="ai辅助办公应用建设专家 华为 unknown location 语言要求: 简体中文 英语 教育背景要求: 本科及以上 技能要求: 1、行业洞察与业务落地能力：具备大型企业数字化转型或协同办公领域产品/解决方案经验 深度理解企业级办公场景、业务流程及生态体系；具备从业务痛点挖掘到产品方案落地的全链路闭环能力 成功主导过复杂办公系统的重构或智能化升级项目； 2、ai 技术架构与工程实践能力：具备ai产品开发或ai应用落地成功经验 精通深度学习/机器学习原理 具备大模型（llm）落地实战经验精通 prompt engineering、rag 检索增强、agent 智能体编排、工具调用（function calling）等关键技术 能独立设计高可用、可扩展的 ai 应用架构； 3、跨组织协同与项目驱动能力：优秀的跨组织影响力、服务意识和沟通能力 具备项目管理能力和结果导向意识 能够有效协同内外及周边团队 推动复杂项目从 0 到 1 落地。 能力要求: 知识要求: 具备it产品设计、ai领域专业知识 熟悉办公领域业务及知识。 专业证书要求: 其他要求: python llm rag langgraph agent fastapi docker pytorch 基础 多 agent 协作系统开发经验 rag 知识库问答系统实战经验 git 协作与单元测试 企业级办公场景/协同办公业务理解 大型企业数字化转型项目经验 prompt engineering 深度实践（如系统化模板设计、评估与迭代） function calling 工具调用工程化落地经验（非仅链路，含错误恢复、审计、权限控制） ai 产品全链路闭环能力（需求洞察→方案设计→效果验证→规模化复用） 跨组织协同与项目管理实操经验 it产品设计方法论（如用户旅程地图、prd撰写、a/b测试设计） 英语技术文档阅读与跨团队沟通能力（未明确体现）">
+  <td>AI辅助办公应用建设专家</td>
+  <td>华为<br><span>Unknown Location</span></td>
+  <td><span class="pill">语言要求: 简体中文</span> <span class="pill">英语 教育背景要求: 本科及以上 技能要求: 1、行业洞察与业务落地能力：具备大型企业数字化转型或协同办公领域产品/解决方案经验</span> <span class="pill">深度理解企业级办公场景、业务流程及生态体系；具备从业务痛点挖掘到产品方案落地的全链路闭环能力</span> <span class="pill">成功主导过复杂办公系统的重构或智能化升级项目； 2、AI 技术架构与工程实践能力：具备AI产品开发或AI应用落地成功经验</span> <span class="pill">精通深度学习/机器学习原理</span> <span class="pill">具备大模型（LLM）落地实战经验精通 Prompt Engineering、RAG 检索增强、Agent 智能体编排、工具调用（Function Calling）等关键技术</span> <span class="pill">能独立设计高可用、可扩展的 AI 应用架构； 3、跨组织协同与项目驱动能力：优秀的跨组织影响力、服务意识和沟通能力</span> <span class="pill">具备项目管理能力和结果导向意识</span> <span class="pill">能够有效协同内外及周边团队</span> <span class="pill">推动复杂项目从 0 到 1 落地。 能力要求: 知识要求: 具备IT产品设计、AI领域专业知识</span> <span class="pill">熟悉办公领域业务及知识。 专业证书要求: 其他要求:</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">企业级办公场景/协同办公业务理解</span> <span class="pill">大型企业数字化转型项目经验</span> <span class="pill">Prompt Engineering 深度实践（如系统化模板设计、评估与迭代）</span> <span class="pill">Function Calling 工具调用工程化落地经验（非仅链路，含错误恢复、审计、权限控制）</span> <span class="pill">AI 产品全链路闭环能力（需求洞察→方案设计→效果验证→规模化复用）</span> <span class="pill">跨组织协同与项目管理实操经验</span> <span class="pill">IT产品设计方法论（如用户旅程地图、PRD撰写、A/B测试设计）</span> <span class="pill">英语技术文档阅读与跨团队沟通能力（未明确体现）</span></td>
+  <td><a href="https://career.huawei.com/cn/job-details?advertisementId=39004">打开</a></td>
+</tr>
+<tr data-score="0.23" data-priority="low" data-title="大模型-vlm/vla 多模态算法工程师" data-search="大模型-vlm/vla 多模态算法工程师 蔚来 unknown location 本科及以上学历 计算机、自动化、计算机视觉、人工智能等相关专业； 具备扎实的编程技能和扎实的算法基础 具有深入的深度学习和大模型项目实践经验； 拥有当前主流 llm/vlm/vla/强化学习技术原理、模型架构背景 具备大模型各阶段训练或工程化经验； 热爱技术、自驱力强、拥有出色的问题分析和解决能力 能够深入挖掘并解决探索过程中遇到的难题； 在人工智能/计算机视觉等领域发表过学术论文或技术报告者优先 python llm rag langgraph agent pytorch 基础 docker 计算机视觉（cv）基础 vlm/vla 模型架构与训练经验 多模态数据处理（图像/视频/文本对齐） 强化学习（rl） 预训练/后训练（sft, dpo, rlhf）工程经验 智能驾驶场景理解 学术论文发表或技术报告产出">
+  <td>大模型-VLM/VLA 多模态算法工程师</td>
+  <td>蔚来<br><span>Unknown Location</span></td>
+  <td><span class="pill">本科及以上学历</span> <span class="pill">计算机、自动化、计算机视觉、人工智能等相关专业； 具备扎实的编程技能和扎实的算法基础</span> <span class="pill">具有深入的深度学习和大模型项目实践经验； 拥有当前主流 LLM/VLM/VLA/强化学习技术原理、模型架构背景</span> <span class="pill">具备大模型各阶段训练或工程化经验； 热爱技术、自驱力强、拥有出色的问题分析和解决能力</span> <span class="pill">能够深入挖掘并解决探索过程中遇到的难题； 在人工智能/计算机视觉等领域发表过学术论文或技术报告者优先</span></td>
+  <td>0.23</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">计算机视觉（CV）基础</span> <span class="pill">VLM/VLA 模型架构与训练经验</span> <span class="pill">多模态数据处理（图像/视频/文本对齐）</span> <span class="pill">强化学习（RL）</span> <span class="pill">预训练/后训练（SFT, DPO, RLHF）工程经验</span> <span class="pill">智能驾驶场景理解</span> <span class="pill">学术论文发表或技术报告产出</span></td>
+  <td><a href="https://nio.jobs.feishu.cn/index/position/detail/7486123409668786483">打开</a></td>
+</tr>
+<tr data-score="0.00" data-priority="low" data-title="【人形机器人】商业化产品经理" data-search="【人形机器人】商业化产品经理 理想汽车 unknown location">
+  <td>【人形机器人】商业化产品经理</td>
+  <td>理想汽车<br><span>Unknown Location</span></td>
+  <td>暂无</td>
+  <td>0.00</td>
+  <td class="priority-low">low</td>
+  <td>暂无</td>
+  <td><a href="https://www.lixiang.com/employ/detail/19219.html">打开</a></td>
+</tr>
+<tr data-score="0.15" data-priority="low" data-title="高级系统开发工程师（算法工程化）(j17332)" data-search="高级系统开发工程师（算法工程化）(j17332) 优必选 unknown location 1、计算机 软件工层 机器人等专业 2、5年以上linux平台c++开发经验 精通模板、stl、智能指针、多线程（std::thread、openmp）。 3、掌握linux内核机制（进程调度、内存映射、零拷贝）、性能调优工具（perf、valgrind）。 4、有跨进程通信开发经验（ros2/dds/mqtt） 熟悉网络协议（tcp/udp）或串口通信。 5、计算机/机器人/自动化相关专业硕士及以上学历。 加分项： 1、参与过机器人/自动驾驶项目的嵌入式部署 熟悉arm neon或gpu加速。 2、了解传感器驱动开发（camera、lidar、imu）或内核模块开发经验。 3、熟悉实时操作系统（rt-linux、xenomai）或容器化部署（docker）。 4、github上有开源slam/导航相关项目或贡献。 docker python linux平台基础使用（隐含于项目部署经验） c++（5年以上linux平台开发经验） stl/模板/智能指针/多线程（std::thread、openmp） linux内核机制（进程调度、内存映射、零拷贝） ros2/dds/mqtt跨进程通信 tcp/udp/串口通信 arm neon/gpu加速（cuda/opencl/simd） slam/路径规划/传感器驱动等机器人核心算法工程化经验 gtest单元测试、perf/vtune性能分析 硕士及以上学历（当前为本科）">
+  <td>高级系统开发工程师（算法工程化）(J17332)</td>
+  <td>优必选<br><span>Unknown Location</span></td>
+  <td><span class="pill">1、计算机</span> <span class="pill">软件工层</span> <span class="pill">机器人等专业 2、5年以上Linux平台C++开发经验</span> <span class="pill">精通模板、STL、智能指针、多线程（std::thread、OpenMP）。 3、掌握Linux内核机制（进程调度、内存映射、零拷贝）、性能调优工具（perf、valgrind）。 4、有跨进程通信开发经验（ROS2/DDS/MQTT）</span> <span class="pill">熟悉网络协议（TCP/UDP）或串口通信。 5、计算机/机器人/自动化相关专业硕士及以上学历。 加分项： 1、参与过机器人/自动驾驶项目的嵌入式部署</span> <span class="pill">熟悉ARM NEON或GPU加速。 2、了解传感器驱动开发（Camera、LiDAR、IMU）或内核模块开发经验。 3、熟悉实时操作系统（RT-Linux、Xenomai）或容器化部署（Docker）。 4、GitHub上有开源SLAM/导航相关项目或贡献。</span></td>
+  <td>0.15</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">C++（5年以上Linux平台开发经验）</span> <span class="pill">STL/模板/智能指针/多线程（std::thread、OpenMP）</span> <span class="pill">Linux内核机制（进程调度、内存映射、零拷贝）</span> <span class="pill">ROS2/DDS/MQTT跨进程通信</span> <span class="pill">TCP/UDP/串口通信</span> <span class="pill">ARM NEON/GPU加速（CUDA/OpenCL/SIMD）</span> <span class="pill">SLAM/路径规划/传感器驱动等机器人核心算法工程化经验</span> <span class="pill">GTest单元测试、perf/VTune性能分析</span> <span class="pill">硕士及以上学历（当前为本科）</span></td>
+  <td><a href="https://ubtrobot.zhiye.com/intern/detail/511081721">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="环境感知算法工程师" data-search="环境感知算法工程师 众擎机器人 unknown location 1.硕士及以上学历 计算机、自动化、人工智能、机器人等相关专业； 2.三年以上深度学习感知算法经验（优秀应届博士可放宽） 有机器人、自动驾驶、ar/vr 感知量产项目经验者优先； 3.扎实的深度学习基础 精通 pytorch 熟悉常见的分割/检测/多任务模型架构（transformer、bev 感知、point 系列等）； 4.熟悉以下至少两个方向 并有实际项目产出： （1）语义/实例/全景分割（segformer、mask2former、point transformer 等）； （2）occupancy 感知（surroundocc、occ3d、tpvformer、flashocc 等）； （3）3d 检测与多目标跟踪（bevfusion、streampetr、bytetrack、ab3dmot 等）； 5.熟悉多传感器标定与融合（相机+激光雷达+imu） 具备多视图几何基础； 6.工程能力扎实：c++/python、cuda 或 tensorrt 部署经验 能独立完成从模型到实机的链路打通； 7.具备数据驱动思维 能通过数据分析定位模型问题并设计迭代方案。 python pytorch 基础 rag langgraph agent 硕士及以上学历 深度学习感知算法（3年经验） 语义/全景分割（segformer、mask2former等） occupancy感知（surroundocc、tpvformer等） 3d检测与多目标跟踪（bevfusion、bytetrack等） 多传感器融合（相机+激光雷达+imu） 多视图几何 c++ cuda/tensorrt部署 bev感知、point系列模型、transformer在视觉感知中的应用 机器人/自动驾驶量产项目经验">
+  <td>环境感知算法工程师</td>
+  <td>众擎机器人<br><span>Unknown Location</span></td>
+  <td><span class="pill">1.硕士及以上学历</span> <span class="pill">计算机、自动化、人工智能、机器人等相关专业； 2.三年以上深度学习感知算法经验（优秀应届博士可放宽）</span> <span class="pill">有机器人、自动驾驶、AR/VR 感知量产项目经验者优先； 3.扎实的深度学习基础</span> <span class="pill">精通 PyTorch</span> <span class="pill">熟悉常见的分割/检测/多任务模型架构（Transformer、BEV 感知、Point 系列等）； 4.熟悉以下至少两个方向</span> <span class="pill">并有实际项目产出： （1）语义/实例/全景分割（SegFormer、Mask2Former、Point Transformer 等）； （2）Occupancy 感知（SurroundOcc、Occ3D、TPVFormer、FlashOcc 等）； （3）3D 检测与多目标跟踪（BEVFusion、StreamPETR、ByteTrack、AB3DMOT 等）； 5.熟悉多传感器标定与融合（相机+激光雷达+IMU）</span> <span class="pill">具备多视图几何基础； 6.工程能力扎实：C++/Python、CUDA 或 TensorRT 部署经验</span> <span class="pill">能独立完成从模型到实机的链路打通； 7.具备数据驱动思维</span> <span class="pill">能通过数据分析定位模型问题并设计迭代方案。</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">硕士及以上学历</span> <span class="pill">深度学习感知算法（3年经验）</span> <span class="pill">语义/全景分割（SegFormer、Mask2Former等）</span> <span class="pill">Occupancy感知（SurroundOcc、TPVFormer等）</span> <span class="pill">3D检测与多目标跟踪（BEVFusion、ByteTrack等）</span> <span class="pill">多传感器融合（相机+激光雷达+IMU）</span> <span class="pill">多视图几何</span> <span class="pill">C++</span> <span class="pill">CUDA/TensorRT部署</span> <span class="pill">BEV感知、Point系列模型、Transformer在视觉感知中的应用</span> <span class="pill">机器人/自动驾驶量产项目经验</span></td>
+  <td><a href="https://dx3a2bminsq.jobs.feishu.cn/index/position/7681570577845176622">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="具身智能算法工程师" data-search="具身智能算法工程师 星海图 unknown location 一、基本要求 1.海内外顶尖高校（如c9、985头部、全球qs/the排名前50等）计算机科学、人工智能、机器人学、自动化等相关专业 2027届博士优先 特别优秀的硕士亦可； 2.具备扎实的数理基础与极强的自驱力 对具身智能有深刻理解与长期投入意愿。 二.、学术研究能力 1.须以第一作者（含导师一作、本人二作）身份 在以下领域满足至少一项： 2.在 neurips / icml / iclr / cvpr / eccv / iccv / rss / corl​ 等ccf-a类或机器人顶会/期刊发表至少1篇（博士要求2篇及以上）高水平论文 且论文须具备以下特征之一： 3.提出创新性方法论 对该方向有实质性推动； 4.开源代码获得较高社区关注度（如github stars ≥300）； 5.被后续工作高频引用 具备领域影响力； 6.在 robocup / darpa robotics challenge / icra dji robomaster ai challenge​ 等国际顶级机器人赛事中获得全球前三成绩 三、专业技术能力 1.深入理解 vla 模型架构（如rt系列、openvla、π0等） 熟悉视觉-语言-动作对齐的核心技术路线； 熟悉 wam 相关方法（全身动作表征、全身运动规划、人形/双臂机器人控制等） 了解扩散策略、流匹配等生成式动作2.建模方法； 掌握强化学习（rlhf/ppo/dpo）、模仿学习（行为克隆/dagger）、世界模型等具身学习范式； 对多模态大模型（llm/vlm）的预训练、指令微调、对齐技术有系统认知。 3.工程实践： 精通 pytorch 具备从零搭建大规模分布式训练框架的能力； 扎实的 python/c++ 功底 熟悉 cuda 编程、模型量化/蒸馏/推理加速者优先； 熟练使用 isaac gym / mujoco / pybullet 等仿真平台 有真机部署经验者优先； python llm rag langgraph agent pytorch 基础 docker 具身智能（embodied ai）领域研究经验 vla/wam 模型架构（如 rt-1、openvla、π0） 机器人仿真平台（isaac gym / mujoco / pybullet） 强化学习（ppo/rlhf/dpo）、模仿学习（bc/dagger）、世界模型 cuda 编程与模型推理加速 c++ 工程能力 视觉-语言-动作多模态对齐与联合训练 顶会论文发表（neurips/icml/cvpr/rss/corl 等）或国际机器人赛事获奖 全身运动规划（wam）、扩散策略/流匹配动作建模 真机部署与实时控制经验">
+  <td>具身智能算法工程师</td>
+  <td>星海图<br><span>Unknown Location</span></td>
+  <td><span class="pill">一、基本要求 1.海内外顶尖高校（如C9、985头部、全球QS/THE排名前50等）计算机科学、人工智能、机器人学、自动化等相关专业</span> <span class="pill">2027届博士优先</span> <span class="pill">特别优秀的硕士亦可； 2.具备扎实的数理基础与极强的自驱力</span> <span class="pill">对具身智能有深刻理解与长期投入意愿。 二.、学术研究能力 1.须以第一作者（含导师一作、本人二作）身份</span> <span class="pill">在以下领域满足至少一项： 2.在 NeurIPS / ICML / ICLR / CVPR / ECCV / ICCV / RSS / CoRL​ 等CCF-A类或机器人顶会/期刊发表至少1篇（博士要求2篇及以上）高水平论文</span> <span class="pill">且论文须具备以下特征之一： 3.提出创新性方法论</span> <span class="pill">对该方向有实质性推动； 4.开源代码获得较高社区关注度（如GitHub Stars ≥300）； 5.被后续工作高频引用</span> <span class="pill">具备领域影响力； 6.在 RoboCup / DARPA Robotics Challenge / ICRA DJI RoboMaster AI Challenge​ 等国际顶级机器人赛事中获得全球前三成绩 三、专业技术能力 1.深入理解 VLA 模型架构（如RT系列、OpenVLA、π0等）</span> <span class="pill">熟悉视觉-语言-动作对齐的核心技术路线； 熟悉 WAM 相关方法（全身动作表征、全身运动规划、人形/双臂机器人控制等）</span> <span class="pill">了解扩散策略、流匹配等生成式动作2.建模方法； 掌握强化学习（RLHF/PPO/DPO）、模仿学习（行为克隆/DAgger）、世界模型等具身学习范式； 对多模态大模型（LLM/VLM）的预训练、指令微调、对齐技术有系统认知。 3.工程实践： 精通 PyTorch</span> <span class="pill">具备从零搭建大规模分布式训练框架的能力； 扎实的 Python/C++ 功底</span> <span class="pill">熟悉 CUDA 编程、模型量化/蒸馏/推理加速者优先； 熟练使用 Isaac Gym / MuJoCo / PyBullet 等仿真平台</span> <span class="pill">有真机部署经验者优先；</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">具身智能（Embodied AI）领域研究经验</span> <span class="pill">VLA/WAM 模型架构（如 RT-1、OpenVLA、π0）</span> <span class="pill">机器人仿真平台（Isaac Gym / MuJoCo / PyBullet）</span> <span class="pill">强化学习（PPO/RLHF/DPO）、模仿学习（BC/DAgger）、世界模型</span> <span class="pill">CUDA 编程与模型推理加速</span> <span class="pill">C++ 工程能力</span> <span class="pill">视觉-语言-动作多模态对齐与联合训练</span> <span class="pill">顶会论文发表（NeurIPS/ICML/CVPR/RSS/CoRL 等）或国际机器人赛事获奖</span> <span class="pill">全身运动规划（WAM）、扩散策略/流匹配动作建模</span> <span class="pill">真机部署与实时控制经验</span></td>
+  <td><a href="https://galaxea.zhiye.com/social/detail/621129214">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="高级具身全栈算法工程师" data-search="高级具身全栈算法工程师 它石智航 unknown location 基础要求 本科及以上学历 计算机、自动化、机器人、控制工程、人工智能、电子信息相关专业；3 年及以上 c++/python 开发经验 拥有机器人 / 智能驾驶行业实战经验优先。 精通 c++、python 具备扎实软件工程能力、模块架构设计、性能调优、多进程 / 分布式系统集成经验；能够独立承担项目 完成从方案设计、编码开发到真机落地全流程工作。 熟悉机器人软件框架（cyber rt/ros2） 了解机器人基础算法体系 不必入职即精通机器人全链路所有方向 只需在以下至少一个方向具备扎实实战基础： 感知：图像处理、点云理解、多传感器融合、定位 运动规划与控制：轨迹规划、轨迹优化、力控 / 位置控制、mpc 决策、状态估计、模仿学习、强化学习、端到端操作策略 具备强烈的自驱力与系统成长意识 能够以自己擅长的方向为起点 持续学习拓展 逐步建立对整套机器人软硬件系统完整认知；拥有优秀的工程落地意识与问题排查能力 直面真机调试中的各类不确定性 拆解复杂问题、推动任务闭环交付。 加分项 工业机器人真机部署、外场复杂场景调试交付经验； 熟悉 mujoco、pybullet、isaac sim 等机器人仿真工具链； 有项目技术负责人、hackathon、机器人创业相关经历； 在 icra、corl、rss 等机器人顶会有论文成果优先； 具备实时系统优化、机器人通信模块、驱动集成开发经验。 python llm rag langgraph agent fastapi docker pytorch 基础 git 协作与单元测试 c++ ros2 / cyber rt 机器人感知（图像/点云/多传感器融合/定位） 运动规划与控制（mpc、轨迹优化、力控等） 强化学习/模仿学习/端到端策略（工程化落地经验） 真机调试与工业场景部署经验 机器人仿真工具链（mujoco/pybullet/isaac sim） 多进程/分布式系统集成经验 实时系统优化、驱动/通信模块开发">
+  <td>高级具身全栈算法工程师</td>
+  <td>它石智航<br><span>Unknown Location</span></td>
+  <td><span class="pill">基础要求 本科及以上学历</span> <span class="pill">计算机、自动化、机器人、控制工程、人工智能、电子信息相关专业；3 年及以上 C++/Python 开发经验</span> <span class="pill">拥有机器人 / 智能驾驶行业实战经验优先。 精通 C++、Python</span> <span class="pill">具备扎实软件工程能力、模块架构设计、性能调优、多进程 / 分布式系统集成经验；能够独立承担项目</span> <span class="pill">完成从方案设计、编码开发到真机落地全流程工作。 熟悉机器人软件框架（Cyber RT/ROS2）</span> <span class="pill">了解机器人基础算法体系</span> <span class="pill">不必入职即精通机器人全链路所有方向</span> <span class="pill">只需在以下至少一个方向具备扎实实战基础： 感知：图像处理、点云理解、多传感器融合、定位 运动规划与控制：轨迹规划、轨迹优化、力控 / 位置控制、MPC 决策、状态估计、模仿学习、强化学习、端到端操作策略 具备强烈的自驱力与系统成长意识</span> <span class="pill">能够以自己擅长的方向为起点</span> <span class="pill">持续学习拓展</span> <span class="pill">逐步建立对整套机器人软硬件系统完整认知；拥有优秀的工程落地意识与问题排查能力</span> <span class="pill">直面真机调试中的各类不确定性</span> <span class="pill">拆解复杂问题、推动任务闭环交付。 加分项 工业机器人真机部署、外场复杂场景调试交付经验； 熟悉 Mujoco、PyBullet、Isaac Sim 等机器人仿真工具链； 有项目技术负责人、Hackathon、机器人创业相关经历； 在 ICRA、CoRL、RSS 等机器人顶会有论文成果优先； 具备实时系统优化、机器人通信模块、驱动集成开发经验。</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">C++</span> <span class="pill">ROS2 / Cyber RT</span> <span class="pill">机器人感知（图像/点云/多传感器融合/定位）</span> <span class="pill">运动规划与控制（MPC、轨迹优化、力控等）</span> <span class="pill">强化学习/模仿学习/端到端策略（工程化落地经验）</span> <span class="pill">真机调试与工业场景部署经验</span> <span class="pill">机器人仿真工具链（Mujoco/PyBullet/Isaac Sim）</span> <span class="pill">多进程/分布式系统集成经验</span> <span class="pill">实时系统优化、驱动/通信模块开发</span></td>
+  <td><a href="https://tarsrobot.jobs.feishu.cn/referral/position/7673865005364119862">打开</a></td>
+</tr>
+<tr data-score="0.75" data-priority="high" data-title="算法测试 leader" data-search="算法测试 leader 自变量机器人 unknown location 基本条件 1. 学历与经验： 计算机、人工智能、机器人、自动化等相关专业本科及以上学历 5年以上软件/算法测试经验 其中包含2年以上 ai、大模型或机器人团队的技术管理经验。 2. 行业背景： 深度参与过具身智能、大模型落地应用、自动驾驶或高端服务机器人的算法测试与质量保障工作。 专业技能 1. 算法与系统认知： 熟悉大模型的推理部署架构、agent 逻辑框架及传统机器人导航/控制算法 深刻理解其常见 bug 类型与 failure modes。 2. 测试基建与工程能力： - 精通 python/c++ 编程 具备扎实的自动化测试框架开发与脚本编写能力。 - 熟练掌握主流机器人仿真软件（如 isaac sim mujoco gazebo 等）及场景自动化编排。 - 熟悉 ros/ros2 通信机制、docker 容器化及 gitlab ci/cd 等工程工具链。 3. 测试专项能力： 具备强大的黑盒/白盒测试设计能力 擅长设计边界测试、故障注入测试（fault injection）与压力测试方案。 软实力 1. 具备极强的质量红线意识与“挑刺”思维 善于从工程和系统角度发现隐藏极深的算法缺陷。 2. 优秀的跨团队协作能力 能强力推动算法、工程、硬件团队高效推进 bug 修复闭环。 加分项 - 具有大模型模型压测、安全性对抗测试经验者优先。 - 具备大规模分布式云端仿真测试平台搭建经验者优先。 - 有机器人功能安全或系统可靠性测试实战经验者优先。 python 大模型 agent 多模态">
+  <td>算法测试 Leader</td>
+  <td>自变量机器人<br><span>Unknown Location</span></td>
+  <td><span class="pill">基本条件 1. 学历与经验： 计算机、人工智能、机器人、自动化等相关专业本科及以上学历</span> <span class="pill">5年以上软件/算法测试经验</span> <span class="pill">其中包含2年以上 AI、大模型或机器人团队的技术管理经验。 2. 行业背景： 深度参与过具身智能、大模型落地应用、自动驾驶或高端服务机器人的算法测试与质量保障工作。 专业技能 1. 算法与系统认知： 熟悉大模型的推理部署架构、Agent 逻辑框架及传统机器人导航/控制算法</span> <span class="pill">深刻理解其常见 Bug 类型与 Failure Modes。 2. 测试基建与工程能力： - 精通 Python/C++ 编程</span> <span class="pill">具备扎实的自动化测试框架开发与脚本编写能力。 - 熟练掌握主流机器人仿真软件（如 Isaac Sim</span> <span class="pill">Mujoco</span> <span class="pill">Gazebo 等）及场景自动化编排。 - 熟悉 ROS/ROS2 通信机制、Docker 容器化及 GitLab CI/CD 等工程工具链。 3. 测试专项能力： 具备强大的黑盒/白盒测试设计能力</span> <span class="pill">擅长设计边界测试、故障注入测试（Fault Injection）与压力测试方案。 软实力 1. 具备极强的质量红线意识与“挑刺”思维</span> <span class="pill">善于从工程和系统角度发现隐藏极深的算法缺陷。 2. 优秀的跨团队协作能力</span> <span class="pill">能强力推动算法、工程、硬件团队高效推进 Bug 修复闭环。 加分项 - 具有大模型模型压测、安全性对抗测试经验者优先。 - 具备大规模分布式云端仿真测试平台搭建经验者优先。 - 有机器人功能安全或系统可靠性测试实战经验者优先。</span></td>
+  <td>0.75</td>
+  <td class="priority-high">high</td>
+  <td><span class="pill">多模态</span></td>
+  <td><a href="https://x2-robot.jobs.feishu.cn/index/position/detail/7680549651082578185">打开</a></td>
+</tr>
+<tr data-score="0.19" data-priority="low" data-title="具身智能基础模型算法实习生" data-search="具身智能基础模型算法实习生 逐际动力 unknown location 实习时间至少3个月 硕士及以上学历 ai、机器人等相关专业 具备一定理论与实践能力。 在机器人/ai顶级会议或核心期刊发表论文者优先。 有良好的强化学习或多模态学习基础 有机器人真机调试经验者优先。 有全身运动跟踪器等相关项目经验者优先。 python llm rag langgraph agent 强化学习 多模态学习 机器人真机调试 运动控制/动力学建模 sim2real（电机建模、通讯延迟模拟、噪声建模） 全身运动跟踪器 机器人/ai顶会论文 硕士及以上学历 机器人相关专业背景">
+  <td>具身智能基础模型算法实习生</td>
+  <td>逐际动力<br><span>Unknown Location</span></td>
+  <td><span class="pill">实习时间至少3个月 硕士及以上学历</span> <span class="pill">AI、机器人等相关专业</span> <span class="pill">具备一定理论与实践能力。 在机器人/AI顶级会议或核心期刊发表论文者优先。 有良好的强化学习或多模态学习基础</span> <span class="pill">有机器人真机调试经验者优先。 有全身运动跟踪器等相关项目经验者优先。</span></td>
+  <td>0.19</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">强化学习</span> <span class="pill">多模态学习</span> <span class="pill">机器人真机调试</span> <span class="pill">运动控制/动力学建模</span> <span class="pill">sim2real（电机建模、通讯延迟模拟、噪声建模）</span> <span class="pill">全身运动跟踪器</span> <span class="pill">机器人/AI顶会论文</span> <span class="pill">硕士及以上学历</span> <span class="pill">机器人相关专业背景</span></td>
+  <td><a href="https://career.limxdynamics.com/index/position/7683114416728344841">打开</a></td>
+</tr>
+<tr data-score="0.38" data-priority="low" data-title="多模态大模型端侧部署算法工程师" data-search="多模态大模型端侧部署算法工程师 智平方 unknown location 1、本科及以上学历；计算机、人工智能等相关专业。 2、熟悉深度学习基本原理 掌握至少一种深度学习框架(如pytorch、tensorflow); 3、熟悉c/c++、python等编程语言 具备良好的编程基础; 4、熟悉npu、gpu等soc的编程 模型网络结构优化以及内存等优化; 5、熟悉模型部署相关流程 如有tensorrt、neuropilot/snpe等工具链使用经验; 6、有大语言模型和多模态大模型工程化部署、模型优化的经验; 7、如有在人工智能等期刊/会议发表过相关论文者优先。 python pytorch 基础 llm rag langgraph docker c/c++ tensorrt neuropilot/snpe npu/gpu soc底层编程 模型量化/剪枝/转换 多模态大模型（vlm）部署经验 端侧推理优化（时延/内存/精度平衡）">
+  <td>多模态大模型端侧部署算法工程师</td>
+  <td>智平方<br><span>Unknown Location</span></td>
+  <td><span class="pill">1、本科及以上学历；计算机、人工智能等相关专业。 2、熟悉深度学习基本原理</span> <span class="pill">掌握至少一种深度学习框架(如PyTorch、TensorFlow); 3、熟悉C/C++、Python等编程语言</span> <span class="pill">具备良好的编程基础; 4、熟悉NPU、GPU等SOC的编程</span> <span class="pill">模型网络结构优化以及内存等优化; 5、熟悉模型部署相关流程</span> <span class="pill">如有TensorRT、NeuroPilot/SNPE等工具链使用经验; 6、有大语言模型和多模态大模型工程化部署、模型优化的经验; 7、如有在人工智能等期刊/会议发表过相关论文者优先。</span></td>
+  <td>0.38</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">C/C++</span> <span class="pill">TensorRT</span> <span class="pill">NeuroPilot/SNPE</span> <span class="pill">NPU/GPU SOC底层编程</span> <span class="pill">模型量化/剪枝/转换</span> <span class="pill">多模态大模型（VLM）部署经验</span> <span class="pill">端侧推理优化（时延/内存/精度平衡）</span></td>
+  <td><a href="https://ai2robotics.jobs.feishu.cn/094992/position/7547312036872980782">打开</a></td>
+</tr>
+<tr data-score="0.33" data-priority="low" data-title="大模型算法研究员（vla/wam）" data-search="大模型算法研究员（vla/wam） 星尘智能 unknown location 1. 硕士及以上学历 计算机科学、人工智能、机器人学等相关专业 具备扎实的深度学习理论基础与数学功底。 2. 深入理解transformer架构核心原理 精通多模态大模型预训练全流程 有vla、世界模型、视觉语言大模型、生成式大模型的预训练研发经验。 3. 熟练掌握pytorch等主流深度学习框架 具备大规模分布式训练的实战经验 能独立解决大模型训练中的核心技术问题。 4. 具备优秀的算法创新能力与工程落地能力 能够独立完成算法设计、代码实现、实验验证与效果调优全流程工作。 5. 具备强烈的技术好奇心与自驱力 良好的团队协作能力与沟通能力 能承受高强度的研发工作节奏。 加分项 1. 在icml、neurips、iclr、cvpr、iccv、corl等顶级学术会议上以第一作者身份发表具身智能、大模型、计算机视觉相关论文。 2. 有百亿参数以上多模态大模型/具身基座模型从0到1的预训练落地经验。 3. 知名开源大模型项目核心贡献者 或有高质量开源项目研发与维护经验。 4. 具备真实机器人场景下的模型落地与调优经验。 python llm rag langgraph agent pytorch 基础 git 协作与单元测试经验 多 agent 协作系统开发经验 rag 知识库问答系统实战经验 硕士及以上学历 transformer 架构深度原理理解 vla（视觉-语言-动作）模型研发经验 世界模型（wam）/具身智能基座模型预训练经验 多模态大模型从0到1预训练全流程（含分布式训练） 大规模分布式训练实战经验 真实机器人场景落地经验 顶级会议论文发表（icml/neurips/cvpr等） 百亿参数级模型训练经验 视觉/时序多传感器建模能力">
+  <td>大模型算法研究员（VLA/WAM）</td>
+  <td>星尘智能<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 硕士及以上学历</span> <span class="pill">计算机科学、人工智能、机器人学等相关专业</span> <span class="pill">具备扎实的深度学习理论基础与数学功底。 2. 深入理解Transformer架构核心原理</span> <span class="pill">精通多模态大模型预训练全流程</span> <span class="pill">有VLA、世界模型、视觉语言大模型、生成式大模型的预训练研发经验。 3. 熟练掌握PyTorch等主流深度学习框架</span> <span class="pill">具备大规模分布式训练的实战经验</span> <span class="pill">能独立解决大模型训练中的核心技术问题。 4. 具备优秀的算法创新能力与工程落地能力</span> <span class="pill">能够独立完成算法设计、代码实现、实验验证与效果调优全流程工作。 5. 具备强烈的技术好奇心与自驱力</span> <span class="pill">良好的团队协作能力与沟通能力</span> <span class="pill">能承受高强度的研发工作节奏。 加分项 1. 在ICML、NeurIPS、ICLR、CVPR、ICCV、CoRL等顶级学术会议上以第一作者身份发表具身智能、大模型、计算机视觉相关论文。 2. 有百亿参数以上多模态大模型/具身基座模型从0到1的预训练落地经验。 3. 知名开源大模型项目核心贡献者</span> <span class="pill">或有高质量开源项目研发与维护经验。 4. 具备真实机器人场景下的模型落地与调优经验。</span></td>
+  <td>0.33</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">硕士及以上学历</span> <span class="pill">Transformer 架构深度原理理解</span> <span class="pill">VLA（视觉-语言-动作）模型研发经验</span> <span class="pill">世界模型（WAM）/具身智能基座模型预训练经验</span> <span class="pill">多模态大模型从0到1预训练全流程（含分布式训练）</span> <span class="pill">大规模分布式训练实战经验</span> <span class="pill">真实机器人场景落地经验</span> <span class="pill">顶级会议论文发表（ICML/NeurIPS/CVPR等）</span> <span class="pill">百亿参数级模型训练经验</span> <span class="pill">视觉/时序多传感器建模能力</span></td>
+  <td><a href="https://app.mokahr.com/social-recruitment/astribot/144861#/job/fcfa57a9-eb9d-45de-a1d3-bae3506cbebe">打开</a></td>
+</tr>
+<tr data-score="0.40" data-priority="medium" data-title="具身大模型开发者运营" data-search="具身大模型开发者运营 原力灵机 unknown location - 本科及以上 计算机 / 人工智能 / 机器人 / 自动化 / 电子等相关专业 或有等价工程经历；2 年以上开发者运营 / devrel / 技术布道 / 技术社区相关经验。 - 具备实际编码能力：能独立读懂示例代码、跑通并调试 demo 看得懂 api/sdk 设计。 - 了解大模型与具身智能基础概念：llm / vlm / vla、多模态、模型推理与微调、prompt/后训练等；对机器人本体、控制或仿真有基本认知。 - 熟悉至少一类相关工具链（有其一即可 多者加分）：ros/ros2、isaac sim / mujoco / gazebo 等仿真平台、pytorch、hugging face、docker/git。 - 优秀的技术写作与表达能力：能把复杂技术讲清楚 中文文档/内容产出流畅 能面向开发者做分享。 - 有较强的同理心与服务意识 能站在开发者视角思考 主动、皮实、结果导向。 加分项 - 有 github 开源项目、技术博客、技术社区（如公众号/b站/知乎/youtube）等个人技术影响力。 - 有机器人、自动驾驶、ai 平台或大模型公司的开发者生态 / 社区运营经验。 - 具备强化学习、模仿学习、遥操作数据采集、sim2real 等具身智能相关实践。 - 英文可作为工作语言 能运营海外开发者社区。 - 有组织 hackathon、开发者大赛或大型技术活动的完整经验。 python llm rag langgraph agent fastapi pytorch 基础 docker git 开源项目参与经验 技术文档与 demo 实践（rag/langgraph 项目中隐含） 2年以上开发者运营/devrel/技术布道经验 具身智能相关概念（vlm/vla、机器人本体/控制/仿真） ros/ros2、isaac sim/mujoco/gazebo 等仿真平台 强化学习/模仿学习/sim2real/遥操作数据采集实践 面向开发者的技术内容产出（博客/b站/公众号等个人影响力） 大型技术活动（hackathon/workshop）组织经验 英文工作语言能力（未提及）">
+  <td>具身大模型开发者运营</td>
+  <td>原力灵机<br><span>Unknown Location</span></td>
+  <td><span class="pill">- 本科及以上</span> <span class="pill">计算机 / 人工智能 / 机器人 / 自动化 / 电子等相关专业</span> <span class="pill">或有等价工程经历；2 年以上开发者运营 / DevRel / 技术布道 / 技术社区相关经验。 - 具备实际编码能力：能独立读懂示例代码、跑通并调试 Demo</span> <span class="pill">看得懂 API/SDK 设计。 - 了解大模型与具身智能基础概念：LLM / VLM / VLA、多模态、模型推理与微调、Prompt/后训练等；对机器人本体、控制或仿真有基本认知。 - 熟悉至少一类相关工具链（有其一即可</span> <span class="pill">多者加分）：ROS/ROS2、Isaac Sim / MuJoCo / Gazebo 等仿真平台、PyTorch、Hugging Face、Docker/Git。 - 优秀的技术写作与表达能力：能把复杂技术讲清楚</span> <span class="pill">中文文档/内容产出流畅</span> <span class="pill">能面向开发者做分享。 - 有较强的同理心与服务意识</span> <span class="pill">能站在开发者视角思考</span> <span class="pill">主动、皮实、结果导向。 加分项 - 有 GitHub 开源项目、技术博客、技术社区（如公众号/B站/知乎/YouTube）等个人技术影响力。 - 有机器人、自动驾驶、AI 平台或大模型公司的开发者生态 / 社区运营经验。 - 具备强化学习、模仿学习、遥操作数据采集、Sim2Real 等具身智能相关实践。 - 英文可作为工作语言</span> <span class="pill">能运营海外开发者社区。 - 有组织 Hackathon、开发者大赛或大型技术活动的完整经验。</span></td>
+  <td>0.40</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">2年以上开发者运营/DevRel/技术布道经验</span> <span class="pill">具身智能相关概念（VLM/VLA、机器人本体/控制/仿真）</span> <span class="pill">ROS/ROS2、Isaac Sim/MuJoCo/Gazebo 等仿真平台</span> <span class="pill">强化学习/模仿学习/Sim2Real/遥操作数据采集实践</span> <span class="pill">面向开发者的技术内容产出（博客/B站/公众号等个人影响力）</span> <span class="pill">大型技术活动（Hackathon/Workshop）组织经验</span> <span class="pill">英文工作语言能力（未提及）</span></td>
+  <td><a href="https://dexmal-inc.jobs.feishu.cn/index/position/7679060456242415881">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="vla算法工程师" data-search="vla算法工程师 加速进化 unknown location 硬性要求 硕士及以上 计算机、人工智能、机器人工程、自动化、控制科学、cv 相关专业；有具身 / vla 顶会论文（icra/corl/eccv/neurips）优先 博士加分。 2 年及以上多模态大模型、机器人模仿学习落地经验 有人形 / 双足机器人 vla、机械臂具身算法完整项目经验。 熟练 python/pytorch 精通 transformer、vit、clip 等视觉语言基础架构；熟练分布式训练（deepspeed/fsdp）、lora/qlora 微调技术。 掌握 ros/ros2 熟悉机器人运动学、关节动作序列数据处理；了解 isaac sim、webots 机器人仿真工具。 加分项 双足人形机器人真机调试、整机联调经验 熟悉双足平衡控制、全身运动规划。 有灵巧手抓取、多步骤长时序任务（做家务、工具操作）vla 落地案例。 熟悉 c++/cuda 算子优化 可自研轻量化动作生成网络。 拥有机器人、多模态大模型相关发明专利。 python pytorch 基础 langgraph rag 检索增强 多 agent 协作系统开发经验 git 协作与单元测试 硕士及以上学历（当前为本科） vla/具身智能顶会论文（icra/corl/eccv/neurips） 机器人领域经验（ros/ros2、运动学、关节动作序列处理） 多模态大模型实战经验（vit、clip、rt-2、openvla） 仿真工具（isaac sim、webots） 分布式训练（deepspeed/fsdp） lora/qlora 微调技术 c++/cuda 算子优化 双足/机械臂真机调试与整机联调 模仿学习（bc/diffusion policy/flow matching）与强化学习（ppo/sac） 力触觉/imu 多模态融合 机器人发明专利">
+  <td>VLA算法工程师</td>
+  <td>加速进化<br><span>Unknown Location</span></td>
+  <td><span class="pill">硬性要求 硕士及以上</span> <span class="pill">计算机、人工智能、机器人工程、自动化、控制科学、CV 相关专业；有具身 / VLA 顶会论文（ICRA/CoRL/ECCV/NeurIPS）优先</span> <span class="pill">博士加分。 2 年及以上多模态大模型、机器人模仿学习落地经验</span> <span class="pill">有人形 / 双足机器人 VLA、机械臂具身算法完整项目经验。 熟练 Python/PyTorch</span> <span class="pill">精通 Transformer、ViT、CLIP 等视觉语言基础架构；熟练分布式训练（DeepSpeed/FSDP）、LoRA/QLoRA 微调技术。 掌握 ROS/ROS2</span> <span class="pill">熟悉机器人运动学、关节动作序列数据处理；了解 Isaac Sim、Webots 机器人仿真工具。 加分项 双足人形机器人真机调试、整机联调经验</span> <span class="pill">熟悉双足平衡控制、全身运动规划。 有灵巧手抓取、多步骤长时序任务（做家务、工具操作）VLA 落地案例。 熟悉 C++/CUDA 算子优化</span> <span class="pill">可自研轻量化动作生成网络。 拥有机器人、多模态大模型相关发明专利。</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">硕士及以上学历（当前为本科）</span> <span class="pill">VLA/具身智能顶会论文（ICRA/CoRL/ECCV/NeurIPS）</span> <span class="pill">机器人领域经验（ROS/ROS2、运动学、关节动作序列处理）</span> <span class="pill">多模态大模型实战经验（ViT、CLIP、RT-2、OpenVLA）</span> <span class="pill">仿真工具（Isaac Sim、Webots）</span> <span class="pill">分布式训练（DeepSpeed/FSDP）</span> <span class="pill">LoRA/QLoRA 微调技术</span> <span class="pill">C++/CUDA 算子优化</span> <span class="pill">双足/机械臂真机调试与整机联调</span> <span class="pill">模仿学习（BC/Diffusion Policy/Flow Matching）与强化学习（PPO/SAC）</span> <span class="pill">力触觉/IMU 多模态融合</span> <span class="pill">机器人发明专利</span></td>
+  <td><a href="https://booster.jobs.feishu.cn/index/position/detail/7673455520690276649">打开</a></td>
+</tr>
+<tr data-score="0.37" data-priority="low" data-title="marketing intern (global / ai native, technical background preferred)" data-search="marketing intern (global / ai native, technical background preferred) 智谱ai unknown location education •	master’s degree (preferred) •	overseas study experience preferred; qs top 100 universities are a plus •	technical background preferred (computer science ai data engineering etc.) basic requirements •	available at least 3 days/week for 3+ months skills &amp; competencies •	fluent in english (writing and communication) •	familiar with x (twitter) and linkedin; hands-on experience preferred •	basic technical understanding (ai / saas / apis) or strong learning ability •	basic understanding of b2b business models and sales processes traits •	ai-native: comfortable using ai tools •	results-driven with a focus on growth metrics •	business-minded with awareness of conversion and impact preferred qualifications •	experience in b2b or enterprise-related roles •	experience creating technical or ai-related content •	exposure to u.s. market or global audiences •	experience growing social media accounts from scratch what you’ll gain •	hands-on experience across tech b2b and global marketing •	exposure to u.s. market growth •	opportunity to work with international product and engineering teams python llm rag langgraph agent fastapi ai-native (demonstrated via llm/rag/agent projects) technical background (cs undergraduate, ai application experience) collaboration with engineering teams (via open-source contribution &amp; multi-agent system development) strong learning ability (self-driven ai project implementation) fluent english (writing and communication) — not evidenced in resume hands-on experience with x (twitter) / linkedin content creation or growth basic understanding of b2b business models and sales processes experience creating technical/ai-related marketing content exposure to u.s. market or global audiences experience tracking growth metrics (impressions, conversion, leads)">
+  <td>Marketing Intern (Global / AI Native, Technical Background Preferred)</td>
+  <td>智谱AI<br><span>Unknown Location</span></td>
+  <td><span class="pill">Education •	Master’s degree (preferred) •	Overseas study experience preferred; QS Top 100 universities are a plus •	Technical background preferred (Computer Science</span> <span class="pill">AI</span> <span class="pill">Data</span> <span class="pill">Engineering</span> <span class="pill">etc.) Basic Requirements •	Available at least 3 days/week for 3+ months Skills &amp; Competencies •	Fluent in English (writing and communication) •	Familiar with X (Twitter) and LinkedIn; hands-on experience preferred •	Basic technical understanding (AI / SaaS / APIs) or strong learning ability •	Basic understanding of B2B business models and sales processes Traits •	AI-native: comfortable using AI tools •	Results-driven with a focus on growth metrics •	Business-minded with awareness of conversion and impact Preferred Qualifications •	Experience in B2B or enterprise-related roles •	Experience creating technical or AI-related content •	Exposure to U.S. market or global audiences •	Experience growing social media accounts from scratch What You’ll Gain •	Hands-on experience across tech</span> <span class="pill">B2B</span> <span class="pill">and global marketing •	Exposure to U.S. market growth •	Opportunity to work with international</span> <span class="pill">product</span> <span class="pill">and engineering teams</span></td>
+  <td>0.37</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">Fluent English (writing and communication) — not evidenced in resume</span> <span class="pill">Hands-on experience with X (Twitter) / LinkedIn content creation or growth</span> <span class="pill">Basic understanding of B2B business models and sales processes</span> <span class="pill">Experience creating technical/AI-related marketing content</span> <span class="pill">Exposure to U.S. market or global audiences</span> <span class="pill">Experience tracking growth metrics (impressions, conversion, leads)</span></td>
+  <td><a href="https://zhipu-ai.jobs.feishu.cn/index/position/7623240518135499017">打开</a></td>
+</tr>
+<tr data-score="0.33" data-priority="low" data-title="大模型技术招聘负责人" data-search="大模型技术招聘负责人 minimax unknown location 职位要求 1. 技术基础功底与招聘经验 本科及以上学历 5 年以上大模型相关技术招聘经验（可接受乙方背景）。 有 nlp（自然语言处理）、大语言模型（llm）、强化学习（rl）、深度学习算法或高性能计算招聘背景者优先。 2. 技术敏感度与极客好奇心 不必亲自训练大模型 但听到 transformer moe reasoning cot process reward model rlhf speculative decoding 等词汇时能保持兴奋与敏感。 乐于关注 arxiv 每日最新论文动态与头部 ai 实验室的技术突破 能与硬核算法专家无障碍“对齐颗粒度”。 3. 高 eq 与深度沟通影响力 具备极佳的沟通协调能力与解决问题能力 拥有极高的人际敏感度。 能精准捕捉极客/研究员型人才的真实诉求、学术抱负与职业痛点 具备强有力的 offer 谈判与说服影响力。 4. 强大的自驱力与反脆弱性 热爱招聘 将“帮顶尖团队找到最对的人、共同推进行业边界”视为强烈的成就感来源。 面对全球范围内极度稀缺的前沿算法人才竞争 具备强烈的攻坚欲望、韧性与抗压能力。 llm rag langgraph agent python fastapi pytorch 基础 参与开源项目（github 协作） 5年以上大模型相关技术招聘经验 nlp/rl/深度学习算法招聘背景 高阶人才mapping与冷启动沟通能力 offer谈判与高端人才说服影响力 arxiv论文追踪与学术社区运营经验 neurips/iclr/acl等顶会人才网络 talent sourcing prompt工程能力 招聘漏斗数据驱动优化经验">
+  <td>大模型技术招聘负责人</td>
+  <td>MiniMax<br><span>Unknown Location</span></td>
+  <td><span class="pill">职位要求 1. 技术基础功底与招聘经验 本科及以上学历</span> <span class="pill">5 年以上大模型相关技术招聘经验（可接受乙方背景）。 有 NLP（自然语言处理）、大语言模型（LLM）、强化学习（RL）、深度学习算法或高性能计算招聘背景者优先。 2. 技术敏感度与极客好奇心 不必亲自训练大模型</span> <span class="pill">但听到 Transformer</span> <span class="pill">MoE</span> <span class="pill">Reasoning</span> <span class="pill">CoT</span> <span class="pill">Process Reward Model</span> <span class="pill">RLHF</span> <span class="pill">Speculative Decoding 等词汇时能保持兴奋与敏感。 乐于关注 arXiv 每日最新论文动态与头部 AI 实验室的技术突破</span> <span class="pill">能与硬核算法专家无障碍“对齐颗粒度”。 3. 高 EQ 与深度沟通影响力 具备极佳的沟通协调能力与解决问题能力</span> <span class="pill">拥有极高的人际敏感度。 能精准捕捉极客/研究员型人才的真实诉求、学术抱负与职业痛点</span> <span class="pill">具备强有力的 Offer 谈判与说服影响力。 4. 强大的自驱力与反脆弱性 热爱招聘</span> <span class="pill">将“帮顶尖团队找到最对的人、共同推进行业边界”视为强烈的成就感来源。 面对全球范围内极度稀缺的前沿算法人才竞争</span> <span class="pill">具备强烈的攻坚欲望、韧性与抗压能力。</span></td>
+  <td>0.33</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">5年以上大模型相关技术招聘经验</span> <span class="pill">NLP/RL/深度学习算法招聘背景</span> <span class="pill">高阶人才Mapping与冷启动沟通能力</span> <span class="pill">Offer谈判与高端人才说服影响力</span> <span class="pill">arXiv论文追踪与学术社区运营经验</span> <span class="pill">NeurIPS/ICLR/ACL等顶会人才网络</span> <span class="pill">Talent Sourcing Prompt工程能力</span> <span class="pill">招聘漏斗数据驱动优化经验</span></td>
+  <td><a href="https://vrfi1sk8a0.jobs.feishu.cn/index/position/7682323969436928265">打开</a></td>
+</tr>
+<tr data-score="0.00" data-priority="low" data-title="ai 模型数据分析师" data-search="ai 模型数据分析师 阶跃星辰 unknown location">
+  <td>AI 模型数据分析师</td>
+  <td>阶跃星辰<br><span>Unknown Location</span></td>
+  <td>暂无</td>
+  <td>0.00</td>
+  <td class="priority-low">low</td>
+  <td>暂无</td>
+  <td><a href="https://app.mokahr.com/social-recruitment/step/94904#/job/5b2ab068-9591-4644-9c78-dbe4862177a3">打开</a></td>
+</tr>
+<tr data-score="1.00" data-priority="high" data-title="agent 研发工程师" data-search="agent 研发工程师 百川智能 unknown location 必备项 - 本科及以上学历 计算机、人工智能或相关专业 具备 3 年以上后端 / 系统开发经验 - 扎实的工程功底与系统设计能力 精通 c++ / go 中至少一门 - 对分布式系统、高并发服务、微服务架构有深入理解 - 对大语言模型的能力边界与失效模式 有清醒而务实的认知 加分项 - 1 年以上ai agent核心能力的实战经验 - 熟悉检索系统、记忆系统、推理优化等方向之一并有深度积累 - 在专业垂直领域（医疗、科研、金融等）有 ai 落地经验 大语言模型 智能体">
+  <td>Agent 研发工程师</td>
+  <td>百川智能<br><span>Unknown Location</span></td>
+  <td><span class="pill">必备项 - 本科及以上学历</span> <span class="pill">计算机、人工智能或相关专业</span> <span class="pill">具备 3 年以上后端 / 系统开发经验 - 扎实的工程功底与系统设计能力</span> <span class="pill">精通 C++ / Go 中至少一门 - 对分布式系统、高并发服务、微服务架构有深入理解 - 对大语言模型的能力边界与失效模式</span> <span class="pill">有清醒而务实的认知 加分项 - 1 年以上AI Agent核心能力的实战经验 - 熟悉检索系统、记忆系统、推理优化等方向之一并有深度积累 - 在专业垂直领域（医疗、科研、金融等）有 AI 落地经验</span></td>
+  <td>1.00</td>
+  <td class="priority-high">high</td>
+  <td>暂无</td>
+  <td><a href="https://cq6qe6bvfr6.jobs.feishu.cn/646926/position/7654879972347152650/detail">打开</a></td>
+</tr>
+<tr data-score="1.00" data-priority="high" data-title="客户经理（端侧大模型方向）" data-search="客户经理（端侧大模型方向） 面壁智能 unknown location 1. 学历：本科及以上学历 计算机、电子、通信、人工智能、市场营销等相关专业优先。 2. 经验：5年以上to b大客户销售/商务拓展经验。 3. 行业背景：熟悉智能手机、pc、智能汽车、iot等至少一个终端行业 了解其产品立项、供应链与商务合作流程。 4. 技术理解：对ai/大模型、端侧推理、芯片平台（如高通、联发科、英特尔、amd、arm等）有一定认知 能向客户清晰传达技术价值。 5. 业绩导向：有可验证的千万级以上大客户销售成功案例 具备优秀的商务谈判与项目管理能力。 6. 沟通能力：出色的表达与方案呈现能力 能面向客户高管与技术负责人进行有效沟通。 7. 自驱力：具备创业心态 适应快节奏、高不确定性环境 能独立开拓市场并承担业绩压力。 大模型">
+  <td>客户经理（端侧大模型方向）</td>
+  <td>面壁智能<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 学历：本科及以上学历</span> <span class="pill">计算机、电子、通信、人工智能、市场营销等相关专业优先。 2. 经验：5年以上To B大客户销售/商务拓展经验。 3. 行业背景：熟悉智能手机、PC、智能汽车、IoT等至少一个终端行业</span> <span class="pill">了解其产品立项、供应链与商务合作流程。 4. 技术理解：对AI/大模型、端侧推理、芯片平台（如高通、联发科、英特尔、AMD、Arm等）有一定认知</span> <span class="pill">能向客户清晰传达技术价值。 5. 业绩导向：有可验证的千万级以上大客户销售成功案例</span> <span class="pill">具备优秀的商务谈判与项目管理能力。 6. 沟通能力：出色的表达与方案呈现能力</span> <span class="pill">能面向客户高管与技术负责人进行有效沟通。 7. 自驱力：具备创业心态</span> <span class="pill">适应快节奏、高不确定性环境</span> <span class="pill">能独立开拓市场并承担业绩压力。</span></td>
+  <td>1.00</td>
+  <td class="priority-high">high</td>
+  <td>暂无</td>
+  <td><a href="https://modelbest.jobs.feishu.cn/career/position/7683082405229775158/detail">打开</a></td>
+</tr>
+<tr data-score="0.18" data-priority="low" data-title="视频生成算法实习生 (后训练数据)" data-search="视频生成算法实习生 (后训练数据) 生数科技 unknown location 1. 熟悉 diffusion / flow matching / dit 等生成模型基础。 2. 有较强工程实现能力和实验推进能力 能在不确定问题中快速验证想法。 有以下经验加分： 1. 对视频内容质量有较强敏感度 能够判断视频中的语义不符、人物崩坏、动作异常、镜头错误、文字错误、音画不同步等问题。 2. 有数据标注、内容质检、模型评测、aigc 数据运营或多媒体内容审核经验优先。 3. 具备较强的责任心和细致度 能够长期稳定维护评测标准和数据质量。 4. 能够和算法、数据、产品团队高频协作 及时同步问题、风险和阶段性结论。 python llm rag langgraph agent pytorch 基础 docker git 协作与单元测试 工程实现能力（多 agent 系统、rag 系统开发） 实验推进能力（系统迭代、问题验证） 跨团队协作经验（开源项目参与） diffusion / flow matching / dit 等视频生成模型原理 视频内容质量评估能力（语义不符、崩坏、动作异常、镜头/音画问题识别） 人工评测体系建设经验（标注规范设计、质检流程、benchmark 维护） aigc 数据运营 / 多媒体内容审核 / 模型评测实战经验 asr/ocr/动作识别/切镜点等多媒体分析技术基础 reward modeling（rm）相关概念与数据需求理解">
+  <td>视频生成算法实习生 (后训练数据)</td>
+  <td>生数科技<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 熟悉 diffusion / flow matching / DiT 等生成模型基础。 2. 有较强工程实现能力和实验推进能力</span> <span class="pill">能在不确定问题中快速验证想法。 有以下经验加分： 1. 对视频内容质量有较强敏感度</span> <span class="pill">能够判断视频中的语义不符、人物崩坏、动作异常、镜头错误、文字错误、音画不同步等问题。 2. 有数据标注、内容质检、模型评测、AIGC 数据运营或多媒体内容审核经验优先。 3. 具备较强的责任心和细致度</span> <span class="pill">能够长期稳定维护评测标准和数据质量。 4. 能够和算法、数据、产品团队高频协作</span> <span class="pill">及时同步问题、风险和阶段性结论。</span></td>
+  <td>0.18</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">diffusion / flow matching / DiT 等视频生成模型原理</span> <span class="pill">视频内容质量评估能力（语义不符、崩坏、动作异常、镜头/音画问题识别）</span> <span class="pill">人工评测体系建设经验（标注规范设计、质检流程、benchmark 维护）</span> <span class="pill">AIGC 数据运营 / 多媒体内容审核 / 模型评测实战经验</span> <span class="pill">ASR/OCR/动作识别/切镜点等多媒体分析技术基础</span> <span class="pill">Reward modeling（RM）相关概念与数据需求理解</span></td>
+  <td><a href="https://shengshu.jobs.feishu.cn/index/position/7681258986549184795">打开</a></td>
+</tr>
+<tr data-score="0.80" data-priority="high" data-title="agent开发工程师" data-search="agent开发工程师 腾讯 深圳总部、北京、上海、广州、成都 1、熟练掌握至少一门主流编程语言（python/typescript/go 等） 具备扎实的数据结构与算法基础 代码质量意识强； 2、深入理解agent原理与架构 包括 planning、memory、tool use、reflection等核心机制； 3、 熟悉主流agent开发框架（如 langgraph、autogen、crewai、metagpt 等） 有实际搭建经验； 4、了解大模型基本原理 熟悉prompt engineering技巧 能设计高质量的系统提示词与工具描述； 5、对ai agent技术有强烈兴趣 关注行业动态 具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力 能在复杂场景中设计可靠的agent方案。 python langgraph 大模型 agent prompt engineering">
+  <td>Agent开发工程师</td>
+  <td>腾讯<br><span>深圳总部、北京、上海、广州、成都</span></td>
+  <td><span class="pill">1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等）</span> <span class="pill">具备扎实的数据结构与算法基础</span> <span class="pill">代码质量意识强； 2、深入理解Agent原理与架构</span> <span class="pill">包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等）</span> <span class="pill">有实际搭建经验； 4、了解大模型基本原理</span> <span class="pill">熟悉Prompt Engineering技巧</span> <span class="pill">能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣</span> <span class="pill">关注行业动态</span> <span class="pill">具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力</span> <span class="pill">能在复杂场景中设计可靠的Agent方案。</span></td>
+  <td>0.80</td>
+  <td class="priority-high">high</td>
+  <td><span class="pill">prompt engineering</span></td>
+  <td><a href="https://join.qq.com/post_detail.html?postId=1282707395466077184">打开</a></td>
+</tr>
+<tr data-score="0.38" data-priority="low" data-title="多模态大模型研究型实习生-2027届" data-search="多模态大模型研究型实习生-2027届 小米 unknown location 1.在读硕士/博士 计算机、人工智能、机器学习、电子信息、自动化、数学等相关专业 多模态大模型、计算机视觉等相关方向; 2.具备一定的多模态算法或计算机视觉实践经验 对多模态大模型算法有深入理解; 3.具备优秀的编程能力 熟练掌握pytorch等至少一门深度学习框架 熟练掌握python或c++等至少一门编程语言; 4.对多模态大模型、计算机视觉、深度学习等领域有比较强的兴趣；每周实习四天以上 实习四个月以上; 5.在多模态大模型、计算机视觉、深度学习等领域发表过高水平文 或参加过相关领域主流算法竞赛且取得优秀成绩者优先; python pytorch 基础 对大模型技术的深入实践（rag、langgraph、agent） 科研导向项目经验（多agent系统、rag系统） 多模态算法/计算机视觉实践经验 多模态大模型理论与训练经验（如clip、flamingo、qwen-vl、llava等） c++ 高水平论文发表或竞赛获奖经历 硕士/博士在读（用户为2027届本科生）">
+  <td>多模态大模型研究型实习生-2027届</td>
+  <td>小米<br><span>Unknown Location</span></td>
+  <td><span class="pill">1.在读硕士/博士</span> <span class="pill">计算机、人工智能、机器学习、电子信息、自动化、数学等相关专业</span> <span class="pill">多模态大模型、计算机视觉等相关方向; 2.具备一定的多模态算法或计算机视觉实践经验</span> <span class="pill">对多模态大模型算法有深入理解; 3.具备优秀的编程能力</span> <span class="pill">熟练掌握PyTorch等至少一门深度学习框架</span> <span class="pill">熟练掌握Python或C++等至少一门编程语言; 4.对多模态大模型、计算机视觉、深度学习等领域有比较强的兴趣；每周实习四天以上</span> <span class="pill">实习四个月以上; 5.在多模态大模型、计算机视觉、深度学习等领域发表过高水平文</span> <span class="pill">或参加过相关领域主流算法竞赛且取得优秀成绩者优先;</span></td>
+  <td>0.38</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">多模态算法/计算机视觉实践经验</span> <span class="pill">多模态大模型理论与训练经验（如CLIP、Flamingo、Qwen-VL、LLaVA等）</span> <span class="pill">C++</span> <span class="pill">高水平论文发表或竞赛获奖经历</span> <span class="pill">硕士/博士在读（用户为2027届本科生）</span></td>
+  <td><a href="https://xiaomi.jobs.f.mioffice.cn/internship/position/7670851327552194858/detail">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="大模型标注实习生" data-search="大模型标注实习生 网易 unknown location 1、文字敏感度：对文本语义有高度的敏感性和理解力 具备优秀的逻辑思维能力和书面表达能力 能够清晰、准确地处理文本； 2、细致与耐心：工作极度细心、严谨 拥有强大的耐心 能够专注、高效地处理大量、有时略显重复的文本阅读与处理任务； 3、学习与沟通：思维敏捷 学习和理解能力强 能够快速掌握新规则；具备良好的沟通能力和团队协作精神； 4、兴趣爱好：对ai主流大模型（如chatgpt、deepseek、豆包等）等有浓厚兴趣 具备基本了解者优先。 加分项 1、有丰富的情感类ai社区的使用经验； 2、通用型模型调试（pe经验）者优先考虑； llm（对主流大模型有基本了解和实践） rag（体现文本理解、语义处理能力） langgraph / agent（多agent协作系统涉及对话建模、任务逻辑拆解，强化语义与结构化思维） python（支撑数据处理、脚本编写等基础工作） git协作与单元测试（体现团队协作与规范意识） 专业级文本标注经验（如多轮对话标注、语义角色标注等） 数据清洗与标注质量评估方法论 prompt engineering（pe）实战经验 情感类ai社区深度使用经历（如长期参与豆包/星火/文心一言等社区反馈、评测） 高度重复性文本工作的长期耐心训练（简历未体现相关实习或项目）">
+  <td>大模型标注实习生</td>
+  <td>网易<br><span>Unknown Location</span></td>
+  <td><span class="pill">1、文字敏感度：对文本语义有高度的敏感性和理解力</span> <span class="pill">具备优秀的逻辑思维能力和书面表达能力</span> <span class="pill">能够清晰、准确地处理文本； 2、细致与耐心：工作极度细心、严谨</span> <span class="pill">拥有强大的耐心</span> <span class="pill">能够专注、高效地处理大量、有时略显重复的文本阅读与处理任务； 3、学习与沟通：思维敏捷</span> <span class="pill">学习和理解能力强</span> <span class="pill">能够快速掌握新规则；具备良好的沟通能力和团队协作精神； 4、兴趣爱好：对AI主流大模型（如ChatGPT、Deepseek、豆包等）等有浓厚兴趣</span> <span class="pill">具备基本了解者优先。 加分项 1、有丰富的情感类AI社区的使用经验； 2、通用型模型调试（PE经验）者优先考虑；</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">专业级文本标注经验（如多轮对话标注、语义角色标注等）</span> <span class="pill">数据清洗与标注质量评估方法论</span> <span class="pill">Prompt Engineering（PE）实战经验</span> <span class="pill">情感类AI社区深度使用经历（如长期参与豆包/星火/文心一言等社区反馈、评测）</span> <span class="pill">高度重复性文本工作的长期耐心训练（简历未体现相关实习或项目）</span></td>
+  <td><a href="https://hr.163.com/job-detail.html?id=74090">打开</a></td>
+</tr>
+<tr data-score="1.00" data-priority="high" data-title="【27届实习】product engineer-产品工程师（ai与全栈方向）-社区工程" data-search="【27届实习】product engineer-产品工程师（ai与全栈方向）-社区工程 小红书 unknown location 1. 2027 届毕业生 计算机、软件工程、人工智能等相关专业本科及以上学历； 2. 扎实的编程基础 熟悉至少一门编程语言（python/go/java/c++ 等）； 3. 良好的逻辑思维和问题分析能力 能够快速学习新技术； 4. 具备良好的沟通协作能力和团队合作精神； 5. 有全栈开发经验、ai 应用开发经验或开源项目贡献者优先； 6. 实习时间不少于 3 个月 每周出勤 5 天。 python">
+  <td>【27届实习】Product Engineer-产品工程师（AI与全栈方向）-社区工程</td>
+  <td>小红书<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 2027 届毕业生</span> <span class="pill">计算机、软件工程、人工智能等相关专业本科及以上学历； 2. 扎实的编程基础</span> <span class="pill">熟悉至少一门编程语言（Python/Go/Java/C++ 等）； 3. 良好的逻辑思维和问题分析能力</span> <span class="pill">能够快速学习新技术； 4. 具备良好的沟通协作能力和团队合作精神； 5. 有全栈开发经验、AI 应用开发经验或开源项目贡献者优先； 6. 实习时间不少于 3 个月</span> <span class="pill">每周出勤 5 天。</span></td>
+  <td>1.00</td>
+  <td class="priority-high">high</td>
+  <td>暂无</td>
+  <td><a href="https://job.xiaohongshu.com/campus/position/20815">打开</a></td>
+</tr>
+<tr data-score="0.40" data-priority="medium" data-title="基础研究-aigc算法研发工程师（aigc agent / 多模态 / 视觉 / 3d / 动作 / ai工具方向）" data-search="基础研究-aigc算法研发工程师（aigc agent / 多模态 / 视觉 / 3d / 动作 / ai工具方向） 米哈游 unknown location 1. 2027 届及之后毕业的在校生 计算机、人工智能、软件工程、自动化、数学、图形学等相关专业优先。 2. 熟悉 aigc 或多模态生成技术 了解图像编辑、视频生成、vlm、3d生成、动作生成中的至少一个方向。 3. 具备扎实的编程能力 熟悉python和linux操作系统；有模型训练、数据处理、推理优化或工具开发经验优先。 4. 对ai技术和游戏研发流程有兴趣 愿意理解美术、动画、场景、角色、关卡、剧情等生产环节中的实际问题。 5. 具备良好的沟通能力和主动学习能力 能和跨职能团队一起推进技术从实验落地为可用工具。 python llm rag langgraph agent fastapi docker git协作与单元测试 任务规划与工具调用（agent系统经验） 向量检索与重排（rag工程落地能力） 多模态生成技术（如图像/视频/3d/动作生成） vlm（视觉语言模型）训练与优化经验 模型训练/微调实战（尤其扩散模型、transformer-based生成模型） 游戏研发流程理解（美术/动画/ta/关卡等生产环节） linux深度使用与推理优化（如tensorrt、onnx runtime、量化部署） 音频驱动动作生成、动捕、3d内容理解等垂直方向经验">
+  <td>基础研究-AIGC算法研发工程师（AIGC Agent / 多模态 / 视觉 / 3D / 动作 / AI工具方向）</td>
+  <td>米哈游<br><span>Unknown Location</span></td>
+  <td><span class="pill">1. 2027 届及之后毕业的在校生</span> <span class="pill">计算机、人工智能、软件工程、自动化、数学、图形学等相关专业优先。 2. 熟悉 AIGC 或多模态生成技术</span> <span class="pill">了解图像编辑、视频生成、VLM、3D生成、动作生成中的至少一个方向。 3. 具备扎实的编程能力</span> <span class="pill">熟悉Python和Linux操作系统；有模型训练、数据处理、推理优化或工具开发经验优先。 4. 对AI技术和游戏研发流程有兴趣</span> <span class="pill">愿意理解美术、动画、场景、角色、关卡、剧情等生产环节中的实际问题。 5. 具备良好的沟通能力和主动学习能力</span> <span class="pill">能和跨职能团队一起推进技术从实验落地为可用工具。</span></td>
+  <td>0.40</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">多模态生成技术（如图像/视频/3D/动作生成）</span> <span class="pill">VLM（视觉语言模型）训练与优化经验</span> <span class="pill">模型训练/微调实战（尤其扩散模型、Transformer-based生成模型）</span> <span class="pill">游戏研发流程理解（美术/动画/TA/关卡等生产环节）</span> <span class="pill">Linux深度使用与推理优化（如TensorRT、ONNX Runtime、量化部署）</span> <span class="pill">音频驱动动作生成、动捕、3D内容理解等垂直方向经验</span></td>
+  <td><a href="https://jobs.mihoyo.com/#/campus/position/8924">打开</a></td>
+</tr>
+<tr data-score="0.50" data-priority="medium" data-title="【27届校招】动作捕捉算法工程师" data-search="【27届校招】动作捕捉算法工程师 小鹏汽车 unknown location 1、 2027届全日制博士研究生。 2、控制科学与工程、机器人、自动化、仪器科学与技术、计算机科学、电子信息或相关专业 研究方向与人体运动学、惯性导航、动作捕捉、姿态估计或多传感器融合相关。 3、熟悉三维空间姿态描述与坐标变换 掌握旋转矩阵、四元数、欧拉角及刚体运动学等基础理论 能够独立完成多坐标系下的姿态和位姿推导。 4、熟悉人体或机器人运动学 掌握前向运动学、逆向运动学、关节约束、骨骼建模及运动参数标定等方法 能够根据传感器观测信息重建人体关节角和骨骼姿态。 5、具备imu、磁编码器、电磁跟踪或其他运动传感器中的至少一种研究或应用经历 能够理解不同传感器的观测量、误差特性及适用边界 并根据应用需求设计融合方案。 6、必须具有国家级科研项目、省级科研项目或企业横向项目的实质性参与经历 能够清晰说明本人承担的算法任务、技术难点、验证方法及实际成果。 7、具备良好的数学和算法基础 熟悉线性代数、概率统计、最优化、信号处理及状态估计 能够对算法误差进行建模、分析和验证。 8、熟练使用c/c++、python或matlab进行算法开发 具备数据处理、算法仿真、离线验证及实时程序开发能力；具有嵌入式平台算法部署或性能优化经验者优先。 9、具备较强的实验设计和系统验证能力 能够建立参考真值、评价指标和测试数据集 不以单次演示效果代替算法精度、稳定性和可重复性验证。 10、 具备良好的技术文档编写、沟通协调和跨团队协作能力 对人体动作捕捉、机器人遥操作、具身智能及多模态运动感知具有浓厚兴趣。 优先条件 1、具有数据手套、全身动捕服、可穿戴运动监测、惯性动作捕捉或机器人遥操作相关项目经历者优先； 2、具有imu阵列、磁编码器、电磁跟踪或多传感器融合系统研发经历者优先； 3、具有手部运动学、人体骨骼建模、关节轴估计、人体参数标定或不同体型自适应研究经历者优先； 4、具有ros/ros 2、urdf、人体骨骼模型、机器人运动学库或实时动作数据sdk开发经历者优先； 5、具有高水平论文、授权发明专利、科研竞赛成果或相关算法产品工程化落地经验者优先。 python 计算机科学专业背景 科研项目参与经历（langgraph多agent系统、rag问答系统） 算法开发与系统实现经验 git协作与单元测试实践 博士学历（岗位明确要求2027届全日制博士研究生） 人体/机器人运动学理论（前向/逆向运动学、骨骼建模、关节约束） 三维姿态表示与坐标变换（四元数、旋转矩阵、欧拉角、刚体位姿推导） imu/磁编码器/电磁跟踪等运动传感器研究或应用经历 多传感器融合（尤其面向动作捕捉的误差建模与漂移修正） 人体参数标定、初始姿态对齐、传感器-骨骼坐标系映射 ros/urdf/实时sdk开发、嵌入式部署或光学动捕系统验证经验 状态估计（卡尔曼滤波、因子图优化等）、信号处理、概率建模能力 国家级/省级科研项目实质性承担经历（需明确算法任务与验证方法）">
+  <td>【27届校招】动作捕捉算法工程师</td>
+  <td>小鹏汽车<br><span>Unknown Location</span></td>
+  <td><span class="pill">1、 2027届全日制博士研究生。 2、控制科学与工程、机器人、自动化、仪器科学与技术、计算机科学、电子信息或相关专业</span> <span class="pill">研究方向与人体运动学、惯性导航、动作捕捉、姿态估计或多传感器融合相关。 3、熟悉三维空间姿态描述与坐标变换</span> <span class="pill">掌握旋转矩阵、四元数、欧拉角及刚体运动学等基础理论</span> <span class="pill">能够独立完成多坐标系下的姿态和位姿推导。 4、熟悉人体或机器人运动学</span> <span class="pill">掌握前向运动学、逆向运动学、关节约束、骨骼建模及运动参数标定等方法</span> <span class="pill">能够根据传感器观测信息重建人体关节角和骨骼姿态。 5、具备IMU、磁编码器、电磁跟踪或其他运动传感器中的至少一种研究或应用经历</span> <span class="pill">能够理解不同传感器的观测量、误差特性及适用边界</span> <span class="pill">并根据应用需求设计融合方案。 6、必须具有国家级科研项目、省级科研项目或企业横向项目的实质性参与经历</span> <span class="pill">能够清晰说明本人承担的算法任务、技术难点、验证方法及实际成果。 7、具备良好的数学和算法基础</span> <span class="pill">熟悉线性代数、概率统计、最优化、信号处理及状态估计</span> <span class="pill">能够对算法误差进行建模、分析和验证。 8、熟练使用C/C++、Python或MATLAB进行算法开发</span> <span class="pill">具备数据处理、算法仿真、离线验证及实时程序开发能力；具有嵌入式平台算法部署或性能优化经验者优先。 9、具备较强的实验设计和系统验证能力</span> <span class="pill">能够建立参考真值、评价指标和测试数据集</span> <span class="pill">不以单次演示效果代替算法精度、稳定性和可重复性验证。 10、 具备良好的技术文档编写、沟通协调和跨团队协作能力</span> <span class="pill">对人体动作捕捉、机器人遥操作、具身智能及多模态运动感知具有浓厚兴趣。 优先条件 1、具有数据手套、全身动捕服、可穿戴运动监测、惯性动作捕捉或机器人遥操作相关项目经历者优先； 2、具有IMU阵列、磁编码器、电磁跟踪或多传感器融合系统研发经历者优先； 3、具有手部运动学、人体骨骼建模、关节轴估计、人体参数标定或不同体型自适应研究经历者优先； 4、具有ROS/ROS 2、URDF、人体骨骼模型、机器人运动学库或实时动作数据SDK开发经历者优先； 5、具有高水平论文、授权发明专利、科研竞赛成果或相关算法产品工程化落地经验者优先。</span></td>
+  <td>0.50</td>
+  <td class="priority-medium">medium</td>
+  <td><span class="pill">博士学历（岗位明确要求2027届全日制博士研究生）</span> <span class="pill">人体/机器人运动学理论（前向/逆向运动学、骨骼建模、关节约束）</span> <span class="pill">三维姿态表示与坐标变换（四元数、旋转矩阵、欧拉角、刚体位姿推导）</span> <span class="pill">IMU/磁编码器/电磁跟踪等运动传感器研究或应用经历</span> <span class="pill">多传感器融合（尤其面向动作捕捉的误差建模与漂移修正）</span> <span class="pill">人体参数标定、初始姿态对齐、传感器-骨骼坐标系映射</span> <span class="pill">ROS/URDF/实时SDK开发、嵌入式部署或光学动捕系统验证经验</span> <span class="pill">状态估计（卡尔曼滤波、因子图优化等）、信号处理、概率建模能力</span> <span class="pill">国家级/省级科研项目实质性承担经历（需明确算法任务与验证方法）</span></td>
+  <td><a href="https://xiaopeng.jobs.feishu.cn/campus/position/7678909256494221587">打开</a></td>
+</tr>
+<tr data-score="0.25" data-priority="low" data-title="机器人aigc算法工程师" data-search="机器人aigc算法工程师 智元机器人 unknown location 计算机视觉、ai、机器人、图形学等相关专业硕士及以上学历 博士优先。 1、具有 human motion generation、3d animation、gesture/facial generation、digital human 等相关经验。 2、熟悉 transformer、diffusion、dit 等生成模型及 pytorch。 3、熟悉三维人体动画、骨骼、ik/fk、动作重定向等相关技术。 4、具备较强算法研究与工程落地能力。 加分项 1、有机器人、数字人、游戏角色动画或实时交互项目落地经验。 2、有大规模动捕/人体动作数据训练经验 熟悉 metahuman、unreal engine 等工具链。 3、有多模态生成、长序列生成、流式生成或生成式基础模型研发经验。 4、在 cvpr、iccv、eccv、siggraph、neurips、iclr 等顶会发表相关论文者优先。 python pytorch 基础 llm rag langgraph agent git 协作与单元测试 计算机视觉（cv） 3d人体动画/骨骼建模 ik/fk运动学 动作重定向（motion retargeting） human motion generation diffusion/dit生成模型深度经验 多模态驱动生成（text/audio-to-motion, lip sync） metahuman / unreal engine 大规模动捕数据训练 机器人本体控制与真机部署经验 图形学（graphics） 硕士及以上学历（当前为本科）">
+  <td>机器人AIGC算法工程师</td>
+  <td>智元机器人<br><span>Unknown Location</span></td>
+  <td><span class="pill">计算机视觉、AI、机器人、图形学等相关专业硕士及以上学历</span> <span class="pill">博士优先。 1、具有 Human Motion Generation、3D Animation、Gesture/Facial Generation、Digital Human 等相关经验。 2、熟悉 Transformer、Diffusion、DiT 等生成模型及 PyTorch。 3、熟悉三维人体动画、骨骼、IK/FK、动作重定向等相关技术。 4、具备较强算法研究与工程落地能力。 加分项 1、有机器人、数字人、游戏角色动画或实时交互项目落地经验。 2、有大规模动捕/人体动作数据训练经验</span> <span class="pill">熟悉 MetaHuman、Unreal Engine 等工具链。 3、有多模态生成、长序列生成、流式生成或生成式基础模型研发经验。 4、在 CVPR、ICCV、ECCV、SIGGRAPH、NeurIPS、ICLR 等顶会发表相关论文者优先。</span></td>
+  <td>0.25</td>
+  <td class="priority-low">low</td>
+  <td><span class="pill">计算机视觉（CV）</span> <span class="pill">3D人体动画/骨骼建模</span> <span class="pill">IK/FK运动学</span> <span class="pill">动作重定向（Motion Retargeting）</span> <span class="pill">Human Motion Generation</span> <span class="pill">Diffusion/DiT生成模型深度经验</span> <span class="pill">多模态驱动生成（Text/Audio-to-Motion, Lip Sync）</span> <span class="pill">MetaHuman / Unreal Engine</span> <span class="pill">大规模动捕数据训练</span> <span class="pill">机器人本体控制与真机部署经验</span> <span class="pill">图形学（Graphics）</span> <span class="pill">硕士及以上学历（当前为本科）</span></td>
+  <td><a href="https://agirobot.jobs.feishu.cn/internrecruitment/position/7682997813654915374/detail">打开</a></td>
+</tr>
+<tr data-score="0.00" data-priority="low" data-title="机器人规控算法工程师-北京/深圳-27届校招" data-search="机器人规控算法工程师-北京/深圳-27届校招 银河通用 unknown location">
+  <td>机器人规控算法工程师-北京/深圳-27届校招</td>
+  <td>银河通用<br><span>Unknown Location</span></td>
+  <td>暂无</td>
+  <td>0.00</td>
+  <td class="priority-low">low</td>
+  <td>暂无</td>
+  <td><a href="https://app.mokahr.com/campus-recruitment/yinhetongyong/165930#/job/78f061b8-8e4c-4233-9e73-e47caa088536">打开</a></td>
+</tr>
+<tr data-score="0.00" data-priority="low" data-title="【2027届校招】运动控制算法工程师" data-search="【2027届校招】运动控制算法工程师 傅利叶智能 unknown location">
+  <td>【2027届校招】运动控制算法工程师</td>
+  <td>傅利叶智能<br><span>Unknown Location</span></td>
+  <td>暂无</td>
+  <td>0.00</td>
+  <td class="priority-low">low</td>
+  <td>暂无</td>
+  <td><a href="https://app.mokahr.com/campus-recruitment/fftai/147078#/job/32ddf5c0-71f3-4f3b-8025-f79210108fa4">打开</a></td>
+</tr>
+      </tbody>
+    </table>
+  </main>
+  <script>
+    function applyDashboardFilters() {
+      const query = document.getElementById("job-search").value.toLowerCase().trim();
+      const priority = document.getElementById("priority-filter").value;
+      const sortBy = document.getElementById("sort-by").value;
+      const body = document.getElementById("job-rows");
+      const rows = Array.from(body.querySelectorAll("tr[data-search]"));
+
+      rows.sort((left, right) => {
+        if (sortBy === "score-asc") {
+          return Number(left.dataset.score) - Number(right.dataset.score);
+        }
+        if (sortBy === "title-asc") {
+          return left.dataset.title.localeCompare(right.dataset.title);
+        }
+        return Number(right.dataset.score) - Number(left.dataset.score);
+      });
+
+      let visible = 0;
+      for (const row of rows) {
+        const matchesQuery = !query || row.dataset.search.includes(query);
+        const matchesPriority = priority === "all" || row.dataset.priority === priority;
+        const show = matchesQuery && matchesPriority;
+        row.hidden = !show;
+        if (show) {
+          visible += 1;
+        }
+        body.appendChild(row);
+      }
+      document.getElementById("visible-count").textContent = String(visible);
+    }
+
+    for (const control of ["job-search", "priority-filter", "sort-by"]) {
+      document.getElementById(control).addEventListener("input", applyDashboardFilters);
+    }
+    applyDashboardFilters();
+  </script>
+</body>
+</html>

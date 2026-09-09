@@ -365,3 +365,51 @@ def test_canonical_metadata_url_becomes_job_url():
     job = PageExtractor().extract(page)
 
     assert job.url == "https://join.qq.com/post_detail.html?postId=123"
+
+
+def test_section_title_style_jd_company_not_polluted():
+    """2026-09-09 showcase 实录:小米/网易等新源的 JD 全是 section 标题式
+    (\"岗位职责:\"值为空),_has_labeled_lines 曾不识别导致走无标签推断、
+    company 被污染成 JD 正文第一行 — section 标题行必须算已标注;公司名
+    应回退到发现层的 discovered_company。"""
+    content = (
+        "岗位职责：\n"
+        "1. 参与端侧大模型架构设计、预训练、后训练、端侧部署和推理加速，实现模型效果和推理效率的平衡。\n"
+        "任职要求：\n"
+        "1. 硕士及以上学历在读，人工智能、计算机科学等相关专业。\n"
+    )
+    page = BrowserPage(
+        url="https://xiaomi.jobs.f.mioffice.cn/internship/position/767",
+        title="大模型算法实习生",
+        content=content,
+        source="official-api",
+        metadata={"discovered_company": "小米"},
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.company == "小米"
+    assert not job.company.startswith("1.")
+    assert "端侧大模型架构设计" in job.responsibilities
+    assert "硕士及以上学历在读" in job.requirements
+
+
+def test_discovered_company_beats_heuristic_inference():
+    """无标签式 JD("职位描述"裸标题)走启发式推断时,第一行会被误判为公司 —
+    发现层的结构化 discovered_company 必须优先于启发式。"""
+    content = (
+        "职位描述\n"
+        "1. 负责具身智能领域VLA基座大模型的架构设计与核心算法研发，打造行业领先的具身智能基座能力。\n"
+    )
+    page = BrowserPage(
+        url="https://app.mokahr.com/social-recruitment/astribot/144861#/job/x",
+        title="大模型算法研究员(VLA/WAM)",
+        content=content,
+        source="aggregator:moka",
+        metadata={"discovered_company": "星尘智能", "tier": "具身智能"},
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.company == "星尘智能"
+    assert not job.company.startswith("1.")

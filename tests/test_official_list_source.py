@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from web_task_agent.job_sources import DiscoveredJob
 from web_task_agent.official_list_source import (
     _SPECS,
     MEITUAN_LIST_KEYWORDS,
@@ -1159,3 +1160,75 @@ def test_registry_now_has_22_specs():
 
     assert {"baidu", "bing-serp"} <= set(_SPECS)
     assert len(_SPECS) == 42
+
+
+# ── 公平采样(discover 交错合并)──
+
+@pytest.mark.asyncio
+async def test_discover_interleaves_sources_for_breadth(monkeypatch):
+    """顺序填充会让第一个源吃掉全部名额;公平采样按源预算+轮转交错,
+    保证跨梯队广度(全源搜索模式的产品要求)。"""
+    import web_task_agent.official_list_source as ols
+
+    async def fake_lister_a(transport, limit):
+        return [
+            DiscoveredJob(url=f"https://a.example.com/{i}", title=f"A{i}", source="a", tier="大厂")
+            for i in range(limit)
+        ]
+
+    async def fake_lister_b(transport, limit):
+        return [
+            DiscoveredJob(
+                url=f"https://b.example.com/{i}", title=f"B{i}", source="b", tier="具身智能"
+            )
+            for i in range(limit)
+        ]
+
+    fake_specs = {"a": fake_lister_a, "b": fake_lister_b}
+    monkeypatch.setattr(ols, "_SPECS", fake_specs)
+
+    source = ols.OfficialListSource(specs=["a", "b"], transport=object())
+    jobs = await source.discover(limit=4)
+
+    sources = [j.source for j in jobs]
+    assert sources == ["a", "b", "a", "b"]  # 交错,而非 a,a,a,a
+    assert {j.tier for j in jobs} == {"大厂", "具身智能"}
+
+
+@pytest.mark.asyncio
+async def test_discover_handles_empty_sources(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    async def fake_empty(transport, limit):
+        return []
+
+    async def fake_ok(transport, limit):
+        return [
+            DiscoveredJob(url=f"https://c.example.com/{i}", title=f"C{i}", source="c")
+            for i in range(limit)
+        ]
+
+    monkeypatch.setattr(ols, "_SPECS", {"empty": fake_empty, "ok": fake_ok})
+    source = ols.OfficialListSource(specs=["empty", "ok"], transport=object())
+    jobs = await source.discover(limit=3)
+
+    assert len(jobs) == 3
+
+
+@pytest.mark.asyncio
+async def test_discover_isolates_failing_source(monkeypatch):
+    """单源故障(限流/SSL)不炸全局搜索 — 其他源正常产出(云端实录)。"""
+    import web_task_agent.official_list_source as ols
+
+    async def fake_boom(transport, limit):
+        raise RuntimeError("simulated SSL EOF")
+
+    async def fake_ok(transport, limit):
+        return [DiscoveredJob(url="https://ok.example.com/1", title="OK岗", source="ok")]
+
+    monkeypatch.setattr(ols, "_SPECS", {"boom": fake_boom, "ok": fake_ok})
+    source = ols.OfficialListSource(specs=["boom", "ok"], transport=object())
+    jobs = await source.discover(limit=5)
+
+    assert len(jobs) == 1
+    assert jobs[0].source == "ok"

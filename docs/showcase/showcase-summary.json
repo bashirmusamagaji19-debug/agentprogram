@@ -1,0 +1,45 @@
+{
+  "run_id": "run-843296ac",
+  "metrics": {
+    "run_id": "run-843296ac",
+    "started_at": "2026-09-09T08:30:40.254679Z",
+    "finished_at": "2026-09-09T08:36:43.317865Z",
+    "pages_visited": 47,
+    "jobs_found": 47,
+    "valid_jobs": 39,
+    "duplicate_jobs": 1,
+    "failed_pages": 3,
+    "avg_steps_per_job": 1.21,
+    "estimated_token_cost": 0.0
+  },
+  "tier_distribution": {
+    "大厂": 12,
+    "车企": 4,
+    "具身智能": 17,
+    "AI 中厂": 6
+  },
+  "category_distribution": {
+    "工程": 4,
+    "算法": 24,
+    "产品": 2,
+    "设计": 1,
+    "其他": 6,
+    "运营": 2
+  },
+  "source_distribution": {
+    "official-api": 2,
+    "aggregator:xiaomi": 2,
+    "aggregator:netease": 2,
+    "aggregator:xiaohongshu": 2,
+    "aggregator:mihoyo": 2,
+    "aggregator:feishu-hire": 16,
+    "aggregator:moka": 7,
+    "aggregator:jd": 1,
+    "aggregator:huawei": 1,
+    "aggregator:nio": 1,
+    "aggregator:liauto": 1,
+    "aggregator:zhiye": 2
+  },
+  "llm_match_enabled": true,
+  "matches_ge_0.5": 17
+}

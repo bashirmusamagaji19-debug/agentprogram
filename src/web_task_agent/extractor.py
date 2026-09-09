@@ -70,7 +70,14 @@ class PageExtractor:
         inferred_fields = self._infer_public_job_fields(page)
 
         title = fields.get("title") or inferred_fields.get("title") or page.title or "Unknown Title"
-        company = fields.get("company") or inferred_fields.get("company") or "Unknown Company"
+        # discovered_company(发现层结构化数据)优先于启发式推断 —
+        # 无标签式 JD 的第一行会被 _infer_company_location 误判为公司(2026-09-09 实录)
+        company = (
+            fields.get("company")
+            or str(page.metadata.get("discovered_company") or "").strip()
+            or inferred_fields.get("company")
+            or "Unknown Company"
+        )
         location = fields.get("location") or inferred_fields.get("location") or "Unknown Location"
         requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
         responsibilities = (
@@ -370,7 +377,10 @@ class PageExtractor:
         }
         for line in lines:
             label, separator, value = self._split_label_line(line)
-            if separator and value.strip() and label.strip().lower() in known_labels:
+            # 同行值式("公司: 腾讯")与 section 标题式("岗位职责:"值为空)
+            # 都算已标注——新源(官方列表 API)的 JD 全是 section 式,
+            # 只认同行值会误判为无标签、走无标签推断污染 company(2026-09-09 实录)
+            if separator and label.strip().lower() in known_labels:
                 return True
         return False
 

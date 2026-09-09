@@ -617,11 +617,13 @@ def _family_specs() -> dict[str, object]:
         "xpeng": make_feishu_hire_lister(
             api_url="https://xiaopeng.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://xiaopeng.jobs.feishu.cn/campus/position/{id}",
+            company="小鹏汽车",
             extra_body={"site_id": "7280103511501048076", "portal_entrance": 2},
         ),
         "agibot": make_feishu_hire_lister(
             api_url="https://agirobot.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://agirobot.jobs.feishu.cn/internrecruitment/position/{id}/detail",
+            company="智元机器人",
             extra_body={"portal_type": 6, "portal_entrance": 1},
         ),
         "galaxea": make_moka_lister(
@@ -668,6 +670,7 @@ def _family_specs() -> dict[str, object]:
         "zhongqi": make_feishu_hire_lister(
             api_url="https://dx3a2bminsq.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://dx3a2bminsq.jobs.feishu.cn/index/position/{id}",
+            company="众擎机器人",
             extra_body={
                 "keyword": "", "limit": 100, "offset": 0,
                 "site_id": "7510111693356337445", "portal_entrance": 1,
@@ -684,6 +687,7 @@ def _family_specs() -> dict[str, object]:
         "tarsrobot": make_feishu_hire_lister(
             api_url="https://tarsrobot.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://tarsrobot.jobs.feishu.cn/referral/position/{id}",
+            company="它石智航",
             extra_body={
                 "keyword": "", "limit": 100, "offset": 0,
                 "site_id": "7462266439225182483", "portal_entrance": 2,
@@ -693,18 +697,21 @@ def _family_specs() -> dict[str, object]:
         "x2robot": make_feishu_hire_lister(
             api_url="https://x2-robot.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://x2-robot.jobs.feishu.cn/index/position/detail/{id}",
+            company="自变量机器人",
             extra_body=None,
         ),
 
         "limx": make_feishu_hire_lister(
             api_url="https://career.limxdynamics.com/api/v1/search/job/posts",
             url_tmpl="https://career.limxdynamics.com/index/position/{id}",
+            company="逐际动力",
             extra_body=None,
         ),
 
         "ai2robotics": make_feishu_hire_lister(
             api_url="https://ai2robotics.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://ai2robotics.jobs.feishu.cn/094992/position/{id}",
+            company="智平方",
             extra_body={
                 "keyword": "", "limit": 100, "offset": 0,
                 "site_id": "7546144166143117619", "portal_entrance": 2,
@@ -723,12 +730,14 @@ def _family_specs() -> dict[str, object]:
         "dexmal": make_feishu_hire_lister(
             api_url="https://dexmal-inc.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://dexmal-inc.jobs.feishu.cn/index/position/{id}",
+            company="原力灵机",
             extra_body={"keyword": "", "limit": 100, "offset": 0, "site_id": "7565877944519887130"},
         ),
 
         "booster": make_feishu_hire_lister(
             api_url="https://booster.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://booster.jobs.feishu.cn/index/position/detail/{id}",
+            company="加速进化",
             extra_body=None,
         ),
 
@@ -753,12 +762,14 @@ def _family_specs() -> dict[str, object]:
         "zhipu": make_feishu_hire_lister(
             api_url="https://zhipu-ai.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://zhipu-ai.jobs.feishu.cn/index/position/{id}",
+            company="智谱AI",
             extra_body=None,
         ),
 
         "minimax": make_feishu_hire_lister(
             api_url="https://vrfi1sk8a0.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://vrfi1sk8a0.jobs.feishu.cn/index/position/{id}",
+            company="MiniMax",
             extra_body={"site_id": "7009629032762640676", "portal_entrance": 2},
         ),
 
@@ -783,18 +794,21 @@ def _family_specs() -> dict[str, object]:
         "baichuan": make_feishu_hire_lister(
             api_url="https://cq6qe6bvfr6.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://cq6qe6bvfr6.jobs.feishu.cn/646926/position/{id}/detail",
+            company="百川智能",
             extra_body=None,
         ),
 
         "modelbest": make_feishu_hire_lister(
             api_url="https://modelbest.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://modelbest.jobs.feishu.cn/career/position/{id}/detail",
+            company="面壁智能",
             extra_body=None,
         ),
 
         "shengshu": make_feishu_hire_lister(
             api_url="https://shengshu.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://shengshu.jobs.feishu.cn/index/position/{id}",
+            company="生数科技",
             extra_body={
                 "keyword": "", "limit": 100, "offset": 0,
                 "site_id": "7218165589679114554", "portal_entrance": 1,
@@ -1641,19 +1655,66 @@ class OfficialListSource:
         self.transport = transport if transport is not None else DefaultTransport()
 
     async def discover(self, limit: int) -> list[DiscoveredJob]:
+        """公平采样发现:每源预算 = ceil(limit/源数),跨源交错合并。
+
+        顺序填充会让第一个源吃掉全部名额(腾讯一家即可填满任意 limit),
+        全局搜索模式需要跨梯队/跨公司的广度,故按源预算 + 轮转交错。
+        每源内部仍由各 lister 自行分页,预算用尽即停。
+        """
         if limit <= 0:
             return []
+
+        async def _collect(budget: int) -> list[list[DiscoveredJob]]:
+            batches: list[list[DiscoveredJob]] = []
+            for spec in self.specs:
+                try:
+                    per_source = await _SPECS[spec](self.transport, budget)
+                except Exception:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
+                    per_source = []
+                batches.append(
+                    [
+                        job if job.tier else dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
+                        for job in per_source
+                    ]
+                )
+            return batches
+
+        budget = max(1, -(-limit // len(self.specs)))  # ceil
+        batches = await _collect(budget)
+
+        def _interleave(
+            batches: list[list[DiscoveredJob]], jobs: list[DiscoveredJob], seen: set[str]
+        ) -> bool:
+            """轮转交错吸收各批次,返回是否有新增。"""
+            added = False
+            cursors = [0] * len(batches)
+            while len(jobs) < limit:
+                round_added = False
+                for idx, batch in enumerate(batches):
+                    if len(jobs) >= limit:
+                        break
+                    while cursors[idx] < len(batch):
+                        job = batch[cursors[idx]]
+                        cursors[idx] += 1
+                        key = job.url.rstrip("/").lower()
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        jobs.append(job)
+                        round_added = True
+                        break
+                if not round_added:
+                    break
+            return added or round_added
+
         jobs: list[DiscoveredJob] = []
         seen: set[str] = set()
-        for spec in self.specs:
+        _interleave(batches, jobs, seen)
+        # 补足轮:多空源时首轮预算可能欠填,放大预算重新采集(诚实多花网络,换满额广度)
+        for _ in range(2):
             if len(jobs) >= limit:
                 break
-            for job in await _SPECS[spec](self.transport, limit - len(jobs)):
-                key = job.url.rstrip("/").lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                if not job.tier:
-                    job = dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
-                jobs.append(job)
+            budget *= 3
+            batches = await _collect(budget)
+            _interleave(batches, jobs, seen)
         return jobs

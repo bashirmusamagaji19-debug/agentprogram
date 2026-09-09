@@ -37,6 +37,7 @@ def make_feishu_hire_lister(
     url_tmpl: str,
     extra_body: dict | None = None,
     require_intern_type: bool = False,
+    company: str | None = None,
 ):
     """飞书招聘 POST /api/v1/search/job/posts 适配器工厂。
 
@@ -82,7 +83,11 @@ def make_feishu_hire_lister(
                     DiscoveredJob(
                         url=url_tmpl.format(id=job_id),
                         title=title,
-                        company=str(item.get("company") or "").strip() or _company_of(url_tmpl),
+                        company=(
+                            company
+                            or str(item.get("company") or "").strip()
+                            or _company_of(url_tmpl)
+                        ),
                         location=location,
                         jd_text=(
                             f"岗位职责：\n{description}\n任职要求：\n{requirement}".strip()

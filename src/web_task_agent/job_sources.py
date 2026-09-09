@@ -253,7 +253,9 @@ class AggregatorPageLoader:
             title=title or (job.title if job else ""),
             content=content,
             source=source,
-            metadata={"tier": job.tier} if job else {},
+            metadata=(
+                {"tier": job.tier, "discovered_company": job.company} if job else {}
+            ),
         )
 
     def _cache(self, url: str, page: "object") -> None:

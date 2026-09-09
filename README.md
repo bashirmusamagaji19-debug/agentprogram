@@ -39,6 +39,10 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 - 搜索结果会解析为真实候选 JD 链接，不再把 Google 搜索页误当作岗位页。
 - 规划器输出无效、页面打开失败、低置信度抽取或 verifier 拒绝时，自动走确定性 fallback、换 URL 或 text-to-visual 恢复。
 
+## Showcase — 一次完整运行的演示
+
+**[docs/showcase/README.md](docs/showcase/README.md)**:42 源实时发现 → 39 有效岗位(大厂/车企/具身智能/AI 中厂四梯队)→ qwen 可解释匹配,含[HTML Dashboard](docs/showcase/dashboard-run-843296ac.html)、[Markdown 报告](docs/showcase/report-run-843296ac.md)与面试 30 秒讲解词。
+
 ## 本地运行
 
 ### Streamlit 交互界面
