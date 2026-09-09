@@ -22,7 +22,11 @@ from urllib import request as url_request
 from urllib.error import URLError
 
 from web_task_agent.browser import MIN_USEFUL_CONTENT_CHARS
-from web_task_agent.keywords import AI_JOB_KEYWORDS, INTERN_TITLE_KEYWORDS
+from web_task_agent.keywords import (
+    AI_JOB_KEYWORDS,
+    INTERN_TITLE_KEYWORDS,
+    classify_company_tier,
+)
 
 # 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
 AI_TITLE_KEYWORDS = AI_JOB_KEYWORDS
@@ -38,6 +42,7 @@ class DiscoveredJob:
     jd_text: str = ""  # aggregator 提供的 JD 兜底内容，可为空
     source: str = "aggregator"
     tags: list[str] = field(default_factory=list)
+    tier: str = ""  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
 
 
 class JobSource(Protocol):
@@ -106,6 +111,7 @@ class AggregatorRepoSource:
                     jd_text=str(raw.get("jd_text") or "").strip(),
                     source=self.source_name,
                     tags=[str(tag) for tag in raw.get("tags", []) if tag],
+                    tier=classify_company_tier(str(raw.get("company_name") or "")),
                 )
             )
         return discovered
@@ -124,7 +130,11 @@ def build_discovered_page(job: DiscoveredJob) -> "object":
         title=job.title,
         content=job.jd_text,
         source=f"aggregator:{job.source}",
-        metadata={"discovered_title": job.title, "discovered_company": job.company},
+        metadata={
+            "discovered_title": job.title,
+            "discovered_company": job.company,
+            "tier": job.tier,
+        },
     )
 
 
@@ -243,6 +253,7 @@ class AggregatorPageLoader:
             title=title or (job.title if job else ""),
             content=content,
             source=source,
+            metadata={"tier": job.tier} if job else {},
         )
 
     def _cache(self, url: str, page: "object") -> None:

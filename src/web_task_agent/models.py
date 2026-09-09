@@ -65,6 +65,8 @@ class JobPosting(BaseModel):
     skills: list[str] = Field(default_factory=list)
     posted_at: str = ""
     confidence: float = 0.0
+    tier: str = ""  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
+    category: str = ""  # 岗位类型:算法/工程/产品/运营/设计/其他
 
     @field_validator("title", "company", "location", "source", "url")
     @classmethod

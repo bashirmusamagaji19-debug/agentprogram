@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
+from web_task_agent.keywords import classify_job_category
 from web_task_agent.models import BrowserPage, JobPosting
 
 LlmFieldExtractor = Callable[[BrowserPage], dict[str, str]]
@@ -16,6 +17,11 @@ def _display_url(page: BrowserPage) -> str:
     详情页)对校招 postId 返回 404——链接必须指向真正能打开的页面。
     """
     return str(page.metadata.get("canonical_url") or "").strip() or page.url
+
+
+def _tier_of(page: BrowserPage) -> str:
+    """公司梯队:发现层随 metadata 透传(见 DiscoveredJob.tier)。"""
+    return str(page.metadata.get("tier") or "").strip()
 
 
 class PageExtractor:
@@ -80,6 +86,8 @@ class PageExtractor:
             requirements=requirements,
             responsibilities=responsibilities,
             skills=self._extract_skills(requirements),
+            tier=_tier_of(page),
+            category=classify_job_category(title),
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(
                 title=title,
@@ -135,6 +143,8 @@ class PageExtractor:
             requirements=requirements,
             responsibilities=responsibilities,
             skills=skills,
+            tier=_tier_of(page),
+            category=classify_job_category(title),
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(
                 title=title,

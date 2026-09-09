@@ -13,6 +13,7 @@ AggregatorPageLoader 直接复用 —— 官方 API 取正文的分支按 URL �
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from urllib import parse as url_parse
 from urllib import request as url_request
@@ -1409,6 +1410,32 @@ async def _bing_serp_lister(transport, limit: int) -> list[DiscoveredJob]:  # no
     return jobs
 
 
+# 发现源 → 公司梯队(静态口径;aggregator 长尾由 classify_company_tier 动态判定)
+_SPEC_TIER: dict[str, str] = {
+    "tencent-campus": "大厂",
+    "meituan": "大厂",
+    "baidu": "大厂",
+    "jd": "大厂",
+    "netease": "大厂",
+    "xiaomi": "大厂",
+    "xiaohongshu": "大厂",
+    "pinduoduo": "大厂",
+    "ctrip": "大厂",
+    "huawei": "大厂",
+    "nio": "车企",
+    "liauto": "车企",
+    "byd": "车企",
+    "geely": "车企",
+    "xpeng": "车企",
+    "unitree": "具身智能",
+    "agibot": "具身智能",
+    "galaxea": "具身智能",
+    "robotera": "具身智能",
+    "fourier": "具身智能",
+    "ubtech": "具身智能",
+    "bing-serp": "",  # 动态:按发现的公司判定
+}
+
 _SPECS: dict[str, object] = {
     "tencent-campus": _tencent_campus_lister,
     "meituan": _meituan_lister,
@@ -1458,5 +1485,7 @@ class OfficialListSource:
                 if key in seen:
                     continue
                 seen.add(key)
+                if not job.tier:
+                    job = dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
                 jobs.append(job)
         return jobs

@@ -38,6 +38,8 @@ def job_result_rows(result: UiRunResult) -> list[dict[str, Any]]:
             {
                 "岗位": job.title,
                 "公司": job.company,
+                "梯队": job.tier or "—",
+                "类别": job.category or "—",
                 "地点": job.location,
                 "匹配分": match.score if match else 0.0,
                 "优先级": PRIORITY_LABELS.get(match.priority, match.priority) if match else "-",
