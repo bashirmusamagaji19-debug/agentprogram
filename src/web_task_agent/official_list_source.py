@@ -19,6 +19,8 @@ from urllib import request as url_request
 
 from web_task_agent.job_sources import AI_TITLE_KEYWORDS, DiscoveredJob, is_intern_ai_job
 from web_task_agent.official_list_families import (
+    _strip_html,
+    decrypt_moka_envelope,
     make_feishu_hire_lister,
     make_moka_lister,
     make_zhiye_lister,
@@ -498,13 +500,725 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://app.mokahr.com/campus-recruitment/fftai/147078#/job/{id}",
             company="傅利叶智能",
         ),
-        "ubtech": make_zhiye_lister(
+    "jd": _jd_lister,
+    "pinduoduo": _pinduoduo_lister,
+    "ctrip": _ctrip_lister,
+    "huawei": _huawei_lister,
+    "nio": _nio_lister,
+    "liauto": _liauto_lister,
+    "byd": _byd_lister,
+    "geely": _geely_lister,
+
+    # ── 第二批(agent 并行编写,实测冒烟通过)──
+    "ubtech": make_zhiye_lister(
             api_url="https://ubtrobot.zhiye.com/api/Jobad/GetJobAdPageList?portalId=4f4d24cb-5973-40d0-9fde-27c6a0dd8570",
             portal_id="4f4d24cb-5973-40d0-9fde-27c6a0dd8570",
             url_tmpl="https://ubtrobot.zhiye.com/intern/detail/{id}",
             company="优必选",
         ),
     }
+
+
+# ── 京东(阶段 3A-2 第二批,agent 实测冒烟通过)──
+_JD_LIST_API = "https://campus.jd.com/api/wx/position/recommendPage"
+
+
+async def _jd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """京东:POST recommendPage,pageSize=1000 一次拉全量(分页参数实测无效),列表自带 JD。
+
+    响应为 {success, body: [{deptCode, deptName, channelPositionVoList: [...]}]},
+    岗位对象关键字段:publishId/positionName/workContent/qualification;
+    顶层 workCity 恒为 null,城市在 requirementVoList[].workCity(省-市格式)。
+    """
+    from web_task_agent.official_list_families import _strip_html  # 复用去标签兜底
+
+    payload = transport.open_json(
+        "POST",
+        _JD_LIST_API,
+        body={
+            "pageSize": 1000,  # 分页参数实测无效,pageSize>=350 一次拿全量
+            "pageIndex": 0,
+            "parameter": {
+                "planIdList": None,
+                "recommendChannelPositionVoList": [{"deptCode": ""}],  # 空串 = 全部条线
+            },
+        },
+    )
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    for section in payload.get("body") or []:
+        if len(jobs) >= limit:
+            break
+        for item in section.get("channelPositionVoList") or []:
+            if len(jobs) >= limit:
+                break
+            title = str(item.get("positionName") or "").strip()
+            publish_id = str(item.get("publishId") or "").strip()
+            if not title or not publish_id:
+                continue
+            # 口径只按标题域词(AI/大模型/机器人/具身/自动驾驶/智驾),实习/校招/社招都保留
+            if not _title_in_domain(title):
+                continue
+            url = f"https://campus.jd.com/#/details?id={url_parse.quote(publish_id)}"
+            if url in seen:
+                continue
+            plain = (
+                f"岗位职责：\n{_strip_html(str(item.get('workContent') or ''))}\n"
+                f"任职要求：\n{_strip_html(str(item.get('qualification') or ''))}"
+            ).strip()
+            if len(plain) < 80:  # 诚实原则:无可验证正文不产出
+                continue
+            seen.add(url)
+            cities: list[str] = []
+            for req in item.get("requirementVoList") or []:
+                city = str((req or {}).get("workCity") or "").strip()
+                if city and city not in cities:
+                    cities.append(city)
+            jobs.append(
+                DiscoveredJob(
+                    url=url,
+                    title=title,
+                    company="京东",
+                    location="、".join(cities),
+                    jd_text=plain,
+                    source="jd",
+                )
+            )
+    return jobs
+
+
+# ── 拼多多(阶段 3A-2 第二批,agent 实测冒烟通过)──
+# ── 拼多多(careers.pddglobalhr.com)──
+# 规格:docs/results/official-api-specs-2026-09-08.json #pinduoduo(2026-09-08 实测复核):
+# 列表 POST search/list,body {"page":N,"pageSize":M}(字段名是 page 不是 pageNo;
+# pageSize 实测上限 15,传 20 也只回 15,全量 31 岗约 3 页);列表自带 jobDuty
+# (岗位职责全文),任职要求 serveRequirement 列表不含,需逐条 POST position/detail 补全;
+# 详情 result.shareUrl 即详情页链接,格式固定 /campus/grad/detail?positionId=<id>。
+
+_PDD_LIST_API = "https://careers.pddglobalhr.com/api/careers/applets/api/recruit/position/search/list"
+_PDD_DETAIL_API = "https://careers.pddglobalhr.com/api/careers/applets/api/recruit/position/detail"
+
+
+async def _pinduoduo_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """拼多多:POST search/list 分页(recruitType 不限,社招/校招/实习全量)+ 逐条 detail 补任职要求。
+
+    只按 _title_in_domain 过滤标题;JD = 详情 jobDuty+serveRequirement(失败回退列表
+    jobDuty),正文 <80 字符的岗位跳过(诚实原则:不产出没有可验证正文的岗位)。
+    """
+    from web_task_agent.official_list_families import _strip_html
+
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    page_no = 1
+    while len(jobs) < limit and page_no <= 15:  # 全量仅 31 岗(约 3 页),15 页封顶防失控
+        payload = transport.open_json(
+            "POST", _PDD_LIST_API, body={"page": page_no, "pageSize": 20}
+        )
+        result = payload.get("result") or {}
+        items = result.get("list") if isinstance(result, dict) else None
+        items = items or []
+        if not items:
+            break
+        for item in items:
+            title = str(item.get("name") or "").strip()
+            job_id = str(item.get("id") or "").strip()
+            if not title or not job_id or not _title_in_domain(title):
+                continue
+            list_duty = _strip_html(str(item.get("jobDuty") or ""))
+            share_url = ""
+            serve = ""
+            duty = list_duty
+            try:  # 详情补任职要求;失败回退列表 jobDuty,无正文在下方按 <80 跳过
+                detail = transport.open_json("POST", _PDD_DETAIL_API, body={"id": job_id})
+                data = detail.get("result") or {}
+                if isinstance(data, dict):
+                    share_url = str(data.get("shareUrl") or "").strip()
+                    serve = _strip_html(str(data.get("serveRequirement") or ""))
+                    duty = _strip_html(str(data.get("jobDuty") or "")) or list_duty
+            except Exception:  # noqa: BLE001
+                pass
+            plain = f"岗位职责：\n{duty}\n任职要求：\n{serve}".strip()
+            if len(plain) < 80:
+                continue
+            url = share_url or (
+                "https://careers.pddglobalhr.com/campus/grad/detail?positionId="
+                f"{url_parse.quote(job_id)}"
+            )
+            if url in seen:
+                continue
+            seen.add(url)
+            jobs.append(
+                DiscoveredJob(
+                    url=url,
+                    title=title,
+                    company="拼多多",
+                    location=str(
+                        item.get("workLocationName") or item.get("workLocation") or ""
+                    ).strip(),
+                    jd_text=plain,
+                    source="pinduoduo",
+                )
+            )
+            if len(jobs) >= limit:
+                break
+        page_no += 1
+    return jobs
+
+
+# ── 携程(阶段 3A-2 第二批,agent 实测冒烟通过)──
+_CTRIP_LIST_API = "https://careers.ctrip.com/api/hrrecruit/getJobAd"
+_CTRIP_KEYWORDS = ["大模型", "LLM", "Agent", "机器人", "AI", "算法"]
+# category=2 校招 / category=1 社招(含 kind=3 实习通道),两类都要 → 路由前缀不同
+_CTRIP_CATEGORY_ROUTES = ((2, "campus"), (1, "experienced"))
+_CTRIP_CITY_NAMES = {
+    "Shanghai": "上海", "Beijing": "北京", "Shenzhen": "深圳", "Hangzhou": "杭州",
+    "Guangzhou": "广州", "Nanjing": "南京", "Suzhou": "苏州", "Chengdu": "成都",
+    "Wuhan": "武汉", "Xiamen": "厦门", "Tianjin": "天津", "Jinan": "济南",
+    "Guilin": "桂林", "Taiyuan": "太原", "Zhengzhou": "郑州", "Nantong": "南通",
+}
+
+
+def _ctrip_jd_text(item: dict) -> str:
+    """列表自带 requirements(HTML 全文)与 duty(多为 null),剥标签后拼接。"""
+    duty = _strip_html(str(item.get("duty") or "")).strip()
+    requirements = _strip_html(str(item.get("requirements") or "")).strip()
+    if duty and requirements:
+        return f"岗位职责：\n{duty}\n任职要求：\n{requirements}"
+    return requirements
+
+
+async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
+    """携程招聘官网:POST getJobAd,列表自带 JD 全文,category 2 校招 / 1 社招。
+
+    路由参数是 fromId(MJ 开头)而非数字 id(规格复核实录);URL 前缀按
+    category 取 /campus/ 或 /experienced/。关键词循环 + 翻页预算 15 页封顶。
+    """
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    page_budget = 15  # 关键词 x 类别共享的翻页总预算,防失控
+    for category, route in _CTRIP_CATEGORY_ROUTES:
+        if len(jobs) >= limit:
+            break
+        for keyword in _CTRIP_KEYWORDS:
+            if len(jobs) >= limit:
+                break
+            page = 1
+            while page <= 5 and page_budget > 0:
+                page_budget -= 1
+                payload = transport.open_json(
+                    "POST",
+                    _CTRIP_LIST_API,
+                    body={
+                        "condition": {
+                            "fromId": [], "keyword": keyword, "kind": [], "country": [],
+                            "city": [], "bucode": [], "jobFamilyCode": [],
+                            "jobFamilyGroupCode": [], "category": category,
+                        },
+                        "pager": {"index": page, "size": 30},
+                    },
+                )
+                ret = payload.get("retValue") or {}
+                items = ret.get("recruitJobAdList") or []
+                if not items:
+                    break
+                for item in items:
+                    if len(jobs) >= limit:
+                        break
+                    title = str(item.get("jobTitle") or "").strip()
+                    from_id = str(item.get("fromId") or "").strip()
+                    if not title or not from_id or from_id in seen:
+                        continue
+                    # 实习/校招不过滤(社招也要),只按标题域词(AI/大模型/机器人/具身/自动驾驶/智驾)
+                    if not _title_in_domain(title):
+                        continue
+                    jd_text = _ctrip_jd_text(item)
+                    if len(jd_text) < 80:  # 无可验证正文 → 诚实跳过
+                        continue
+                    seen.add(from_id)
+                    city = str(item.get("cityName") or "").strip()
+                    jobs.append(
+                        DiscoveredJob(
+                            url=(
+                                "https://careers.ctrip.com/"
+                                f"{route}/job-detail/{url_parse.quote(from_id)}"
+                            ),
+                            title=title,
+                            company="携程",
+                            location=_CTRIP_CITY_NAMES.get(city, city),
+                            jd_text=jd_text,
+                            source="ctrip",
+                        )
+                    )
+                total = int(ret.get("total") or 0)
+                if page * 30 >= total:
+                    break
+                page += 1
+    return jobs
+
+
+# ── 华为(阶段 3A-2 第二批,agent 实测冒烟通过)──
+_HUAWEI_LIST_API = (
+    "https://apigw-dgg-b0.huawei.com/api/apig/channelhw/recruitmentPosition"
+    "/pub/getJobPage?X-HW-ID=app_000000035886"
+)
+
+# 华为 jalor 网关强制校验自定义头:缺 x-jalor-tenantAlias 返回 TenantContextError、
+# 缺 x-Referer 返回空结果(实测 2026-09-08),无法仅靠 URL/body 携带
+_HUAWEI_HEADERS = {
+    "Content-Type": "application/json",
+    "x-jalor-tenantAlias": "hcm",
+    "x-language": "zh_CN",
+    "x-Referer": "https://career.huawei.com/cn",
+    "x-alb-gray": "prod",
+    "Referer": "https://career.huawei.com/cn/campus-recruitment-job-list",
+}
+
+
+def _huawei_open_json(transport, url: str, body: dict) -> dict:  # noqa: ANN001
+    """带头请求华为网关:先协商 transport 的 headers 形参,失败按传输层能力兜底。
+
+    1. transport.open_json(..., headers=...) — 支持自定义头的传输层(推荐路径);
+    2. curl_cffi 直连(chrome 指纹,与 DefaultTransport 同参)— 覆盖未扩展 headers
+       形参的 DefaultTransport(实测网关不做 JA3 过滤,urllib 也可,但 cffi 更稳);
+    3. 无自定义头回退 — 测试 FakeTransport 路径(真实网关会拒绝,诚实降级为空)。
+    """
+    try:
+        return transport.open_json("POST", url, body=body, headers=_HUAWEI_HEADERS)
+    except TypeError:
+        pass
+    cffi = getattr(transport, "_cffi", None)
+    if cffi is not None:
+        response = cffi.request(
+            "POST",
+            url,
+            json=body,
+            headers={"Accept-Encoding": "gzip, deflate", **_HUAWEI_HEADERS},
+            impersonate="chrome124",
+            timeout=30,
+        )
+        return _loads_maybe_compressed(response.content)
+    return transport.open_json("POST", url, body=body)
+
+
+async def _huawei_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """华为招聘官网:POST getJobPage 全量拉社招(jobType=SR),列表自带 JD 全文。
+
+    口径(2026-09-08 实测):
+    - SR(社招)327 岗,pageSize=100 分 4 页拉全,标题域过滤后 29 条有效;
+    - CR(校招/实习)列表与详情接口均为 14 字占位文案"请您详见岗位意向中的…"
+      (真实 JD 仅在登录后的岗位意向流程可见),按诚实原则(<80 字符不产出)跳过
+      —— 不按实习/校招类型过滤,但无正文的岗位不产出;
+    - 网关强制自定义头,经 _huawei_open_json 协商携带。
+    """
+    from web_task_agent.official_list_families import _strip_html
+
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    page_no = 1
+    while len(jobs) < limit and page_no <= 15:  # 分页封顶 15 页;SR 全量仅 4 页
+        payload = _huawei_open_json(
+            transport,
+            _HUAWEI_LIST_API,
+            {"curPage": page_no, "pageSize": 100, "jobType": "SR"},
+        )
+        items = (payload.get("data") or {}).get("result") or []
+        if not items:
+            break
+        for item in items:
+            title = str(item.get("jobName") or "").strip()
+            ad_id = str(item.get("advertisementId") or "").strip()
+            if not title or not ad_id or not _title_in_domain(title):
+                continue
+            job_url = f"https://career.huawei.com/cn/job-details?advertisementId={ad_id}"
+            if job_url in seen:
+                continue
+            plain = _strip_html(
+                f"岗位职责：\n{item.get('mainBusiness') or ''}\n"
+                f"任职要求：\n{item.get('jobRequire') or ''}"
+            ).strip()
+            # 占位文案("请您详见岗位意向中的…")与 <80 字符正文一律跳过(诚实原则)
+            if len(plain) < 80 or "请您详见岗位意向" in plain:
+                continue
+            seen.add(job_url)
+            jobs.append(
+                DiscoveredJob(
+                    url=job_url,
+                    title=title,
+                    company="华为",
+                    location=str(item.get("workPlace") or "").strip(),
+                    jd_text=plain,
+                    source="huawei",
+                )
+            )
+            if len(jobs) >= limit:
+                break
+        page_no += 1
+    return jobs
+
+
+# ── 蔚来(阶段 3A-2 第二批,agent 实测冒烟通过)──
+_NIO_SEARCH_API = "https://nio.jobs.feishu.cn/api/v1/search/job/posts"
+_NIO_KEYWORDS = ["大模型", "AI", "Agent", "LLM", "算法", "机器人", "自动驾驶", "智驾", "具身"]
+
+
+async def _nio_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """蔚来:POST 飞书招聘 search/job/posts(关键词循环),自带 description/requirement。
+
+    规格快照(nio.cn/careers/jobs HTML 内嵌 __NEXT_DATA__,列表不带 JD)实测过期:
+    nio.jobs.feishu.cn 走标准飞书招聘搜索接口,job_post_list 自带 JD 全文,故按
+    关键词检索直取;详情 URL 用实测可打开的 /index/position/detail/{id}。
+    社招/实习均收(不做招聘类型过滤),岗位域只按标题判定。
+    """
+    from web_task_agent.official_list_families import _strip_html  # 复用 HTML 剥离
+
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    pages = 0  # 全局翻页预算(≤15),防失控
+    for keyword in _NIO_KEYWORDS:
+        if len(jobs) >= limit:
+            break
+        offset = 0
+        while len(jobs) < limit and pages < 15:
+            payload = transport.open_json(
+                "POST",
+                _NIO_SEARCH_API,
+                body={"keyword": keyword, "limit": 100, "offset": offset},
+            )
+            posts = (payload.get("data") or {}).get("job_post_list") or []
+            if not posts:
+                break
+            pages += 1
+            for item in posts:
+                title = str(item.get("title") or "").strip()
+                job_id = str(item.get("id") or "").strip()
+                if not title or not job_id:
+                    continue
+                url = f"https://nio.jobs.feishu.cn/index/position/detail/{job_id}"
+                if url in seen:  # 同一岗位会命中多个关键词,按 URL 去重
+                    continue
+                if not _title_in_domain(title):
+                    continue
+                plain = _strip_html(
+                    f"岗位职责：\n{str(item.get('description') or '').strip()}\n"
+                    f"任职要求：\n{str(item.get('requirement') or '').strip()}".strip()
+                ).strip()
+                if len(plain) < 80:  # 无可验证正文的岗位不进管线
+                    continue
+                seen.add(url)
+                city = str(((item.get("city_info") or {}) or {}).get("name") or "")
+                cities = [
+                    str(c.get("name") or "")
+                    for c in (item.get("city_list") or [])
+                    if isinstance(c, dict) and c.get("name")
+                ]
+                jobs.append(
+                    DiscoveredJob(
+                        url=url,
+                        title=title,
+                        company="蔚来",
+                        location="、".join(dict.fromkeys(x for x in [city, *cities] if x)),
+                        jd_text=plain,
+                        source="nio",
+                    )
+                )
+                if len(jobs) >= limit:
+                    break
+            offset += 100
+    return jobs
+
+
+# ── 理想汽车(阶段 3A-2 第二批,agent 实测冒烟通过)──
+# 理想汽车:GET /osd-hr-recruitment-website/v1/recruit/{social|school}/job-page
+# search 关键词检索;列表只带岗位元数据(无 JD),正文逐条调
+# /v1/recruit/job/detail?job_id= 补 description+requirements(HTML,需剥离标签)。
+# 口径:社招也要(social 通道),不过滤实习/校招 —— social(全职)在前,
+# school(校招/实习)在后,只按 _title_in_domain 过滤岗位域。
+_LIAUTO_CHANNELS = ("social", "school")
+_LIAUTO_KEYWORDS = ["大模型", "AI", "机器人"]
+
+
+async def _liauto_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """理想汽车:search 关键词 + social/school 双通道,详情接口逐条补 JD。"""
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    page_budget = 15  # 列表翻页总预算,防失控(page_size=50 时 1 页即全量)
+    for channel in _LIAUTO_CHANNELS:
+        for keyword in _LIAUTO_KEYWORDS:
+            if len(jobs) >= limit:
+                break
+            page = 1
+            while len(jobs) < limit and page <= 5 and page_budget > 0:
+                page_budget -= 1
+                payload = transport.open_json(
+                    "GET",
+                    (
+                        "https://api-web.lixiang.com/osd-hr-recruitment-website"
+                        f"/v1/recruit/{channel}/job-page"
+                        f"?page={page}&page_size=50&search={url_parse.quote(keyword)}"
+                    ),
+                )
+                items = (payload.get("data") or {}).get("items") or []
+                if not items:
+                    break
+                for item in items:
+                    if len(jobs) >= limit:
+                        break
+                    title = str(item.get("title") or "").strip()
+                    job_id = str(item.get("id") or "").strip()
+                    if not title or not job_id or job_id in seen:
+                        continue
+                    if not _title_in_domain(title):  # 实习/校招不过滤,只按岗位域
+                        continue
+                    try:
+                        detail = transport.open_json(
+                            "GET",
+                            "https://api-web.lixiang.com/osd-hr-recruitment-website"
+                            f"/v1/recruit/job/detail?job_id={url_parse.quote(job_id)}",
+                        )
+                    except Exception:  # noqa: BLE001 — 详情失败按无正文跳过
+                        continue
+                    data = detail.get("data") or {}
+                    plain = (
+                        f"岗位职责：\n{_strip_html(str(data.get('description') or ''))}\n"
+                        f"任职要求：\n{_strip_html(str(data.get('requirements') or ''))}"
+                    ).strip()
+                    if len(plain) < 80:  # 诚实原则:无可验证正文的岗位不产出
+                        continue
+                    seen.add(job_id)
+                    jobs.append(
+                        DiscoveredJob(
+                            url=f"https://www.lixiang.com/employ/detail/{url_parse.quote(job_id)}.html",
+                            title=title,
+                            company="理想汽车",
+                            location=str(item.get("location_title") or "").strip(),
+                            jd_text=plain,
+                            source="liauto",
+                        )
+                    )
+                page += 1
+    return jobs
+
+
+# ── 比亚迪(阶段 3A-2 第二批,agent 实测冒烟通过)──
+_BYD_LIST_API = "https://job.byd.com/portal/api/portal-api/position/queryList"
+_BYD_DETAIL_API = "https://job.byd.com/portal/api/portal-api/position/queryDetail"
+_BYD_KEYWORDS = ["算法", "机器人", "AI"]
+
+
+async def _byd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """比亚迪:POST queryList vagueCondition 逐词检索 + 逐条 queryDetail 补 JD 正文。
+
+    列表接口不带 JD(实测 detail 全 null),正文在详情 tagDetailList[]
+    (name='工作职责'|'任职要求');实测 vagueCondition=算法/AI/机器人均有命中,
+    大模型/自动驾驶直接命中为 0(比亚迪用词偏「算法」),故逐词检索。
+    """
+    from web_task_agent.official_list_families import _strip_html
+
+    def _jd_text(tags: list) -> str:
+        duty: list[str] = []
+        require: list[str] = []
+        other: list[str] = []
+        for tag in tags or []:
+            name = _strip_html(str(tag.get("name") or "")).strip()
+            detail = _strip_html(str(tag.get("detail") or "")).replace("\r\n", "\n").strip()
+            if not detail:
+                continue
+            if "职责" in name:
+                duty.append(detail)
+            elif "要求" in name:
+                require.append(detail)
+            else:
+                other.append(f"{name}：\n{detail}")
+        parts = []
+        if duty:
+            parts.append("岗位职责：\n" + "\n".join(duty))
+        if require:
+            parts.append("任职要求：\n" + "\n".join(require))
+        parts.extend(other)
+        return "\n".join(parts).strip()
+
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    seen_ids: set[str] = set()
+    for keyword in _BYD_KEYWORDS:
+        if len(jobs) >= limit:
+            break
+        page_num = 0  # 实测服务端忽略 pageSize 一次性返回全量,pageNum 偏移兜底翻页
+        while len(jobs) < limit and page_num < 15:
+            payload = transport.open_json(
+                "POST",
+                _BYD_LIST_API,
+                body={
+                    "positionTypeArr": [],
+                    "positionProvinceArr": [],
+                    "positionCityArr": [],
+                    "positionOrgArr": [],
+                    "vagueCondition": keyword,
+                    "searchType": 2,
+                    "zpType": "00254",
+                    "pageNum": page_num,
+                    "pageSize": 100,
+                },
+            )
+            items = (payload.get("data") or {}).get("data") or []
+            if not items:
+                break
+            new_ids = 0
+            for item in items:
+                job_id = str(item.get("id") or "").strip()
+                title = _strip_html(str(item.get("positionName") or "")).strip()
+                if not job_id or not title or job_id in seen_ids:
+                    continue
+                seen_ids.add(job_id)
+                new_ids += 1
+                if not _title_in_domain(title):  # 不按实习/校招过滤(社招也要)
+                    continue
+                try:
+                    detail = transport.open_json("POST", _BYD_DETAIL_API, body={"id": job_id})
+                except Exception:  # noqa: BLE001 — 详情失败按无正文处理
+                    continue
+                data = detail.get("data") or {}
+                plain = _jd_text(data.get("tagDetailList"))
+                if len(plain) < 80:  # 无可验证正文 → 不产出
+                    continue
+                url = (
+                    "https://job.byd.com/portal/pc/#/skiller/"
+                    f"skillerPositionDetails?id={url_parse.quote(job_id)}"
+                )
+                if url in seen:
+                    continue
+                seen.add(url)
+                city = str(item.get("city") or data.get("city") or "").strip()
+                jobs.append(
+                    DiscoveredJob(
+                        url=url,
+                        title=title,
+                        company="比亚迪",
+                        location=city,
+                        jd_text=plain,
+                        source="byd",
+                    )
+                )
+                if len(jobs) >= limit:
+                    break
+            if new_ids == 0:
+                break  # 服务端忽略 pageSize 全量返回时避免重复翻页
+            page_num += 1
+    return jobs
+
+
+# ── 吉利(阶段 3A-2 第二批,agent 实测冒烟通过)──
+_GEELY_LIST_API = "https://campus.geely.com/api/outer/ats-apply/website/jobs/v2"
+_GEELY_DETAIL_API = "https://campus.geely.com/api/outer/ats-apply/website/job"
+_GEELY_SITE_ID = "78436"
+_GEELY_JOB_URL_TMPL = "https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/{id}"
+
+
+def _geely_open_envelope(transport, url: str, body: dict) -> dict | None:
+    """POST 并解 Moka AES 信封(密钥 necromancer 随响应自带,IV 为前端公开常量)。
+
+    响应不是信封(被网关改写/接口变更)时返回 None,由调用方按"无数据"处理。
+    """
+    payload = transport.open_json("POST", url, body=body)
+    envelope = payload if "necromancer" in payload else (payload.get("data") or {})
+    if "necromancer" not in envelope:
+        return None
+    return decrypt_moka_envelope(envelope["data"], envelope["necromancer"])
+
+
+def _geely_job_description(transport, job_id: str) -> str:
+    """逐条调详情接口取 jobDescription(HTML → 纯文本),失败按无正文处理。
+
+    解密后 job 字段直接在 data 下(campus.geely.com 实测),兼容 Moka 通用
+    的 data.job 包一层形态。
+    """
+    try:
+        decrypted = _geely_open_envelope(
+            transport,
+            _GEELY_DETAIL_API,
+            body={
+                "orgId": "geely",
+                "siteId": _GEELY_SITE_ID,
+                "jobId": job_id,
+                "isInviteResume": True,
+                "locale": "zh-CN",
+            },
+        )
+    except Exception:  # noqa: BLE001 — 详情失败按"无正文"处理,单岗失败不拖垮整站
+        return ""
+    if not decrypted:
+        return ""
+    data = decrypted.get("data") or {}
+    job = data.get("job") if isinstance(data.get("job"), dict) else data
+    return _strip_html(str(job.get("jobDescription") or ""))
+
+
+def _geely_location(item: dict) -> str:
+    """locations[].cityName 优先,缺城市回退省份/国家(国家=中国视为无信息)。"""
+    parts: list[str] = []
+    for loc in item.get("locations") or []:
+        if not isinstance(loc, dict):
+            continue
+        part = str(
+            loc.get("cityName") or loc.get("provinceName")
+            or ("" if loc.get("country") == "中国" else loc.get("country") or "")
+        ).strip()
+        if part:
+            parts.append(part)
+    return "、".join(dict.fromkeys(parts))
+
+
+async def _geely_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """吉利(Moka SaaS 校招站 campus.geely.com,org=geely/site=78436)。
+
+    列表接口只给 id/title/locations 等(无 JD 正文),逐条调详情接口补
+    jobDescription;解密失败或正文 <80 字符的岗位跳过(诚实原则)。社招/
+    实习均收,只按 _title_in_domain 过滤标题域词。
+    """
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    offset = 0
+    while len(jobs) < limit and (offset // 50) < 15:  # 15 页封顶,防失控
+        decrypted = _geely_open_envelope(
+            transport,
+            _GEELY_LIST_API,
+            body={
+                "orgId": "geely",
+                "siteId": _GEELY_SITE_ID,
+                "limit": 50,
+                "offset": offset,
+                "site": "recruitment_web",
+            },
+        )
+        items = ((decrypted or {}).get("data") or {}).get("jobs") or []
+        if not items:
+            break
+        for item in items:
+            title = str(item.get("title") or "").strip()
+            job_id = str(item.get("id") or "").strip()
+            if not title or not job_id or not _title_in_domain(title):
+                continue
+            url = _GEELY_JOB_URL_TMPL.format(id=job_id)
+            if url in seen:
+                continue
+            seen.add(url)
+            plain = _geely_job_description(transport, job_id)
+            if len(plain) < 80:  # 无可验证正文的岗位不进管线
+                continue
+            jobs.append(
+                DiscoveredJob(
+                    url=url,
+                    title=title,
+                    company="吉利",
+                    location=_geely_location(item),
+                    jd_text=plain,
+                    source="geely",
+                )
+            )
+            if len(jobs) >= limit:
+                break
+        offset += 50
+    return jobs
 
 
 _SPECS: dict[str, object] = {

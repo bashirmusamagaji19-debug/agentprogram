@@ -142,12 +142,14 @@ def main() -> None:
                 [
                     "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
                     "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
-                    "robotera", "fourier", "ubtech",
+                    "robotera", "fourier", "ubtech", "jd", "pinduoduo",
+                    "ctrip", "huawei", "nio", "liauto", "byd", "geely",
                 ],
                 default=[
                     "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
                     "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
-                    "robotera", "fourier", "ubtech",
+                    "robotera", "fourier", "ubtech", "jd", "pinduoduo",
+                    "ctrip", "huawei", "nio", "liauto", "byd", "geely",
                 ],
             )
         use_llm_extractor = st.toggle("LLM 抽取", value=False)
