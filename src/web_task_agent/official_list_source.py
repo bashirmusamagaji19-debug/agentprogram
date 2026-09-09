@@ -663,6 +663,153 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://ubtrobot.zhiye.com/intern/detail/{id}",
             company="优必选",
         ),
+        # ── 第二批:SaaS 挖矿(2026-09-09,25 候选中 19 家可行,agent 实测冒烟)──
+        # 具身智能初创与 AI 中厂
+        "zhongqi": make_feishu_hire_lister(
+            api_url="https://dx3a2bminsq.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://dx3a2bminsq.jobs.feishu.cn/index/position/{id}",
+            extra_body={
+                "keyword": "", "limit": 100, "offset": 0,
+                "site_id": "7510111693356337445", "portal_entrance": 1,
+            },
+        ),
+
+        "xinghai": make_zhiye_lister(
+            api_url="https://galaxea.zhiye.com/api/Jobad/GetJobAdPageList?portalId=3273047d-3dc2-42e3-8562-8c84014af5e8",
+            portal_id="3273047d-3dc2-42e3-8562-8c84014af5e8",
+            url_tmpl="https://galaxea.zhiye.com/social/detail/{id}",
+            company="星海图",
+        ),
+
+        "tarsrobot": make_feishu_hire_lister(
+            api_url="https://tarsrobot.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://tarsrobot.jobs.feishu.cn/referral/position/{id}",
+            extra_body={
+                "keyword": "", "limit": 100, "offset": 0,
+                "site_id": "7462266439225182483", "portal_entrance": 2,
+            },
+        ),
+
+        "x2robot": make_feishu_hire_lister(
+            api_url="https://x2-robot.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://x2-robot.jobs.feishu.cn/index/position/detail/{id}",
+            extra_body=None,
+        ),
+
+        "limx": make_feishu_hire_lister(
+            api_url="https://career.limxdynamics.com/api/v1/search/job/posts",
+            url_tmpl="https://career.limxdynamics.com/index/position/{id}",
+            extra_body=None,
+        ),
+
+        "ai2robotics": make_feishu_hire_lister(
+            api_url="https://ai2robotics.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://ai2robotics.jobs.feishu.cn/094992/position/{id}",
+            extra_body={
+                "keyword": "", "limit": 100, "offset": 0,
+                "site_id": "7546144166143117619", "portal_entrance": 2,
+            },
+        ),
+
+        "astribot": make_moka_lister(
+            api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
+            org_id="astribot",
+            site_id=144861,
+            url_tmpl="https://app.mokahr.com/social-recruitment/astribot/144861#/job/{id}",
+            company="星尘智能",
+            require_intern_words=False,
+        ),
+
+        "dexmal": make_feishu_hire_lister(
+            api_url="https://dexmal-inc.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://dexmal-inc.jobs.feishu.cn/index/position/{id}",
+            extra_body={"keyword": "", "limit": 100, "offset": 0, "site_id": "7565877944519887130"},
+        ),
+
+        "booster": make_feishu_hire_lister(
+            api_url="https://booster.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://booster.jobs.feishu.cn/index/position/detail/{id}",
+            extra_body=None,
+        ),
+
+        "deeprobotics": make_moka_lister(
+            api_url="https://app135149.eapps.dingtalkcloud.com/api/outer/ats-apply/website/jobs/v2",
+            org_id="yunshenchu",
+            site_id=100000136,
+            url_tmpl="https://app135149.eapps.dingtalkcloud.com/campus-recruitment/yunshenchu/100000136#/job/{id}",
+            company="云深处科技",
+            require_intern_words=False,
+        ),
+
+        "moonshot": make_moka_lister(
+            api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
+            org_id="moonshot",
+            site_id=148506,
+            url_tmpl="https://app.mokahr.com/social-recruitment/moonshot/148506#/job/{id}",
+            company="月之暗面",
+            require_intern_words=False,
+        ),
+
+        "zhipu": make_feishu_hire_lister(
+            api_url="https://zhipu-ai.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://zhipu-ai.jobs.feishu.cn/index/position/{id}",
+            extra_body=None,
+        ),
+
+        "minimax": make_feishu_hire_lister(
+            api_url="https://vrfi1sk8a0.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://vrfi1sk8a0.jobs.feishu.cn/index/position/{id}",
+            extra_body={"site_id": "7009629032762640676", "portal_entrance": 2},
+        ),
+
+        "stepfun": make_moka_lister(
+            api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
+            org_id="step",
+            site_id=94904,
+            url_tmpl="https://app.mokahr.com/social-recruitment/step/94904#/job/{id}",
+            company="阶跃星辰",
+            require_intern_words=False,
+        ),
+
+        "deepseek": make_moka_lister(
+            api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
+            org_id="high-flyer",
+            site_id=140576,
+            url_tmpl="https://app.mokahr.com/social-recruitment/high-flyer/140576#/job/{id}",
+            company="深度求索",
+            require_intern_words=False,
+        ),
+
+        "baichuan": make_feishu_hire_lister(
+            api_url="https://cq6qe6bvfr6.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://cq6qe6bvfr6.jobs.feishu.cn/646926/position/{id}/detail",
+            extra_body=None,
+        ),
+
+        "modelbest": make_feishu_hire_lister(
+            api_url="https://modelbest.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://modelbest.jobs.feishu.cn/career/position/{id}/detail",
+            extra_body=None,
+        ),
+
+        "shengshu": make_feishu_hire_lister(
+            api_url="https://shengshu.jobs.feishu.cn/api/v1/search/job/posts",
+            url_tmpl="https://shengshu.jobs.feishu.cn/index/position/{id}",
+            extra_body={
+                "keyword": "", "limit": 100, "offset": 0,
+                "site_id": "7218165589679114554", "portal_entrance": 1,
+            },
+        ),
+
+        "enflame": make_moka_lister(
+            api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
+            org_id="enflame",
+            site_id=40891,
+            url_tmpl="https://app.mokahr.com/social-recruitment/enflame/40891#/job/{id}",
+            company="燧原科技",
+            require_intern_words=False,
+            detail_fetch=True,  # 列表不带 JD,详情接口补正文
+        ),
     }
 
 
@@ -1415,13 +1562,14 @@ _SPEC_TIER: dict[str, str] = {
     "tencent-campus": "大厂",
     "meituan": "大厂",
     "baidu": "大厂",
-    "jd": "大厂",
+        "jd": "大厂",
     "netease": "大厂",
     "xiaomi": "大厂",
     "xiaohongshu": "大厂",
     "pinduoduo": "大厂",
     "ctrip": "大厂",
     "huawei": "大厂",
+    "mihoyo": "大厂",
     "nio": "车企",
     "liauto": "车企",
     "byd": "车企",
@@ -1434,6 +1582,26 @@ _SPEC_TIER: dict[str, str] = {
     "fourier": "具身智能",
     "ubtech": "具身智能",
     "bing-serp": "",  # 动态:按发现的公司判定
+    # ── SaaS 挖矿批次 ──
+    "zhongqi": "具身智能",
+    "xinghai": "具身智能",
+    "tarsrobot": "具身智能",
+    "x2robot": "具身智能",
+    "limx": "具身智能",
+    "ai2robotics": "具身智能",
+    "astribot": "具身智能",
+    "dexmal": "具身智能",
+    "booster": "具身智能",
+    "deeprobotics": "具身智能",
+    "moonshot": "AI 中厂",
+    "zhipu": "AI 中厂",
+    "minimax": "AI 中厂",
+    "stepfun": "AI 中厂",
+    "deepseek": "AI 中厂",
+    "baichuan": "AI 中厂",
+    "modelbest": "AI 中厂",
+    "shengshu": "AI 中厂",
+    "enflame": "AI 中厂",
 }
 
 _SPECS: dict[str, object] = {

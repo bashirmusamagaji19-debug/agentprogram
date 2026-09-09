@@ -147,6 +147,10 @@ def main() -> None:
                     "robotera", "fourier", "ubtech", "jd", "pinduoduo",
                     "ctrip", "huawei", "nio", "liauto", "byd", "geely",
                     "baidu", "bing-serp",
+                    "zhongqi", "xinghai", "tarsrobot", "x2robot", "limx",
+                    "ai2robotics", "astribot", "dexmal", "booster", "deeprobotics",
+                    "moonshot", "zhipu", "minimax", "stepfun", "deepseek", "baichuan",
+                    "modelbest", "shengshu", "enflame",
                 ],
                 default=[
                     "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
@@ -154,6 +158,10 @@ def main() -> None:
                     "robotera", "fourier", "ubtech", "jd", "pinduoduo",
                     "ctrip", "huawei", "nio", "liauto", "byd", "geely",
                     "baidu", "bing-serp",
+                    "zhongqi", "xinghai", "tarsrobot", "x2robot", "limx",
+                    "ai2robotics", "astribot", "dexmal", "booster", "deeprobotics",
+                    "moonshot", "zhipu", "minimax", "stepfun", "deepseek", "baichuan",
+                    "modelbest", "shengshu", "enflame",
                 ],
             )
         use_llm_extractor = st.toggle("LLM 抽取", value=False)

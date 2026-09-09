@@ -237,7 +237,26 @@ def test_registry_exposes_all_specs():
             "byd",
             "geely",
             "baidu",
-            "bing-serp"
+            "bing-serp",
+            "zhongqi",
+            "xinghai",
+            "tarsrobot",
+            "x2robot",
+            "limx",
+            "ai2robotics",
+            "astribot",
+            "dexmal",
+            "booster",
+            "deeprobotics",
+            "moonshot",
+            "zhipu",
+            "minimax",
+            "stepfun",
+            "deepseek",
+            "baichuan",
+            "modelbest",
+            "shengshu",
+            "enflame",
     ])
     assert set(_SPECS) == expected
 
@@ -1139,4 +1158,4 @@ def test_registry_now_has_22_specs():
     from web_task_agent.official_list_source import _SPECS
 
     assert {"baidu", "bing-serp"} <= set(_SPECS)
-    assert len(_SPECS) == 23
+    assert len(_SPECS) == 42
