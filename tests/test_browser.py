@@ -1,6 +1,6 @@
-import pytest
+
 import browser_use
-from pathlib import Path
+import pytest
 
 from tests.fixtures.job_pages import JOB_PAGES
 from web_task_agent import browser as browser_module
@@ -360,16 +360,17 @@ async def test_http_page_loader_extracts_title_and_text():
 
 
 def test_http_loader_raises_page_timeout_error_on_connection_failure():
-    import sys, socket
-    from web_task_agent.browser import HttpPageLoader, PageTimeoutError
+    import sys
     from urllib.error import URLError
+
+    from web_task_agent.browser import HttpPageLoader, PageTimeoutError
 
     browser_module = sys.modules["web_task_agent.browser"]
     loader = HttpPageLoader(timeout_seconds=1)
     original = browser_module.request.urlopen
 
     def fake_urlopen(req, timeout=None):
-        raise URLError(socket.timeout("timed out"))
+        raise URLError(TimeoutError("timed out"))
 
     browser_module.request.urlopen = fake_urlopen
     try:
@@ -383,9 +384,10 @@ def test_http_loader_raises_page_timeout_error_on_connection_failure():
 
 def test_http_loader_raises_page_http_error_on_404():
     import sys
-    from web_task_agent.browser import HttpPageLoader, PageHttpError
-    from urllib.error import HTTPError
     from io import BytesIO
+    from urllib.error import HTTPError
+
+    from web_task_agent.browser import HttpPageLoader, PageHttpError
 
     browser_module = sys.modules["web_task_agent.browser"]
     loader = HttpPageLoader(timeout_seconds=1)
@@ -406,6 +408,7 @@ def test_http_loader_raises_page_http_error_on_404():
 
 def test_http_loader_raises_page_empty_error_on_js_shell():
     import sys
+
     from web_task_agent.browser import HttpPageLoader, PageEmptyError
 
     browser_module = sys.modules["web_task_agent.browser"]

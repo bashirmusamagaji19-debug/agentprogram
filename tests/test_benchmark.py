@@ -13,7 +13,6 @@ from web_task_agent.benchmark import (
 )
 from web_task_agent.evaluation import EvaluationResult, TaskEvaluationResult
 
-
 # ── Task 1: catalog & provider parsing ─────────────────────────────────
 
 

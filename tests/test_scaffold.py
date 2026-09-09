@@ -12,14 +12,14 @@ from web_task_agent.evaluation import (
     TaskEvaluationResult,
     build_real_site_sample_tasks,
 )
-from web_task_agent.models import BrowserPage, MatchResult, UserProfile, WorkflowState
-from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
-from web_task_agent.storage import JobRepository
-from web_task_agent.workflow import WebTaskWorkflow
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.verifier import JobVerifier
+from web_task_agent.models import BrowserPage, MatchResult, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
+from web_task_agent.storage import JobRepository
+from web_task_agent.verifier import JobVerifier
+from web_task_agent.workflow import WebTaskWorkflow
 
 
 def test_package_version_matches_project_version() -> None:
@@ -1309,7 +1309,6 @@ def test_cli_evaluate_dashboard_writes_evaluation_html(
 def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> None:
     """Smoke test: --compare-llm-match completes end-to-end with demo matcher."""
     monkeypatch.chdir(tmp_path)
-    from web_task_agent.demo_pages import DEMO_JOB_PAGES
     # Override real_site_sample_tasks to use demo pages
     monkeypatch.setattr(
         "web_task_agent.cli.build_real_site_sample_tasks",

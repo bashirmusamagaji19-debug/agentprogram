@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from math import isfinite
 from typing import Any
 
@@ -104,7 +104,7 @@ class MatchResult(BaseModel):
 
 class RunMetrics(BaseModel):
     run_id: str
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     finished_at: datetime | None = None
     pages_visited: int = Field(default=0, ge=0)
     jobs_found: int = Field(default=0, ge=0)
@@ -121,7 +121,7 @@ class RunMetrics(BaseModel):
             return value
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("datetime must be timezone-aware")
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
 
     @field_validator("avg_steps_per_job", "estimated_token_cost")
     @classmethod

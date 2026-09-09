@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from web_task_agent.models import BrowserPage
 
-
 PUBLIC_JOB_FIXTURE_PAGES = [
     BrowserPage(
         url="https://boards.greenhouse.io/example/jobs/ai-agent-intern",

@@ -1,6 +1,5 @@
 from web_task_agent.models import BrowserPage
 
-
 DEMO_JOB_PAGES = [
     BrowserPage(
         url="https://example.com/jobs/ai-engineering-intern",

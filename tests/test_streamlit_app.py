@@ -6,8 +6,8 @@ from pathlib import Path
 
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics
 from web_task_agent.streamlit_app import (
-    artifact_download_spec,
     artifact_cards_html,
+    artifact_download_spec,
     diagnostic_rows,
     job_result_rows,
     metric_grid_html,
@@ -288,7 +288,7 @@ def test_demo_notice_marks_fixture_data(tmp_path: Path) -> None:
 def test_llm_run_budget_allows_then_blocks():
     """公开演示定位:任何人可体验,但 LLM 额度有限 —
     每会话限 3 次 LLM 运行,超出后拒绝并提示。"""
-    from web_task_agent.streamlit_app import llm_budget_remaining, consume_llm_budget
+    from web_task_agent.streamlit_app import consume_llm_budget, llm_budget_remaining
 
     budget: dict = {}
     assert llm_budget_remaining(budget) == 3
@@ -301,6 +301,7 @@ def test_llm_run_budget_allows_then_blocks():
     assert llm_budget_remaining(budget) == 0
 
     import pytest
+
     from web_task_agent.streamlit_runner import UiRequestError
 
     with pytest.raises(UiRequestError, match="LLM"):

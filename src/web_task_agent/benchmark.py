@@ -9,7 +9,6 @@ matrix execution, and Markdown/JSON artifact rendering.  It reuses
 from __future__ import annotations
 
 from pathlib import Path
-from time import perf_counter
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -206,7 +205,7 @@ class BenchmarkProviderResult(BaseModel):
         provider: str,
         result: EvaluationResult,
         elapsed_seconds: float,
-    ) -> "BenchmarkProviderResult":
+    ) -> BenchmarkProviderResult:
         return cls(
             provider=provider,
             total_tasks=result.total_tasks,

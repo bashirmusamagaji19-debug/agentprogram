@@ -1,5 +1,6 @@
-from web_task_agent.matcher import JobMatcher
 import pytest
+
+from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import JobPosting, UserProfile
 
 

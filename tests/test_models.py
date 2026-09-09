@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -62,10 +62,10 @@ def test_run_metrics_normalizes_timezone_aware_datetimes_to_utc():
 
     metrics = RunMetrics(run_id="run-1", started_at=started_at, finished_at=finished_at)
 
-    assert metrics.started_at == datetime(2026, 6, 7, 2, 30, tzinfo=timezone.utc)
-    assert metrics.finished_at == datetime(2026, 6, 7, 3, 45, tzinfo=timezone.utc)
-    assert metrics.started_at.tzinfo == timezone.utc
-    assert metrics.finished_at.tzinfo == timezone.utc
+    assert metrics.started_at == datetime(2026, 6, 7, 2, 30, tzinfo=UTC)
+    assert metrics.finished_at == datetime(2026, 6, 7, 3, 45, tzinfo=UTC)
+    assert metrics.started_at.tzinfo == UTC
+    assert metrics.finished_at.tzinfo == UTC
 
 
 def test_run_metrics_rejects_naive_datetimes():

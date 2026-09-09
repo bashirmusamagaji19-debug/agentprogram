@@ -161,7 +161,7 @@ def artifact_cards_html(result: UiRunResult) -> str:
         "dashboard": "HTML Dashboard",
         "action_plan": "行动计划",
     }
-    for artifact_key, (label, _) in ARTIFACT_SPECS.items():
+    for artifact_key, (_label, _) in ARTIFACT_SPECS.items():
         path = result.artifacts.get(artifact_key)
         if path is None:
             continue

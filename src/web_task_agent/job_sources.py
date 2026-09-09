@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 from urllib import request as url_request
-from urllib.error import URLError
 
 from web_task_agent.browser import MIN_USEFUL_CONTENT_CHARS
 from web_task_agent.keywords import (
@@ -118,7 +117,7 @@ class AggregatorRepoSource:
         return discovered
 
 
-def build_discovered_page(job: DiscoveredJob) -> "object":
+def build_discovered_page(job: DiscoveredJob) -> object:
     """用 DiscoveredJob 的兜底内容构造 BrowserPage（延迟导入避免循环依赖）。
 
     用于 HttpPageLoader 拿不到正文（JS 渲染页）时的 fallback：
@@ -167,7 +166,7 @@ class AggregatorPageLoader:
         self._max_age_hours = max_age_hours
         self.resolution_log: list[dict[str, str]] = []
 
-    async def __call__(self, url: str) -> "object":
+    async def __call__(self, url: str) -> object:
         from web_task_agent.browser import PageEmptyError
 
         job = self._jobs_by_url.get(url)
@@ -263,7 +262,7 @@ class AggregatorPageLoader:
             f"(official API/http/jd_text all failed or below {MIN_USEFUL_CONTENT_CHARS} chars): {url}"
         )
 
-    def _to_page(self, url: str, content: str, title: str, source: str) -> "object":
+    def _to_page(self, url: str, content: str, title: str, source: str) -> object:
         from web_task_agent.models import BrowserPage
 
         job = self._jobs_by_url.get(url)
@@ -277,7 +276,7 @@ class AggregatorPageLoader:
             ),
         )
 
-    def _cache(self, url: str, page: "object") -> None:
+    def _cache(self, url: str, page: object) -> None:
         if self._repository is not None:
             self._repository.cache_page(page)  # type: ignore[arg-type]
 

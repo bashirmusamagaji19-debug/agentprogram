@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 import inspect
 import re
 import socket
+from collections.abc import Awaitable, Callable
+from html.parser import HTMLParser
 from typing import Any, Protocol
+from urllib import request
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus
-from urllib import request
-from html.parser import HTMLParser
 
 from web_task_agent.models import BrowserPage
 from web_task_agent.search_discovery import discover_job_links
-
 
 PageLoader = Callable[[str], Awaitable[BrowserPage]]
 SessionFactory = Callable[[], Any]

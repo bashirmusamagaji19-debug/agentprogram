@@ -17,6 +17,8 @@ from web_task_agent import __version__
 # 旧 DASHSCOPE_API_KEY 等 OS 级变量会静默覆盖它（2026-08-31 排查过的 401 问题）。
 # __file__ = .../Agent/src/web_task_agent/cli.py → parents[2] = .../Agent
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
+from datetime import UTC
+
 from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.agent_approval import (
     ApprovalDecision,
@@ -25,11 +27,11 @@ from web_task_agent.agent_approval import (
     HitlRuntimeError,
 )
 from web_task_agent.agent_checkpoint import open_sqlite_checkpointer
+from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
 from web_task_agent.agent_hitl_evaluation import (
     run_hitl_evaluation,
     write_hitl_evaluation_artifacts,
 )
-from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
 from web_task_agent.agent_planner import build_configured_agent_planner
 from web_task_agent.agent_planner_benchmark import (
     parse_planner_benchmark_providers,
@@ -50,34 +52,34 @@ from web_task_agent.benchmark_explainer import (
 )
 from web_task_agent.browser import (
     BrowserConfigurationError,
-    HttpPageLoader,
     BrowserUseClient,
     FakeBrowserClient,
+    HttpPageLoader,
 )
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.evaluation import (
-    EvaluationTask,
     EvaluationRunner,
+    EvaluationTask,
+    build_default_tasks,
     build_public_job_fixture_browser,
     build_public_job_fixture_tasks,
-    build_default_tasks,
     build_real_site_sample_tasks,
     build_real_smoke_tasks,
 )
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.graph_export import LangGraphExporter
 from web_task_agent.job_sources import AggregatorRepoSource, DiscoveredJob
-from web_task_agent.llm_extractor import DemoLlmFieldExtractor
 from web_task_agent.llm_extractor import (
+    DemoLlmFieldExtractor,
     LlmExtractorConfigurationError,
     build_configured_llm_field_extractor,
 )
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import MatchResult, RunMetrics, UserProfile
 from web_task_agent.reporter import MarkdownReporter
-from web_task_agent.skill_gap import summarize_skill_gaps
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
+from web_task_agent.skill_gap import summarize_skill_gaps
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.visual_extractor import DemoVisualJobExtractor
@@ -1501,7 +1503,7 @@ async def run_interactive(args: argparse.Namespace) -> int:
 
     if all_jobs and state.metrics:
         # Build a synthetic metrics for the consolidated report
-        from datetime import datetime, timezone
+        from datetime import datetime
         cons_metrics = RunMetrics(
             run_id=f"interactive-consolidated-{uuid4().hex[:8]}",
             pages_visited=sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states),
@@ -1512,7 +1514,7 @@ async def run_interactive(args: argparse.Namespace) -> int:
             avg_steps_per_job=round(
                 sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states) / len(all_jobs), 2
             ) if all_jobs else 0.0,
-            finished_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(UTC),
         )
         state.metrics = cons_metrics
         state.jobs = all_jobs
@@ -1812,8 +1814,8 @@ async def run_llm_matcher_comparison(
     3. Compare scores, matched/missing skills, priorities.
     4. Write a Markdown comparison report.
     """
-    from web_task_agent.matcher import JobMatcher
     from web_task_agent.extractor import PageExtractor
+    from web_task_agent.matcher import JobMatcher
     from web_task_agent.verifier import JobVerifier
 
     if args.real_site_sample:
@@ -1853,7 +1855,7 @@ async def run_llm_matcher_comparison(
             job = extractor.extract(page)
             if not verifier.verify(job).is_valid:
                 continue
-        except Exception as exc:
+        except Exception:
             # URL failed → skip this entry in comparison
             continue
 

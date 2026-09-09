@@ -170,7 +170,6 @@ async def test_title_only_jd_text_rejected_as_fallback():
 @pytest.mark.asyncio
 async def test_boilerplate_http_page_below_threshold_rejected():
     """98 字符的浏览器兼容提示（第三方站 SPA 壳）不得当有效内容（#21）。"""
-    from web_task_agent.browser import PageEmptyError
 
     job = DiscoveredJob(
         url="https://c.example.com/job/5",

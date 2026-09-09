@@ -1,7 +1,7 @@
 import pytest
 
-from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent import evaluation as evaluation_module
+from web_task_agent.browser import BrowserConfigurationError
 from web_task_agent.evaluation import EvaluationRunner, EvaluationTask, build_default_tasks
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.llm_extractor import DemoLlmFieldExtractor

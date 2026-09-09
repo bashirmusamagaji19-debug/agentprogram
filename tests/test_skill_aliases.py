@@ -8,7 +8,6 @@ from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import JobPosting, UserProfile
 from web_task_agent.skill_aliases import normalize_skill, skill_variants, term_in_text
 
-
 # ── normalize_skill 基础行为 ─────────────────────────────────────────
 
 

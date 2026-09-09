@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 
 import pytest
 
@@ -22,7 +22,7 @@ class FakeResponse:
     def read(self) -> bytes:
         return json.dumps(self._payload).encode("utf-8")
 
-    def __enter__(self) -> "FakeResponse":
+    def __enter__(self) -> FakeResponse:
         return self
 
     def __exit__(self, *args: object) -> None:

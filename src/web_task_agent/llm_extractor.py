@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 from urllib import request
 
 from web_task_agent.models import BrowserPage
-
 
 LlmTransport = Callable[[str, dict[str, str], dict[str, Any], int], dict[str, Any]]
 
@@ -71,7 +71,7 @@ def build_configured_llm_field_extractor(
     *,
     provider: str,
     model: str | None = None,
-) -> "OpenAiCompatibleLlmFieldExtractor":
+) -> OpenAiCompatibleLlmFieldExtractor:
     config = build_llm_provider_config(provider=provider, model=model)
     return OpenAiCompatibleLlmFieldExtractor(
         provider=config.provider,
@@ -85,7 +85,7 @@ def build_configured_llm_matcher(
     *,
     provider: str,
     model: str | None = None,
-) -> "OpenAiCompatibleSemanticMatcher":
+) -> OpenAiCompatibleSemanticMatcher:
     config = build_llm_provider_config(provider=provider, model=model)
     return OpenAiCompatibleSemanticMatcher(
         provider=config.provider,

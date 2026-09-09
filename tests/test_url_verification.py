@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.models import BrowserPage
 
