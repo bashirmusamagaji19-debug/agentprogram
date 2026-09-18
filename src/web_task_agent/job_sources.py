@@ -42,7 +42,8 @@ class DiscoveredJob:
     source: str = "aggregator"
     tags: list[str] = field(default_factory=list)
     tier: str = ""
-    content_origin: str = ""  # 正文来源:loader 各分支/detail-probed(liser 内探测)  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
+    # 正文来源:loader 各分支/detail-probed(liser 内探测)
+    content_origin: str = ""
 
 
 class JobSource(Protocol):
@@ -179,10 +180,7 @@ class AggregatorPageLoader:
         # 1. 缓存（命中也过内容门槛——旧壳页缓存不生效，#25）
         if self._repository is not None:
             cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
-            if (
-                cached is not None
-                and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS
-            ):
+            if cached is not None and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
                 self._record(url, "cache")
                 return cached  # origin 已在缓存 metadata 中(storage 列透传)
 
@@ -246,8 +244,7 @@ class AggregatorPageLoader:
                 update={
                     "metadata": {
                         **page.metadata,
-                        "content_origin": page.metadata.get("content_origin")
-                        or "jd_text-fallback",
+                        "content_origin": page.metadata.get("content_origin") or "jd_text-fallback",
                     }
                 }
             )
@@ -271,9 +268,7 @@ class AggregatorPageLoader:
             title=title or (job.title if job else ""),
             content=content,
             source=source,
-            metadata=(
-                {"tier": job.tier, "discovered_company": job.company} if job else {}
-            ),
+            metadata=({"tier": job.tier, "discovered_company": job.company} if job else {}),
         )
 
     def _cache(self, url: str, page: object) -> None:

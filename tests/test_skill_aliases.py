@@ -181,7 +181,8 @@ def test_numbered_sentence_skills_fall_back_to_text_scan():
             "1、扎实的算法基础",
             " 熟悉NLP相关算法和模型；",
             " 2、有Tensorflow",
-            " pytorch等深度学习框架与自然语言处理结合实际项目经验者优先 3、有语义理解、对话系统、问答系统等相关项目经验者优先。",
+            " pytorch等深度学习框架与自然语言处理结合实际项目经验者优先 "
+            "3、有语义理解、对话系统、问答系统等相关项目经验者优先。",
         ],
         requirements=(
             "1、扎实的算法基础，熟悉NLP相关算法和模型；"
@@ -235,6 +236,7 @@ def test_llm_optimistic_score_discounted_when_rule_low():
 
 def test_llm_score_kept_when_rule_high():
     """规则 ≥0.6 不调 LLM（现状保持）——折减只作用于兜底路径。"""
+
     def fake_llm_matcher(payload: dict) -> dict:  # pragma: no cover - 不应被调
         raise AssertionError("LLM should not be called when rule score >= 0.6")
 
@@ -249,6 +251,7 @@ def test_llm_score_kept_when_rule_high():
 
 def test_llm_failure_falls_back_to_rule_silently():
     """LLM 调用失败 → 静默回退规则结果（现状保持）。"""
+
     def broken_llm(payload: dict) -> dict:
         raise RuntimeError("api down")
 

@@ -32,10 +32,7 @@ def _visual_fields_are_meaningful(fields: VisualJobFields) -> bool:
     (empty strings, unknown defaults, zero confidence).
     """
     title_ok = bool(fields.title.strip()) and fields.title.strip() != "Unknown Title"
-    company_ok = (
-        bool(fields.company.strip())
-        and fields.company.strip() != "Unknown Company"
-    )
+    company_ok = bool(fields.company.strip()) and fields.company.strip() != "Unknown Company"
     has_body = bool(fields.requirements.strip()) or bool(fields.responsibilities.strip())
     confidence_ok = fields.confidence > 0.0
     return title_ok and company_ok and has_body and confidence_ok
@@ -137,9 +134,7 @@ def build_configured_visual_extractor(
         Override the default VLM model name.
     """
     if provider != "qwen-vl":
-        raise VisualProviderConfigurationError(
-            f"Unsupported visual provider: {provider}"
-        )
+        raise VisualProviderConfigurationError(f"Unsupported visual provider: {provider}")
     if extractor_factory is None:
         api_key = os.environ.get("DASHSCOPE_API_KEY", "").strip()
         if not api_key:

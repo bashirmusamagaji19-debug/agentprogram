@@ -65,20 +65,13 @@ def test_generate_benchmark_insights_summarizes_best_provider_and_gap():
     assert insight.best_provider == "deepseek"
     assert "deepseek" in insight.one_sentence
     assert "2/2" in insight.one_sentence
-    assert any(
-        item.provider == "baseline" for item in insight.provider_notes
-    )
-    assert any(
-        item.failure_category == "verification_filtered"
-        for item in insight.failure_notes
-    )
+    assert any(item.provider == "baseline" for item in insight.provider_notes)
+    assert any(item.failure_category == "verification_filtered" for item in insight.failure_notes)
     assert insight.interview_pitch_60s.startswith("我把这个项目")
 
 
 def test_generate_benchmark_insights_handles_empty_matrix():
-    insight = generate_benchmark_insights(
-        BenchmarkMatrixResult(cases=[], providers=[])
-    )
+    insight = generate_benchmark_insights(BenchmarkMatrixResult(cases=[], providers=[]))
 
     assert insight.best_provider == ""
     assert "还没有可解释的 benchmark 结果" in insight.one_sentence
@@ -112,9 +105,7 @@ def test_render_benchmark_explanation_markdown_contains_interview_sections():
 
 
 def test_write_benchmark_explanation_artifact(tmp_path):
-    result = BenchmarkMatrixResult(
-        cases=[_case()], providers=[_provider("deepseek", 1, total=1)]
-    )
+    result = BenchmarkMatrixResult(cases=[_case()], providers=[_provider("deepseek", 1, total=1)])
     insight = generate_benchmark_insights(result)
 
     path = write_benchmark_explanation_artifact(

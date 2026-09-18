@@ -288,8 +288,7 @@ async def test_workflow_uses_visual_extractor_for_seed_url_pages(tmp_path):
     assert state.metadata["visual_extraction"]["successes"] == 1
     assert state.metadata["visual_extraction"]["failures"] == 0
     assert any(
-        "visual extracted 1" in item["summary"]
-        for item in state.metadata["execution_trace"]
+        "visual extracted 1" in item["summary"] for item in state.metadata["execution_trace"]
     )
 
 

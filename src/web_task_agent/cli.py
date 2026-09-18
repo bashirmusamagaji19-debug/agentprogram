@@ -40,6 +40,7 @@ from web_task_agent.agent_planner_benchmark import (
 )
 from web_task_agent.agent_release_check import run_release_checks
 from web_task_agent.benchmark import (
+    BenchmarkMatrixResult,
     BenchmarkProviderResult,
     build_real_site_benchmark_v2_cases,
     parse_benchmark_providers,
@@ -76,7 +77,13 @@ from web_task_agent.llm_extractor import (
     build_configured_llm_field_extractor,
 )
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import MatchResult, RunMetrics, UserProfile
+from web_task_agent.models import (
+    JobPosting,
+    MatchResult,
+    RunMetrics,
+    UserProfile,
+    WorkflowState,
+)
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.skill_gap import summarize_skill_gaps
@@ -276,7 +283,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dashboard-dir", default="dashboards")
     parser.add_argument("--action-plan-dir", default="action-plans")
-    parser.add_argument("--evaluate", action="store_true", help="Run the built-in evaluation task set.")
+    parser.add_argument(
+        "--evaluate", action="store_true", help="Run the built-in evaluation task set."
+    )
     parser.add_argument("--evaluation-count", type=int, default=20)
     parser.add_argument("--evaluation-dir", default="evaluations")
     parser.add_argument(
@@ -592,7 +601,7 @@ async def run_matcher_evaluation(args: argparse.Namespace) -> int:
     report_path = write_matcher_evaluation_report(
         output_dir=args.evaluation_dir, rows=rows, summary=summary
     )
-    print("Matcher evaluation (ground truth: " f"{args.ground_truth})")
+    print(f"Matcher evaluation (ground truth: {args.ground_truth})")
     print(f"  rule accuracy: {summary['rule_accuracy']:.2f} ({rule_correct}/{total})")
     if llm_matcher is not None:
         print(
@@ -640,14 +649,18 @@ def write_matcher_evaluation_report(
             f"({summary['hybrid_correct']}/{summary['hybrid_scored']})"
         )
         if summary.get("llm_call_errors"):
-            lines.append(
-                f"- LLM 调用失败（不计入准确率）: {summary['llm_call_errors']}"
-            )
-    lines.extend(["", "## 逐条结果", "", "| id | 标注 | 规则分 | 规则判定 | LLM分 | LLM判定 | 混合分 | 混合判定 | 备注 |", "|---|---|---:|---|---:|---|---:|---|---|"])
+            lines.append(f"- LLM 调用失败（不计入准确率）: {summary['llm_call_errors']}")
+    lines.extend(
+        [
+            "",
+            "## 逐条结果",
+            "",
+            "| id | 标注 | 规则分 | 规则判定 | LLM分 | LLM判定 | 混合分 | 混合判定 | 备注 |",
+            "|---|---|---:|---|---:|---|---:|---|---|",
+        ]
+    )
     for row in rows:
-        llm_score_cell = (
-            f"{row['llm_score']:.2f}" if row.get("llm_score") is not None else "-"
-        )
+        llm_score_cell = f"{row['llm_score']:.2f}" if row.get("llm_score") is not None else "-"
         if row.get("llm_error"):
             llm_score_cell = f"ERR({row['llm_error'].split(':')[0]})"
         hybrid_score_cell = (
@@ -665,9 +678,7 @@ def write_matcher_evaluation_report(
     if summary.get("disagreements"):
         lines.extend(["", "## 规则与 LLM 分歧条目", ""])
         for item in summary["disagreements"]:
-            lines.append(
-                f"- #{item['id']}（标注={item['label']}）：{item['note']}"
-            )
+            lines.append(f"- #{item['id']}（标注={item['label']}）：{item['note']}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -756,9 +767,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     if args.agent_planner_benchmark:
         try:
-            providers = parse_planner_benchmark_providers(
-                args.agent_planner_benchmark_providers
-            )
+            providers = parse_planner_benchmark_providers(args.agent_planner_benchmark_providers)
         except ValueError as exc:
             print(str(exc))
             return 2
@@ -789,17 +798,19 @@ async def _run(args: argparse.Namespace) -> int:
         try:
             result = await run_llm_extractor_comparison(args)
         except (LlmExtractorConfigurationError, VisualProviderConfigurationError) as exc:
-            err_type = "LLM extractor" if isinstance(exc, LlmExtractorConfigurationError) else "Visual extractor"
+            err_type = (
+                "LLM extractor"
+                if isinstance(exc, LlmExtractorConfigurationError)
+                else "Visual extractor"
+            )
             print(f"{err_type} is not configured: {exc}")
             return 2
         print("LLM extractor comparison")
         print(
-            "baseline: "
-            f"{result['baseline']['completed_tasks']}/{result['baseline']['total_tasks']}"
+            f"baseline: {result['baseline']['completed_tasks']}/{result['baseline']['total_tasks']}"
         )
         print(
-            "llm-demo: "
-            f"{result['llm_demo']['completed_tasks']}/{result['llm_demo']['total_tasks']}"
+            f"llm-demo: {result['llm_demo']['completed_tasks']}/{result['llm_demo']['total_tasks']}"
         )
         if args.llm_extractor_provider:
             provider_result = result[args.llm_extractor_provider]
@@ -809,10 +820,7 @@ async def _run(args: argparse.Namespace) -> int:
             )
         if args.visual_extractor_demo:
             visual_result = result["visual_demo"]
-            print(
-                f"visual-demo: "
-                f"{visual_result['completed_tasks']}/{visual_result['total_tasks']}"
-            )
+            print(f"visual-demo: {visual_result['completed_tasks']}/{visual_result['total_tasks']}")
         if args.visual_extractor_provider:
             provider_result = result[args.visual_extractor_provider]
             print(
@@ -924,9 +932,7 @@ async def _run(args: argparse.Namespace) -> int:
             tasks = build_real_site_sample_tasks()[: args.evaluation_count]
             runner = EvaluationRunner(
                 args.evaluation_dir,
-                browser_factory=lambda task: BrowserUseClient(
-                    page_loader=HttpPageLoader()
-                ),
+                browser_factory=lambda task: BrowserUseClient(page_loader=HttpPageLoader()),
                 extractor_factory=build_extractor_factory(args),
             )
         elif args.seed_url:
@@ -1097,9 +1103,7 @@ async def _run(args: argparse.Namespace) -> int:
                     )
                 else:
                     resume_text = load_resume_text(args.resume_text, args.resume_file)
-                    hitl_seed_urls = list(args.seed_url) + [
-                        job.url for job in aggregator_jobs
-                    ]
+                    hitl_seed_urls = list(args.seed_url) + [job.url for job in aggregator_jobs]
                     user = UserProfile(
                         keyword=args.keyword or "seed URLs",
                         location=args.location,
@@ -1433,7 +1437,9 @@ async def run_interactive(args: argparse.Namespace) -> int:
         )
 
         try:
-            state = await workflow.run(user, run_id=f"interactive-{round_num:02d}-{uuid4().hex[:6]}")
+            state = await workflow.run(
+                user, run_id=f"interactive-{round_num:02d}-{uuid4().hex[:6]}"
+            )
         except BrowserConfigurationError as exc:
             print(f"  Browser error: {exc}")
             print("  Try --demo for deterministic local pages.")
@@ -1443,7 +1449,9 @@ async def run_interactive(args: argparse.Namespace) -> int:
 
         round_states.append(state)
         valid = state.metrics.valid_jobs if state.metrics else 0
-        print(f"  Jobs found: {valid} valid / {state.metrics.jobs_found if state.metrics else 0} total")
+        print(
+            f"  Jobs found: {valid} valid / {state.metrics.jobs_found if state.metrics else 0} total"
+        )
 
         # Collect jobs (dedupe by URL)
         seen_urls = {j.url for j in all_jobs}
@@ -1504,16 +1512,23 @@ async def run_interactive(args: argparse.Namespace) -> int:
     if all_jobs and state.metrics:
         # Build a synthetic metrics for the consolidated report
         from datetime import datetime
+
         cons_metrics = RunMetrics(
             run_id=f"interactive-consolidated-{uuid4().hex[:8]}",
             pages_visited=sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states),
             jobs_found=sum((s.metrics.jobs_found if s.metrics else 0) for s in round_states),
             valid_jobs=len(all_jobs),
-            duplicate_jobs=sum((s.metrics.duplicate_jobs if s.metrics else 0) for s in round_states),
+            duplicate_jobs=sum(
+                (s.metrics.duplicate_jobs if s.metrics else 0) for s in round_states
+            ),
             failed_pages=sum(len(s.failed_urls) for s in round_states),
             avg_steps_per_job=round(
-                sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states) / len(all_jobs), 2
-            ) if all_jobs else 0.0,
+                sum((s.metrics.pages_visited if s.metrics else 0) for s in round_states)
+                / len(all_jobs),
+                2,
+            )
+            if all_jobs
+            else 0.0,
             finished_at=datetime.now(UTC),
         )
         state.metrics = cons_metrics
@@ -1521,7 +1536,10 @@ async def run_interactive(args: argparse.Namespace) -> int:
         state.matches = all_matches
         state.metadata["interactive_rounds"] = round_num
         state.metadata["execution_trace"].append(
-            {"node": "interactive", "summary": f"consolidated {round_num} rounds, {len(all_jobs)} unique jobs"}
+            {
+                "node": "interactive",
+                "summary": f"consolidated {round_num} rounds, {len(all_jobs)} unique jobs",
+            }
         )
 
         # Reuse reporter/dashboard/action-plan pipeline
@@ -1529,18 +1547,28 @@ async def run_interactive(args: argparse.Namespace) -> int:
         if args.action_plan and state.metrics:
             plan_path = ActionPlanWriter(args.action_plan_dir).write_plan(
                 run_id=state.metrics.run_id,
-                user=UserProfile(keyword=keyword, location=location, target_count=target_count, skills=skills, resume_text=resume_text),
+                user=UserProfile(
+                    keyword=keyword,
+                    location=location,
+                    target_count=target_count,
+                    skills=skills,
+                    resume_text=resume_text,
+                ),
                 jobs=all_jobs,
                 matches=all_matches,
             )
             state.metadata["action_plan_path"] = plan_path.as_posix()
             artifact_links["行动计划"] = plan_path
             print(f"Action plan written to: {plan_path}")
-            print(f"Top action gaps: {', '.join(f'{s}({c})' for s, c in summarize_skill_gaps(all_matches)[:3])}")
+            print(
+                f"Top action gaps: {', '.join(f'{s}({c})' for s, c in summarize_skill_gaps(all_matches)[:3])}"
+            )
 
         if args.dashboard and state.metrics:
             dashboard_path = HtmlDashboard(args.dashboard_dir).write_dashboard(
-                user=UserProfile(keyword=keyword, location=location, skills=skills, resume_text=resume_text),
+                user=UserProfile(
+                    keyword=keyword, location=location, skills=skills, resume_text=resume_text
+                ),
                 jobs=all_jobs,
                 matches=all_matches,
                 metrics=cons_metrics,
@@ -1554,7 +1582,9 @@ async def run_interactive(args: argparse.Namespace) -> int:
             print(f"Dashboard written to: {dashboard_path}")
 
         report_path = workflow.reporter.write_report(
-            user=UserProfile(keyword=keyword, location=location, skills=skills, resume_text=resume_text),
+            user=UserProfile(
+                keyword=keyword, location=location, skills=skills, resume_text=resume_text
+            ),
             jobs=all_jobs,
             matches=all_matches,
             metrics=cons_metrics,
@@ -1593,10 +1623,7 @@ def format_top_action_gaps(matches: list[MatchResult]) -> str:
 
 
 def top_action_gap_items(matches: list[MatchResult]) -> list[dict[str, int | str]]:
-    return [
-        {"skill": skill, "count": count}
-        for skill, count in summarize_skill_gaps(matches)[:3]
-    ]
+    return [{"skill": skill, "count": count} for skill, count in summarize_skill_gaps(matches)[:3]]
 
 
 def write_model_json_output(model, output_path: str) -> Path:
@@ -1623,16 +1650,12 @@ async def run_cli_benchmark_v2(
         if provider == "baseline":
             eval_result = await EvaluationRunner(
                 output_dir,
-                browser_factory=lambda task: BrowserUseClient(
-                    page_loader=HttpPageLoader()
-                ),
+                browser_factory=lambda task: BrowserUseClient(page_loader=HttpPageLoader()),
             ).run(tasks=tasks)
         elif provider == "llm-demo":
             eval_result = await EvaluationRunner(
                 output_dir,
-                browser_factory=lambda task: BrowserUseClient(
-                    page_loader=HttpPageLoader()
-                ),
+                browser_factory=lambda task: BrowserUseClient(page_loader=HttpPageLoader()),
                 extractor_factory=lambda task: PageExtractor(
                     llm_field_extractor=DemoLlmFieldExtractor()
                 ),
@@ -1642,9 +1665,7 @@ async def run_cli_benchmark_v2(
             provider_args.llm_extractor_provider = provider
             eval_result = await EvaluationRunner(
                 output_dir,
-                browser_factory=lambda task: BrowserUseClient(
-                    page_loader=HttpPageLoader()
-                ),
+                browser_factory=lambda task: BrowserUseClient(page_loader=HttpPageLoader()),
                 extractor_factory=lambda task: PageExtractor(
                     llm_field_extractor=build_cli_llm_field_extractor(provider_args)
                 ),
@@ -1657,9 +1678,7 @@ async def run_cli_benchmark_v2(
             try:
                 eval_result = await EvaluationRunner(
                     output_dir,
-                    browser_factory=lambda task: BrowserUseClient(
-                        page_loader=HttpPageLoader()
-                    ),
+                    browser_factory=lambda task: BrowserUseClient(page_loader=HttpPageLoader()),
                     extractor_factory=lambda task: PageExtractor(),
                     visual_extractor_factory=lambda task: visual_provider,
                 ).run(tasks=tasks)
@@ -1692,9 +1711,7 @@ async def run_cli_benchmark_v2(
         dashboard_dir.mkdir(parents=True, exist_ok=True)
         dashboard_path = dashboard_dir / "benchmark-v2.html"
         dashboard_path.write_text(
-            HtmlDashboard(args.dashboard_dir).render_benchmark_summary(
-                result, insight=insight
-            ),
+            HtmlDashboard(args.dashboard_dir).render_benchmark_summary(result, insight=insight),
             encoding="utf-8",
         )
         print(f"Benchmark dashboard written to: {dashboard_path}")
@@ -1715,7 +1732,10 @@ async def run_llm_extractor_comparison(args: argparse.Namespace) -> dict:
     if args.real_site_sample:
         tasks = build_real_site_sample_tasks()[: args.evaluation_count]
         seed_urls = [seed_url for task in tasks for seed_url in task.seed_urls]
-        browser_factory = lambda task: BrowserUseClient(page_loader=HttpPageLoader())
+
+        def browser_factory(task):
+            return BrowserUseClient(page_loader=HttpPageLoader())
+
     else:
         seed_urls = args.seed_url or ["https://example.com/jobs/unstructured-ai-agent-intern"]
         tasks = [
@@ -1828,7 +1848,20 @@ async def run_llm_matcher_comparison(
     extractor = PageExtractor(
         llm_field_extractor=build_cli_llm_field_extractor(args),
     )
-    verifier = JobVerifier(required_keywords=["AI", "LLM", "Agent", "analytics", "developer", "platform", "strategy", "deployment", "consultant", "director"])
+    verifier = JobVerifier(
+        required_keywords=[
+            "AI",
+            "LLM",
+            "Agent",
+            "analytics",
+            "developer",
+            "platform",
+            "strategy",
+            "deployment",
+            "consultant",
+            "director",
+        ]
+    )
     rule_matcher = JobMatcher()
     llm_matcher_instance = JobMatcher(llm_matcher=llm_matcher)
 
@@ -1863,14 +1896,16 @@ async def run_llm_matcher_comparison(
         rule_result = rule_matcher.match(user=user, job=job)
         llm_result = llm_matcher_instance.match(user=user, job=job)
 
-        pairs.append({
-            "url": url,
-            "title": job.title,
-            "company": job.company,
-            "job_skills": job.skills,
-            "rule": rule_result.model_dump(mode="json"),
-            "llm": llm_result.model_dump(mode="json"),
-        })
+        pairs.append(
+            {
+                "url": url,
+                "title": job.title,
+                "company": job.company,
+                "job_skills": job.skills,
+                "rule": rule_result.model_dump(mode="json"),
+                "llm": llm_result.model_dump(mode="json"),
+            }
+        )
 
     # ── Step 3: Summarize ──
     result: dict[str, object] = {
@@ -1935,11 +1970,14 @@ def write_llm_match_comparison_report(
         "## 汇总",
         "",
         f"- 有效岗位-匹配对: {len(pairs)}",
-        f"- 规则 vs {matcher_label}: {rule_demo['score_diff_count']}/{rule_demo['total_pairs']} 分数变化, {rule_demo['priority_change_count']} 优先级变化",
+        f"- 规则 vs {matcher_label}: "
+        f"{rule_demo['score_diff_count']}/{rule_demo['total_pairs']} 分数变化, "
+        f"{rule_demo['priority_change_count']} 优先级变化",
         "",
         "## 逐对明细",
         "",
-        "| # | 岗位 | 公司 | 岗位技能 | 规则分 | LLM 分 | 规则优先级 | LLM 优先级 | 规则匹配 | LLM 匹配 |",
+        "| # | 岗位 | 公司 | 岗位技能 | 规则分 | LLM 分 "
+        "| 规则优先级 | LLM 优先级 | 规则匹配 | LLM 匹配 |",
         "|---|---|---|---:|---:|---|---|---|---|",
     ]
     for i, pair in enumerate(pairs, start=1):
@@ -2065,18 +2103,18 @@ def print_demo_script() -> None:
             r"--langgraph --dashboard --json-output outputs\langgraph-result.json"
         ),
         (
-            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r".\.venv\Scripts\web-task-agent.exe --seed-url "
             r'"https://example.com/jobs/ai-engineering-intern" --demo '
             r"--target-count 1 --json-output outputs\seed-demo.json --dashboard"
         ),
         (
-            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r".\.venv\Scripts\web-task-agent.exe --seed-url "
             r'"https://example.com/jobs/unstructured-ai-agent-intern" --demo '
             r"--target-count 1 --llm-extractor-demo "
             r"--json-output outputs\unstructured-llm-demo.json --dashboard"
         ),
         (
-            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r".\.venv\Scripts\web-task-agent.exe --seed-url "
             r'"https://example.com/jobs/unstructured-ai-agent-intern" --demo '
             r"--target-count 1 --llm-extractor-provider deepseek "
             r"--llm-extractor-model deepseek-v4-flash "
@@ -2100,7 +2138,7 @@ def print_demo_script() -> None:
             r"--json-output evaluations\fixture-result.json"
         ),
         (
-            r'.\.venv\Scripts\web-task-agent.exe --seed-url '
+            r".\.venv\Scripts\web-task-agent.exe --seed-url "
             r'"https://example.com/jobs/visual-ai-intern" --demo '
             r"--target-count 1 --visual-extractor-demo "
             r"--json-output outputs\visual-demo.json"
@@ -2234,9 +2272,7 @@ def build_workflow(
 def build_extractor_factory(args: argparse.Namespace):
     if not args.llm_extractor_demo and not args.llm_extractor_provider:
         return None
-    return lambda task: PageExtractor(
-        llm_field_extractor=build_cli_llm_field_extractor(args)
-    )
+    return lambda task: PageExtractor(llm_field_extractor=build_cli_llm_field_extractor(args))
 
 
 def build_cli_llm_field_extractor(args: argparse.Namespace):
@@ -2253,9 +2289,11 @@ def build_cli_llm_field_extractor(args: argparse.Namespace):
 def build_cli_llm_matcher(args: argparse.Namespace):
     if args.llm_match_demo:
         from web_task_agent.llm_extractor import DemoLlmMatcher
+
         return DemoLlmMatcher()
     if args.llm_match_provider:
         from web_task_agent.llm_extractor import build_configured_llm_matcher
+
         return build_configured_llm_matcher(
             provider=args.llm_match_provider,
             model=args.llm_match_model,
@@ -2263,6 +2301,7 @@ def build_cli_llm_matcher(args: argparse.Namespace):
     if args.llm_match:
         # --llm-match without --llm-match-provider defaults to demo
         from web_task_agent.llm_extractor import DemoLlmMatcher
+
         return DemoLlmMatcher()
     return None
 
@@ -2290,8 +2329,7 @@ def _print_visual_provider_diagnostics(state) -> None:
         for item in filtered[:5]:
             reasons = ", ".join(item.get("reasons", []))
             print(
-                f"      {item.get('title', '-')[:50]} @ {item.get('company', '-')[:30]}"
-                f" → {reasons}"
+                f"      {item.get('title', '-')[:50]} @ {item.get('company', '-')[:30]} → {reasons}"
             )
 
     # Check for empty extractions (visual "succeeded" but produced garbage)

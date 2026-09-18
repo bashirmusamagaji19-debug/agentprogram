@@ -146,9 +146,7 @@ def test_cli_demo_mode_can_use_llm_extractor_demo(
     captured = capsys.readouterr()
     assert "LLM extractor demo: enabled" in captured.out
     payload = json.loads(
-        (tmp_path / "outputs" / "llm-extractor-demo.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "outputs" / "llm-extractor-demo.json").read_text(encoding="utf-8")
     )
     assert payload["metadata"]["extractor_mode"] == "llm-demo"
 
@@ -237,9 +235,7 @@ def test_cli_can_enable_configured_llm_extractor_provider(
 
     captured = capsys.readouterr()
     assert "LLM extractor provider: deepseek" in captured.out
-    payload = json.loads(
-        (tmp_path / "outputs" / "provider-llm.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((tmp_path / "outputs" / "provider-llm.json").read_text(encoding="utf-8"))
     assert payload["metadata"]["extractor_mode"] == "llm-provider"
     assert payload["metadata"]["llm_provider"] == "deepseek"
     assert payload["metadata"]["llm_model"] == "deepseek-v4-flash"
@@ -469,16 +465,10 @@ def test_cli_demo_mode_accepts_seed_url_without_keyword(
     captured = capsys.readouterr()
     assert "Report written to:" in captured.out
     assert "Valid jobs: 1" in captured.out
-    payload = json.loads(
-        (tmp_path / "outputs" / "seed-result.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((tmp_path / "outputs" / "seed-result.json").read_text(encoding="utf-8"))
     assert payload["user"]["keyword"] == "seed URLs"
-    assert payload["user"]["seed_urls"] == [
-        "https://example.com/jobs/ai-engineering-intern"
-    ]
-    assert payload["candidate_urls"] == [
-        "https://example.com/jobs/ai-engineering-intern"
-    ]
+    assert payload["user"]["seed_urls"] == ["https://example.com/jobs/ai-engineering-intern"]
+    assert payload["candidate_urls"] == ["https://example.com/jobs/ai-engineering-intern"]
 
 
 def test_cli_demo_mode_uses_resume_file_for_matching(
@@ -587,9 +577,7 @@ def test_load_resume_text_combines_inline_text_and_files(tmp_path) -> None:
         [str(first_file), str(second_file)],
     )
 
-    assert resume_text == (
-        "Python browser agent\n\nLangGraph workflow\n\nLLM evaluation"
-    )
+    assert resume_text == ("Python browser agent\n\nLangGraph workflow\n\nLLM evaluation")
 
 
 def test_write_json_output_creates_parent_directory(tmp_path) -> None:
@@ -694,9 +682,7 @@ def test_cli_real_smoke_evaluate_uses_real_browser_factory(
     assert any(query.startswith("AI intern") for query in opened_queries)
     assert any(query.startswith("LLM agent intern") for query in opened_queries)
     assert any(query.startswith("AI engineering intern") for query in opened_queries)
-    report = (tmp_path / "evaluations" / "evaluation-report.md").read_text(
-        encoding="utf-8"
-    )
+    report = (tmp_path / "evaluations" / "evaluation-report.md").read_text(encoding="utf-8")
     assert "no_pages" in report
 
 
@@ -711,9 +697,7 @@ def test_cli_fixture_sites_evaluate_writes_success_report(
 
     captured = capsys.readouterr()
     assert "Completed tasks: 2/2" in captured.out
-    report = (tmp_path / "evaluations" / "evaluation-report.md").read_text(
-        encoding="utf-8"
-    )
+    report = (tmp_path / "evaluations" / "evaluation-report.md").read_text(encoding="utf-8")
     assert "AI Agent Engineering Intern" in report
     assert "LLM Application Intern" in report
     assert "| - | 0 |" in report
@@ -736,9 +720,7 @@ def test_cli_evaluate_writes_json_output(tmp_path, monkeypatch, capsys) -> None:
 
     captured = capsys.readouterr()
     assert "Evaluation JSON written to:" in captured.out
-    payload = json.loads(
-        (tmp_path / "evaluations" / "result.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((tmp_path / "evaluations" / "result.json").read_text(encoding="utf-8"))
     assert payload["total_tasks"] == 2
     assert payload["success_rate"] == 1.0
     assert len(payload["task_results"]) == 2
@@ -800,9 +782,7 @@ def test_cli_evaluate_can_use_llm_extractor_demo_for_unstructured_seed_url(
     assert "LLM extractor demo: enabled" in captured.out
     assert "Completed tasks: 1/1" in captured.out
     payload = json.loads(
-        (tmp_path / "evaluations" / "unstructured-llm-result.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "evaluations" / "unstructured-llm-result.json").read_text(encoding="utf-8")
     )
     assert payload["completed_tasks"] == 1
     assert payload["total_valid_jobs"] == 1
@@ -865,9 +845,7 @@ def test_cli_compare_llm_extractor_accepts_seed_urls_and_writes_report(
     assert "llm-demo: 2/2" in captured.out
     assert "Comparison report written to:" in captured.out
     payload = json.loads(
-        (tmp_path / "evaluations" / "seed-comparison.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "evaluations" / "seed-comparison.json").read_text(encoding="utf-8")
     )
     assert payload["seed_urls"] == [
         "https://example.com/jobs/unstructured-ai-agent-intern",
@@ -924,9 +902,7 @@ def test_cli_compare_llm_extractor_can_include_provider_result(
     captured = capsys.readouterr()
     assert "deepseek: 1/1" in captured.out
     payload = json.loads(
-        (tmp_path / "evaluations" / "provider-comparison.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "evaluations" / "provider-comparison.json").read_text(encoding="utf-8")
     )
     assert payload["extractors"]["deepseek"]["completed_tasks"] == 1
     report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
@@ -939,19 +915,15 @@ def test_build_real_site_sample_tasks_uses_live_job_seed_urls() -> None:
     assert len(tasks) == 8
     assert all(task.target_count == 1 for task in tasks)
     assert any(
-        task.seed_urls
-        == ["https://job-boards.greenhouse.io/anthropic/jobs/5116927008"]
+        task.seed_urls == ["https://job-boards.greenhouse.io/anthropic/jobs/5116927008"]
         for task in tasks
     )
     assert any(
-        task.seed_urls
-        == ["https://job-boards.greenhouse.io/scaleai/jobs/4703343005"]
+        task.seed_urls == ["https://job-boards.greenhouse.io/scaleai/jobs/4703343005"]
         for task in tasks
     )
     assert any(
-        task.seed_urls
-        == ["https://job-boards.greenhouse.io/reddit/jobs/7958354"]
-        for task in tasks
+        task.seed_urls == ["https://job-boards.greenhouse.io/reddit/jobs/7958354"] for task in tasks
     )
     assert all(task.seed_urls for task in tasks)
 
@@ -1005,10 +977,15 @@ def test_cli_evaluate_real_site_sample_uses_browser_use_client(
             return result.model_copy(update={"report_path": report_path})
 
     monkeypatch.setattr("web_task_agent.cli.BrowserUseClient", FakeBrowserUseClient)
-    monkeypatch.setattr("web_task_agent.cli.build_real_site_sample_tasks", build_real_site_sample_tasks)
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_real_site_sample_tasks", build_real_site_sample_tasks
+    )
     monkeypatch.setattr("web_task_agent.cli.EvaluationRunner", FakeRunner)
 
-    assert main(["--evaluate", "--real-site-sample", "--json-output", "evaluations/real-site.json"]) == 0
+    assert (
+        main(["--evaluate", "--real-site-sample", "--json-output", "evaluations/real-site.json"])
+        == 0
+    )
 
     captured = capsys.readouterr()
     assert "Evaluation report written to:" in captured.out
@@ -1069,10 +1046,22 @@ def test_cli_compare_llm_extractor_real_site_sample_uses_browser_use_client(
             return result
 
     monkeypatch.setattr("web_task_agent.cli.BrowserUseClient", FakeBrowserUseClient)
-    monkeypatch.setattr("web_task_agent.cli.build_real_site_sample_tasks", build_real_site_sample_tasks)
+    monkeypatch.setattr(
+        "web_task_agent.cli.build_real_site_sample_tasks", build_real_site_sample_tasks
+    )
     monkeypatch.setattr("web_task_agent.cli.EvaluationRunner", FakeRunner)
 
-    assert main(["--compare-llm-extractor", "--real-site-sample", "--json-output", "evaluations/real-site-compare.json"]) == 0
+    assert (
+        main(
+            [
+                "--compare-llm-extractor",
+                "--real-site-sample",
+                "--json-output",
+                "evaluations/real-site-compare.json",
+            ]
+        )
+        == 0
+    )
 
     captured = capsys.readouterr()
     assert "LLM extractor comparison" in captured.out
@@ -1182,18 +1171,18 @@ def test_cli_evaluate_real_site_sample_includes_filtered_job_details(
 async def test_workflow_records_filtered_job_metadata(tmp_path) -> None:
     class FakeBrowser:
         async def search(self, query: str, target_count: int):
-                return [
-                    BrowserPage(
-                        url="https://example.com/jobs/applied-ai-claude-evangelist",
-                        title="Applied AI Claude Evangelist",
-                        content=(
-                            "Title: Applied AI Claude Evangelist\n"
-                            "Company: Anthropic\n"
-                            "Location: San Francisco, CA\n"
-                        ),
-                        source="fixture",
-                    )
-                ]
+            return [
+                BrowserPage(
+                    url="https://example.com/jobs/applied-ai-claude-evangelist",
+                    title="Applied AI Claude Evangelist",
+                    content=(
+                        "Title: Applied AI Claude Evangelist\n"
+                        "Company: Anthropic\n"
+                        "Location: San Francisco, CA\n"
+                    ),
+                    source="fixture",
+                )
+            ]
 
         async def open_url(self, url: str):
             raise AssertionError("open_url should not be called in this test")
@@ -1247,15 +1236,11 @@ def test_cli_evaluate_seed_url_fixture_reports_missing_url_details(
     captured = capsys.readouterr()
     assert "Completed tasks: 0/1" in captured.out
     payload = json.loads(
-        (tmp_path / "evaluations" / "missing-seed-result.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "evaluations" / "missing-seed-result.json").read_text(encoding="utf-8")
     )
     task_result = payload["task_results"][0]
     assert task_result["failure_category"] == "browser_error"
-    assert "https://boards.greenhouse.io/example/jobs/missing" in task_result[
-        "failure_details"
-    ]
+    assert "https://boards.greenhouse.io/example/jobs/missing" in task_result["failure_details"]
     assert "ValueError" in task_result["failure_details"]
 
 
@@ -1334,13 +1319,21 @@ def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> N
         "https://example.com/jobs/test-ai-intern": BrowserPage(
             url="https://example.com/jobs/test-ai-intern",
             title="AI Intern",
-            content="Title: AI Intern\nCompany: TestCo\nLocation: Remote\nRequirements: Python, LangGraph\nResponsibilities: Build AI agents\nSkills: Python, LangGraph\n",
+            content=(
+                "Title: AI Intern\nCompany: TestCo\nLocation: Remote\n"
+                "Requirements: Python, LangGraph\nResponsibilities: Build AI agents\n"
+                "Skills: Python, LangGraph\n"
+            ),
             source="fixture",
         ),
         "https://example.com/jobs/test-ml-intern": BrowserPage(
             url="https://example.com/jobs/test-ml-intern",
             title="ML Intern",
-            content="Title: ML Intern\nCompany: DataCo\nLocation: Shanghai\nRequirements: Python, FastAPI, SQL\nResponsibilities: Build ML platform\nSkills: Python, FastAPI, SQL\n",
+            content=(
+                "Title: ML Intern\nCompany: DataCo\nLocation: Shanghai\n"
+                "Requirements: Python, FastAPI, SQL\nResponsibilities: Build ML platform\n"
+                "Skills: Python, FastAPI, SQL\n"
+            ),
             source="fixture",
         ),
     }
@@ -1348,6 +1341,7 @@ def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> N
     class _FakeBrowser:
         def __init__(self, *, page_loader=None):
             pass
+
         async def open_url(self, url):
             if url in url_to_page:
                 return url_to_page[url]
@@ -1355,14 +1349,19 @@ def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> N
 
     monkeypatch.setattr("web_task_agent.cli.BrowserUseClient", _FakeBrowser)
 
-    exit_code = main([
-        "--compare-llm-match",
-        "--real-site-sample",
-        "--evaluation-count", "2",
-        "--skill", "Python",
-        "--llm-match-demo",
-        "--json-output", "evaluations/match-smoke.json",
-    ])
+    exit_code = main(
+        [
+            "--compare-llm-match",
+            "--real-site-sample",
+            "--evaluation-count",
+            "2",
+            "--skill",
+            "Python",
+            "--llm-match-demo",
+            "--json-output",
+            "evaluations/match-smoke.json",
+        ]
+    )
     assert exit_code == 0
 
     captured = capsys.readouterr()
@@ -1375,28 +1374,41 @@ def test_cli_compare_llm_match_full_pipeline(tmp_path, monkeypatch, capsys) -> N
 
 
 def test_cli_interactive_runs_multiple_rounds_and_consolidates(
-    tmp_path, monkeypatch, capsys,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     """Smoke test: --interactive runs multiple rounds when commands are piped in."""
     monkeypatch.chdir(tmp_path)
 
     # Simulate user typing: run, add skill, more, done
-    monkeypatch.setattr("builtins.input", _FakeInput([
-        "skill:FastAPI",
-        "more:3",
-        "done",
-    ]))
+    monkeypatch.setattr(
+        "builtins.input",
+        _FakeInput(
+            [
+                "skill:FastAPI",
+                "more:3",
+                "done",
+            ]
+        ),
+    )
 
-    exit_code = main([
-        "--interactive",
-        "--keyword", "AI intern",
-        "--target-count", "2",
-        "--skill", "Python",
-        "--demo",
-        "--dashboard",
-        "--action-plan",
-        "--json-output", "outputs/interactive-smoke.json",
-    ])
+    exit_code = main(
+        [
+            "--interactive",
+            "--keyword",
+            "AI intern",
+            "--target-count",
+            "2",
+            "--skill",
+            "Python",
+            "--demo",
+            "--dashboard",
+            "--action-plan",
+            "--json-output",
+            "outputs/interactive-smoke.json",
+        ]
+    )
     assert exit_code == 0
 
     captured = capsys.readouterr()
@@ -1449,9 +1461,7 @@ def test_cli_seed_url_can_use_visual_extractor_demo(
     captured = capsys.readouterr()
     assert "Visual extractor demo: enabled" in captured.out
     assert "Valid jobs: 1" in captured.out
-    payload = json.loads(
-        (tmp_path / "outputs" / "visual-demo.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((tmp_path / "outputs" / "visual-demo.json").read_text(encoding="utf-8"))
     assert payload["metadata"]["extractor_mode"] == "visual-demo"
     assert payload["metadata"]["visual_extraction"]["successes"] == 1
     assert payload["jobs"][0]["title"] == "Visual AI Intern"
@@ -1483,9 +1493,7 @@ def test_cli_compare_extractor_can_include_visual_demo(
     captured = capsys.readouterr()
     assert "visual-demo: 1/1" in captured.out
     payload = json.loads(
-        (tmp_path / "evaluations" / "visual-comparison.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "evaluations" / "visual-comparison.json").read_text(encoding="utf-8")
     )
     assert payload["extractors"]["visual_demo"]["completed_tasks"] == 1
     report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
@@ -1606,18 +1614,14 @@ def test_cli_compare_extractor_can_include_visual_provider(
     captured = capsys.readouterr()
     assert "qwen-vl: 1/1" in captured.out
     payload = json.loads(
-        (tmp_path / "evaluations" / "visual-provider-comparison.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "evaluations" / "visual-provider-comparison.json").read_text(encoding="utf-8")
     )
     assert payload["extractors"]["qwen-vl"]["completed_tasks"] == 1
     report = (tmp_path / payload["report_path"]).read_text(encoding="utf-8")
     assert "| qwen-vl | 1 | 1 | 1.00 |" in report
 
 
-def test_cli_demo_and_visual_provider_are_mutually_exclusive(
-    tmp_path, monkeypatch, capsys
-) -> None:
+def test_cli_demo_and_visual_provider_are_mutually_exclusive(tmp_path, monkeypatch, capsys) -> None:
     """--demo and --visual-extractor-provider cannot be used together."""
     monkeypatch.chdir(tmp_path)
 
@@ -1724,9 +1728,7 @@ def test_cli_benchmark_v2_prints_provider_matrix(
                     success_rate=1.0 if provider != "qwen-vl" else 0.0,
                     total_valid_jobs=1 if provider != "qwen-vl" else 0,
                     average_pages_visited=1.0,
-                    failure_counts={}
-                    if provider != "qwen-vl"
-                    else {"verification_filtered": 1},
+                    failure_counts={} if provider != "qwen-vl" else {"verification_filtered": 1},
                     elapsed_seconds=0.01,
                     report_path=f"evaluations/{provider}/evaluation-report.md",
                 )
@@ -1816,9 +1818,7 @@ def test_public_docs_explain_hitl_checkpoint_boundaries():
     root = Path(__file__).resolve().parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")
     story = (root / "docs" / "project-story.md").read_text(encoding="utf-8")
-    verification = (root / "docs" / "mvp-verification.md").read_text(
-        encoding="utf-8"
-    )
+    verification = (root / "docs" / "mvp-verification.md").read_text(encoding="utf-8")
     combined = "\n".join([readme, story, verification])
 
     assert "Human-in-the-loop" in combined
@@ -1831,9 +1831,7 @@ def test_public_docs_explain_hitl_checkpoint_boundaries():
 def test_portfolio_docs_expose_recruiter_entrypoint_and_evidence():
     root = Path(__file__).resolve().parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")
-    interview = (root / "docs" / "interview-benchmark-story.md").read_text(
-        encoding="utf-8"
-    )
+    interview = (root / "docs" / "interview-benchmark-story.md").read_text(encoding="utf-8")
     combined = "\n".join([readme, interview])
 
     for required in [

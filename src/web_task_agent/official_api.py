@@ -125,16 +125,11 @@ class OfficialApiContentFetcher:
 
         careers ByPostId E1005 的岗大多在这里——两库 postId 互通。
         """
-        api_url = (
-            f"{_TENCENT_CAMPUS_DETAIL_API}?"
-            f"postId={url_parse.quote(post_id)}"
-        )
+        api_url = f"{_TENCENT_CAMPUS_DETAIL_API}?postId={url_parse.quote(post_id)}"
         payload = self._get_json(api_url, referer="https://join.qq.com/")
         data = payload.get("data")
         if not isinstance(data, dict) or not data:
-            raise OfficialApiUnavailableError(
-                f"tencent campus detail empty for postId={post_id}"
-            )
+            raise OfficialApiUnavailableError(f"tencent campus detail empty for postId={post_id}")
 
         title = str(data.get("title") or "").strip()
         # 标准标签行（与社招/美团一致的格式约定，规则抽取直接命中——见 #19）
@@ -152,7 +147,11 @@ class OfficialApiContentFetcher:
             ("任职要求", ("topicRequirement", "request")),
         ):
             section = next(
-                (str(data.get(key) or "").strip() for key in keys if str(data.get(key) or "").strip()),
+                (
+                    str(data.get(key) or "").strip()
+                    for key in keys
+                    if str(data.get(key) or "").strip()
+                ),
                 "",
             )
             if section:

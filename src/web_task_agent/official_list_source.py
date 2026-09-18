@@ -34,6 +34,7 @@ _DOMAIN_TITLE_KEYWORDS = (*AI_TITLE_KEYWORDS, "具身", "机器人", "自动驾�
 def _title_in_domain(title: str) -> bool:
     return any(keyword in title for keyword in _DOMAIN_TITLE_KEYWORDS)
 
+
 _TENCENT_SEARCH_POSITION_API = "https://join.qq.com/api/v1/position/searchPosition"
 _MEITUAN_LIST_API = "https://zhaopin.meituan.com/api/official/job/getJobList"
 
@@ -147,9 +148,7 @@ class DefaultTransport:
                 req = url_request.Request(  # noqa: S310
                     url,
                     headers={
-                        "User-Agent": (
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0"
-                        )
+                        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0")
                     },
                     method="GET",
                 )
@@ -588,8 +587,7 @@ async def _mihoyo_lister(transport, limit: int) -> list[DiscoveredJob]:
             continue
         data = detail.get("data") or {}
         plain = (
-            f"岗位职责：\n{data.get('description', '')}\n"
-            f"任职要求：\n{data.get('jobRequire', '')}"
+            f"岗位职责：\n{data.get('description', '')}\n任职要求：\n{data.get('jobRequire', '')}"
         ).strip()
         if len(plain) < 80:
             continue
@@ -652,17 +650,16 @@ def _family_specs() -> dict[str, object]:
             company="傅利叶智能",
             probe_detail=True,
         ),
-    "jd": _jd_lister,
-    "pinduoduo": _pinduoduo_lister,
-    "ctrip": _ctrip_lister,
-    "huawei": _huawei_lister,
-    "nio": _nio_lister,
-    "liauto": _liauto_lister,
-    "byd": _byd_lister,
-    "geely": _geely_lister,
-
-    # ── 第二批(agent 并行编写,实测冒烟通过)──
-    "ubtech": make_zhiye_lister(
+        "jd": _jd_lister,
+        "pinduoduo": _pinduoduo_lister,
+        "ctrip": _ctrip_lister,
+        "huawei": _huawei_lister,
+        "nio": _nio_lister,
+        "liauto": _liauto_lister,
+        "byd": _byd_lister,
+        "geely": _geely_lister,
+        # ── 第二批(agent 并行编写,实测冒烟通过)──
+        "ubtech": make_zhiye_lister(
             api_url="https://ubtrobot.zhiye.com/api/Jobad/GetJobAdPageList?portalId=4f4d24cb-5973-40d0-9fde-27c6a0dd8570",
             portal_id="4f4d24cb-5973-40d0-9fde-27c6a0dd8570",
             url_tmpl="https://ubtrobot.zhiye.com/intern/detail/{id}",
@@ -675,52 +672,55 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://dx3a2bminsq.jobs.feishu.cn/index/position/{id}",
             company="众擎机器人",
             extra_body={
-                "keyword": "", "limit": 100, "offset": 0,
-                "site_id": "7510111693356337445", "portal_entrance": 1,
+                "keyword": "",
+                "limit": 100,
+                "offset": 0,
+                "site_id": "7510111693356337445",
+                "portal_entrance": 1,
             },
         ),
-
         "xinghai": make_zhiye_lister(
             api_url="https://galaxea.zhiye.com/api/Jobad/GetJobAdPageList?portalId=3273047d-3dc2-42e3-8562-8c84014af5e8",
             portal_id="3273047d-3dc2-42e3-8562-8c84014af5e8",
             url_tmpl="https://galaxea.zhiye.com/social/detail/{id}",
             company="星海图",
         ),
-
         "tarsrobot": make_feishu_hire_lister(
             api_url="https://tarsrobot.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://tarsrobot.jobs.feishu.cn/referral/position/{id}",
             company="它石智航",
             extra_body={
-                "keyword": "", "limit": 100, "offset": 0,
-                "site_id": "7462266439225182483", "portal_entrance": 2,
+                "keyword": "",
+                "limit": 100,
+                "offset": 0,
+                "site_id": "7462266439225182483",
+                "portal_entrance": 2,
             },
         ),
-
         "x2robot": make_feishu_hire_lister(
             api_url="https://x2-robot.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://x2-robot.jobs.feishu.cn/index/position/detail/{id}",
             company="自变量机器人",
             extra_body=None,
         ),
-
         "limx": make_feishu_hire_lister(
             api_url="https://career.limxdynamics.com/api/v1/search/job/posts",
             url_tmpl="https://career.limxdynamics.com/index/position/{id}",
             company="逐际动力",
             extra_body=None,
         ),
-
         "ai2robotics": make_feishu_hire_lister(
             api_url="https://ai2robotics.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://ai2robotics.jobs.feishu.cn/094992/position/{id}",
             company="智平方",
             extra_body={
-                "keyword": "", "limit": 100, "offset": 0,
-                "site_id": "7546144166143117619", "portal_entrance": 2,
+                "keyword": "",
+                "limit": 100,
+                "offset": 0,
+                "site_id": "7546144166143117619",
+                "portal_entrance": 2,
             },
         ),
-
         "astribot": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
             org_id="astribot",
@@ -730,21 +730,18 @@ def _family_specs() -> dict[str, object]:
             require_intern_words=False,
             probe_detail=True,
         ),
-
         "dexmal": make_feishu_hire_lister(
             api_url="https://dexmal-inc.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://dexmal-inc.jobs.feishu.cn/index/position/{id}",
             company="原力灵机",
             extra_body={"keyword": "", "limit": 100, "offset": 0, "site_id": "7565877944519887130"},
         ),
-
         "booster": make_feishu_hire_lister(
             api_url="https://booster.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://booster.jobs.feishu.cn/index/position/detail/{id}",
             company="加速进化",
             extra_body=None,
         ),
-
         "deeprobotics": make_moka_lister(
             api_url="https://app135149.eapps.dingtalkcloud.com/api/outer/ats-apply/website/jobs/v2",
             org_id="yunshenchu",
@@ -753,7 +750,6 @@ def _family_specs() -> dict[str, object]:
             company="云深处科技",
             require_intern_words=False,
         ),
-
         "moonshot": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
             org_id="moonshot",
@@ -763,21 +759,18 @@ def _family_specs() -> dict[str, object]:
             require_intern_words=False,
             probe_detail=True,
         ),
-
         "zhipu": make_feishu_hire_lister(
             api_url="https://zhipu-ai.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://zhipu-ai.jobs.feishu.cn/index/position/{id}",
             company="智谱AI",
             extra_body=None,
         ),
-
         "minimax": make_feishu_hire_lister(
             api_url="https://vrfi1sk8a0.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://vrfi1sk8a0.jobs.feishu.cn/index/position/{id}",
             company="MiniMax",
             extra_body={"site_id": "7009629032762640676", "portal_entrance": 2},
         ),
-
         "stepfun": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
             org_id="step",
@@ -787,7 +780,6 @@ def _family_specs() -> dict[str, object]:
             require_intern_words=False,
             probe_detail=True,
         ),
-
         "deepseek": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
             org_id="high-flyer",
@@ -797,31 +789,30 @@ def _family_specs() -> dict[str, object]:
             require_intern_words=False,
             probe_detail=True,
         ),
-
         "baichuan": make_feishu_hire_lister(
             api_url="https://cq6qe6bvfr6.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://cq6qe6bvfr6.jobs.feishu.cn/646926/position/{id}/detail",
             company="百川智能",
             extra_body=None,
         ),
-
         "modelbest": make_feishu_hire_lister(
             api_url="https://modelbest.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://modelbest.jobs.feishu.cn/career/position/{id}/detail",
             company="面壁智能",
             extra_body=None,
         ),
-
         "shengshu": make_feishu_hire_lister(
             api_url="https://shengshu.jobs.feishu.cn/api/v1/search/job/posts",
             url_tmpl="https://shengshu.jobs.feishu.cn/index/position/{id}",
             company="生数科技",
             extra_body={
-                "keyword": "", "limit": 100, "offset": 0,
-                "site_id": "7218165589679114554", "portal_entrance": 1,
+                "keyword": "",
+                "limit": 100,
+                "offset": 0,
+                "site_id": "7218165589679114554",
+                "portal_entrance": 1,
             },
         ),
-
         "enflame": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
             org_id="enflame",
@@ -911,7 +902,9 @@ async def _jd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN
 # (岗位职责全文),任职要求 serveRequirement 列表不含,需逐条 POST position/detail 补全;
 # 详情 result.shareUrl 即详情页链接,格式固定 /campus/grad/detail?positionId=<id>。
 
-_PDD_LIST_API = "https://careers.pddglobalhr.com/api/careers/applets/api/recruit/position/search/list"
+_PDD_LIST_API = (
+    "https://careers.pddglobalhr.com/api/careers/applets/api/recruit/position/search/list"
+)
 _PDD_DETAIL_API = "https://careers.pddglobalhr.com/api/careers/applets/api/recruit/position/detail"
 
 
@@ -927,9 +920,7 @@ async def _pinduoduo_lister(transport, limit: int) -> list[DiscoveredJob]:  # no
     seen: set[str] = set()
     page_no = 1
     while len(jobs) < limit and page_no <= 15:  # 全量仅 31 岗(约 3 页),15 页封顶防失控
-        payload = transport.open_json(
-            "POST", _PDD_LIST_API, body={"page": page_no, "pageSize": 20}
-        )
+        payload = transport.open_json("POST", _PDD_LIST_API, body={"page": page_no, "pageSize": 20})
         result = payload.get("result") or {}
         items = result.get("list") if isinstance(result, dict) else None
         items = items or []
@@ -987,10 +978,22 @@ _CTRIP_KEYWORDS = ["大模型", "LLM", "Agent", "机器人", "AI", "算法"]
 # category=2 校招 / category=1 社招(含 kind=3 实习通道),两类都要 → 路由前缀不同
 _CTRIP_CATEGORY_ROUTES = ((2, "campus"), (1, "experienced"))
 _CTRIP_CITY_NAMES = {
-    "Shanghai": "上海", "Beijing": "北京", "Shenzhen": "深圳", "Hangzhou": "杭州",
-    "Guangzhou": "广州", "Nanjing": "南京", "Suzhou": "苏州", "Chengdu": "成都",
-    "Wuhan": "武汉", "Xiamen": "厦门", "Tianjin": "天津", "Jinan": "济南",
-    "Guilin": "桂林", "Taiyuan": "太原", "Zhengzhou": "郑州", "Nantong": "南通",
+    "Shanghai": "上海",
+    "Beijing": "北京",
+    "Shenzhen": "深圳",
+    "Hangzhou": "杭州",
+    "Guangzhou": "广州",
+    "Nanjing": "南京",
+    "Suzhou": "苏州",
+    "Chengdu": "成都",
+    "Wuhan": "武汉",
+    "Xiamen": "厦门",
+    "Tianjin": "天津",
+    "Jinan": "济南",
+    "Guilin": "桂林",
+    "Taiyuan": "太原",
+    "Zhengzhou": "郑州",
+    "Nantong": "南通",
 }
 
 
@@ -1026,9 +1029,15 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
                     _CTRIP_LIST_API,
                     body={
                         "condition": {
-                            "fromId": [], "keyword": keyword, "kind": [], "country": [],
-                            "city": [], "bucode": [], "jobFamilyCode": [],
-                            "jobFamilyGroupCode": [], "category": category,
+                            "fromId": [],
+                            "keyword": keyword,
+                            "kind": [],
+                            "country": [],
+                            "city": [],
+                            "bucode": [],
+                            "jobFamilyCode": [],
+                            "jobFamilyGroupCode": [],
+                            "category": category,
                         },
                         "pager": {"index": page, "size": 30},
                     },
@@ -1427,7 +1436,9 @@ async def _byd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: AN
 _GEELY_LIST_API = "https://campus.geely.com/api/outer/ats-apply/website/jobs/v2"
 _GEELY_DETAIL_API = "https://campus.geely.com/api/outer/ats-apply/website/job"
 _GEELY_SITE_ID = "78436"
-_GEELY_JOB_URL_TMPL = "https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/{id}"
+_GEELY_JOB_URL_TMPL = (
+    "https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/{id}"
+)
 
 
 def _geely_open_envelope(transport, url: str, body: dict) -> dict | None:
@@ -1476,7 +1487,8 @@ def _geely_location(item: dict) -> str:
         if not isinstance(loc, dict):
             continue
         part = str(
-            loc.get("cityName") or loc.get("provinceName")
+            loc.get("cityName")
+            or loc.get("provinceName")
             or ("" if loc.get("country") == "中国" else loc.get("country") or "")
         ).strip()
         if part:
@@ -1584,7 +1596,7 @@ _SPEC_TIER: dict[str, str] = {
     "tencent-campus": "大厂",
     "meituan": "大厂",
     "baidu": "大厂",
-        "jd": "大厂",
+    "jd": "大厂",
     "netease": "大厂",
     "xiaomi": "大厂",
     "xiaohongshu": "大厂",
@@ -1657,9 +1669,7 @@ class OfficialListSource:
         self.specs = specs or list(_SPECS)
         for spec in self.specs:
             if spec not in _SPECS:
-                raise ValueError(
-                    f"unknown spec: {spec} (available: {sorted(_SPECS)})"
-                )
+                raise ValueError(f"unknown spec: {spec} (available: {sorted(_SPECS)})")
         self.transport = transport if transport is not None else DefaultTransport()
 
     async def discover(self, limit: int) -> list[DiscoveredJob]:

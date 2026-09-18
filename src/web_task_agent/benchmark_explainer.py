@@ -20,28 +20,18 @@ FAILURE_EXPLANATIONS: dict[str, str] = {
         "这通常说明抽取到了弱相关内容，或者岗位信号不足。"
     ),
     "browser_error": (
-        "页面打开失败，问题在网页可访问性、网络、反爬或浏览器加载层，"
-        "而不是抽取器本身。"
+        "页面打开失败，问题在网页可访问性、网络、反爬或浏览器加载层，而不是抽取器本身。"
     ),
-    "no_pages": (
-        "工作流没有获取到任何页面；优先检查搜索关键词、seed URL 配置"
-        "和浏览器启动。"
-    ),
+    "no_pages": ("工作流没有获取到任何页面；优先检查搜索关键词、seed URL 配置和浏览器启动。"),
     "no_extracted_jobs": (
-        "页面已加载但没有抽取到候选岗位；"
-        "通常要检查页面结构、选择器、文本抽取和 visual fallback。"
+        "页面已加载但没有抽取到候选岗位；通常要检查页面结构、选择器、文本抽取和 visual fallback。"
     ),
-    "http_timeout": (
-        "HTTP 请求超时，通常是 DNS 解析失败或连接超时；"
-        "页面可能已下线或网络受限。"
-    ),
+    "http_timeout": ("HTTP 请求超时，通常是 DNS 解析失败或连接超时；页面可能已下线或网络受限。"),
     "http_error": (
-        "页面返回 HTTP 4xx/5xx 状态码；页面可能已被移除、需要登录，"
-        "或反爬机制拒绝访问。"
+        "页面返回 HTTP 4xx/5xx 状态码；页面可能已被移除、需要登录，或反爬机制拒绝访问。"
     ),
     "empty_page": (
-        "页面请求成功但正文为空；通常是 JS 渲染页面（需 Playwright "
-        "截图）或反爬注入的空壳页面。"
+        "页面请求成功但正文为空；通常是 JS 渲染页面（需 Playwright 截图）或反爬注入的空壳页面。"
     ),
 }
 
@@ -89,16 +79,11 @@ def generate_benchmark_insights(
     if not result.providers:
         return BenchmarkInsight(
             one_sentence=(
-                "还没有可解释的 benchmark 结果；"
-                "请先运行 --benchmark-v2 生成 provider matrix。"
+                "还没有可解释的 benchmark 结果；请先运行 --benchmark-v2 生成 provider matrix。"
             ),
             visual_provider_value="暂无 visual provider 数据。",
-            not_prompt_demo_reason=(
-                "暂无 benchmark 数据，无法证明它不是一次性 prompt demo。"
-            ),
-            engineering_judgement=(
-                "先补齐 benchmark 结果，再讨论 provider 差异和失败归因。"
-            ),
+            not_prompt_demo_reason=("暂无 benchmark 数据，无法证明它不是一次性 prompt demo。"),
+            engineering_judgement=("先补齐 benchmark 结果，再讨论 provider 差异和失败归因。"),
             interview_pitch_60s="我会先运行 benchmark，再用统一指标解释结果。",
             interview_pitch_3min=(
                 "目前还没有 provider matrix，"
@@ -119,9 +104,7 @@ def generate_benchmark_insights(
         f"success_rate={best.success_rate:.2f}。"
     )
 
-    provider_notes = [
-        _provider_note(p, best.provider) for p in result.providers
-    ]
+    provider_notes = [_provider_note(p, best.provider) for p in result.providers]
     failure_notes = _failure_notes(result)
 
     has_visual = any(p.provider == "qwen-vl" for p in result.providers)
@@ -200,13 +183,9 @@ def _failure_notes(result: BenchmarkMatrixResult) -> list[FailureInsight]:
         FailureInsight(
             failure_category=category,
             count=count,
-            explanation=FAILURE_EXPLANATIONS.get(
-                category, _FALLBACK_FAILURE_EXPLANATION
-            ),
+            explanation=FAILURE_EXPLANATIONS.get(category, _FALLBACK_FAILURE_EXPLANATION),
         )
-        for category, count in sorted(
-            totals.items(), key=lambda item: (-item[1], item[0])
-        )
+        for category, count in sorted(totals.items(), key=lambda item: (-item[1], item[0]))
     ]
 
 
@@ -223,8 +202,7 @@ def render_benchmark_explanation_markdown(
     ]
     for note in insight.provider_notes:
         provider_lines.append(
-            f"| {note.provider} | {note.completed} "
-            f"| {note.success_rate:.2f} | {note.note} |"
+            f"| {note.provider} | {note.completed} | {note.success_rate:.2f} | {note.note} |"
         )
 
     failure_lines = [
@@ -233,10 +211,7 @@ def render_benchmark_explanation_markdown(
     ]
     if insight.failure_notes:
         for note in insight.failure_notes:
-            failure_lines.append(
-                f"| {note.failure_category} | {note.count} "
-                f"| {note.explanation} |"
-            )
+            failure_lines.append(f"| {note.failure_category} | {note.count} | {note.explanation} |")
     else:
         failure_lines.append("| - | 0 | 本轮没有记录失败分类。 |")
 
@@ -246,8 +221,7 @@ def render_benchmark_explanation_markdown(
     ]
     for case in result.cases:
         case_lines.append(
-            f"| {case.case_id} | {case.company} "
-            f"| {case.role_family} | {case.expected_signal} |"
+            f"| {case.case_id} | {case.company} | {case.role_family} | {case.expected_signal} |"
         )
 
     lines = [

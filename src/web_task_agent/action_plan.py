@@ -81,9 +81,7 @@ class ActionPlanWriter:
             match = match_by_job_id.get(job.url)
             score = match.score if match else 0.0
             priority = match.priority if match else "low"
-            lines.append(
-                f"{index}. {job.title} - {job.company} ({priority}, 匹配 {score:.2f})"
-            )
+            lines.append(f"{index}. {job.title} - {job.company} ({priority}, 匹配 {score:.2f})")
             lines.append(f"   - 链接: {job.url}")
         return lines
 
@@ -133,9 +131,12 @@ class ActionPlanWriter:
     def _tech_stack_talking_points(self, gaps: list[tuple[str, int]]) -> list[str]:
         focus = "、".join(skill for skill, _count in gaps[:3]) if gaps else "现有项目"
         return [
-            "- browser-use: 用真实浏览器 adapter 和 fake browser 对比，说明如何隔离不稳定网页环境并保持 demo 可复现。",
-            "- LangGraph: 把 planner、browser、extractor、verifier、matcher、reporter 讲成可切换编排节点，而不是一次性脚本。",
+            "- browser-use: 用真实浏览器 adapter 和 fake browser 对比，"
+            "说明如何隔离不稳定网页环境并保持 demo 可复现。",
+            "- LangGraph: 把 planner、browser、extractor、verifier、matcher、"
+            "reporter 讲成可切换编排节点，而不是一次性脚本。",
             f"- 技能补强: 围绕 {focus} 做最小闭环，用测试、报告、Dashboard 和 JSON 证明能力增长。",
-            "- 评测: 每个新增能力都补 fixture 或 smoke，用成功率、失败分类和执行轨迹说明工程可靠性。",
+            "- 评测: 每个新增能力都补 fixture 或 smoke，"
+            "用成功率、失败分类和执行轨迹说明工程可靠性。",
             "- 面试说法: 先讲任务拆解和边界设计，再讲指标验证，最后讲这个改动如何服务投递决策。",
         ]

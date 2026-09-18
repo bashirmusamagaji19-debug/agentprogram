@@ -268,9 +268,7 @@ class HybridAgentRuntime:
                 raise HitlRuntimeError("approval gate requires the original decision")
             arguments = dict(state.last_decision.arguments)
             arguments["approval_id"] = request.approval_id
-            state.last_decision = state.last_decision.model_copy(
-                update={"arguments": arguments}
-            )
+            state.last_decision = state.last_decision.model_copy(update={"arguments": arguments})
             state.decision_history[-1] = state.last_decision
         return state
 
@@ -344,9 +342,7 @@ class HybridAgentRuntime:
         if decision.action is not policy_decision.action:
             return False
         return not (
-            policy_decision.target
-            and decision.target
-            and decision.target != policy_decision.target
+            policy_decision.target and decision.target and decision.target != policy_decision.target
         )
 
     async def _execute_tool_node(self, state: DecisionAgentState) -> DecisionAgentState:
@@ -419,9 +415,7 @@ class HybridAgentRuntime:
         return any(getattr(task, "interrupts", ()) for task in snapshot.tasks)
 
     async def _hitl_result(self, thread_id: str) -> HitlRunResult:
-        snapshot = await self._graph(hitl=True).aget_state(
-            self._config(None, thread_id)
-        )
+        snapshot = await self._graph(hitl=True).aget_state(self._config(None, thread_id))
         state = self._state_from_snapshot(snapshot, thread_id)
         request = state.pending_approval
         if (
@@ -435,7 +429,6 @@ class HybridAgentRuntime:
                 status = HitlRunStatus(state.terminal_status)
             except ValueError as exc:
                 raise HitlRuntimeError(
-                    f"thread {thread_id!r} stopped in invalid status "
-                    f"{state.terminal_status!r}"
+                    f"thread {thread_id!r} stopped in invalid status {state.terminal_status!r}"
                 ) from exc
         return HitlRunResult(status=status, state=state, approval=request)

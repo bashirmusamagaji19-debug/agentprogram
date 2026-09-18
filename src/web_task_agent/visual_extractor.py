@@ -67,9 +67,7 @@ def job_from_visual_fields(*, page: BrowserPage, fields: VisualJobFields) -> Job
     """
     requirements = fields.requirements.strip()
     skills = fields.skills or [
-        skill.strip()
-        for skill in requirements.replace("\uFF0C", ",").split(",")
-        if skill.strip()
+        skill.strip() for skill in requirements.replace("\uff0c", ",").split(",") if skill.strip()
     ]
     return JobPosting(
         title=fields.title.strip() or page.title or "Unknown Title",

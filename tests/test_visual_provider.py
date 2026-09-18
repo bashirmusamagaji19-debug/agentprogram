@@ -61,9 +61,7 @@ def test_visual_provider_builder_raises_clear_error_when_dependency_is_missing(
     def fake_import(name):
         raise ModuleNotFoundError("No module named 'visual_web_agent'")
 
-    monkeypatch.setattr(
-        "web_task_agent.visual_provider.import_module", fake_import
-    )
+    monkeypatch.setattr("web_task_agent.visual_provider.import_module", fake_import)
     # API key check must pass before the import is attempted
     monkeypatch.setenv("DASHSCOPE_API_KEY", "test-key")
 

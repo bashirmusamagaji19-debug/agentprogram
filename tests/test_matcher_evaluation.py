@@ -48,9 +48,7 @@ async def test_llm_called_for_every_row_even_when_rule_high(
         calls.append(payload)
         return {"score": 0.9, "reason": "", "matched_skills": [], "missing_skills": []}
 
-    monkeypatch.setattr(
-        "web_task_agent.cli.build_cli_llm_matcher", lambda args: fake_llm_matcher
-    )
+    monkeypatch.setattr("web_task_agent.cli.build_cli_llm_matcher", lambda args: fake_llm_matcher)
     args = make_args(tmp_path, ground_truth)
     args.llm_match = True  # 触发 LLM 分支
 
@@ -86,9 +84,7 @@ async def test_llm_call_failure_recorded_not_silent(
     def broken_llm_matcher(payload: dict) -> dict:
         raise RuntimeError("api down")
 
-    monkeypatch.setattr(
-        "web_task_agent.cli.build_cli_llm_matcher", lambda args: broken_llm_matcher
-    )
+    monkeypatch.setattr("web_task_agent.cli.build_cli_llm_matcher", lambda args: broken_llm_matcher)
     args = make_args(tmp_path, ground_truth)
     args.llm_match = True
 
@@ -130,9 +126,7 @@ async def test_hybrid_column_present_and_uses_same_llm_response(
         calls.append(payload)
         return {"score": 0.9, "reason": "", "matched_skills": [], "missing_skills": []}
 
-    monkeypatch.setattr(
-        "web_task_agent.cli.build_cli_llm_matcher", lambda args: fake_llm_matcher
-    )
+    monkeypatch.setattr("web_task_agent.cli.build_cli_llm_matcher", lambda args: fake_llm_matcher)
     args = make_args(tmp_path, ground_truth)
     args.llm_match = True
 
@@ -175,9 +169,7 @@ async def test_hybrid_denominator_excludes_llm_error_rows(
             raise RuntimeError("api down")
         return {"score": 0.9, "reason": "", "matched_skills": [], "missing_skills": []}
 
-    monkeypatch.setattr(
-        "web_task_agent.cli.build_cli_llm_matcher", lambda args: flaky_llm
-    )
+    monkeypatch.setattr("web_task_agent.cli.build_cli_llm_matcher", lambda args: flaky_llm)
     args = make_args(tmp_path, ground_truth)
     args.llm_match = True
 

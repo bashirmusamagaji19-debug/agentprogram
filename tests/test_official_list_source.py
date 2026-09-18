@@ -179,25 +179,38 @@ def test_unknown_spec_raises_value_error():
 
 # ── 阶段 3A-2:SaaS 家族与 bespoke 适配器(fake transport 参数化)──
 
+
 def _fake_transport_for(spec_key: str) -> FakeTransport:
     """按规格 JSON 的 sample_evidence 构造最小可信响应。"""
     if spec_key == "unitree":
-        return FakeTransport({
-            "website/job/list": lambda url, body: {
-                "code": 100,
-                "data": {"count": 2, "items": [
-                    {"id": "2046857577249112064", "title": "具身智能软件工程师",
-                     "duty": "负责具身智能系统研发，涵盖感知、决策与控制全栈算法工程"
-                             "落地与部署，参与机器人本体在真实场景中的大规模部署迭代。",
-                     "ability": "熟悉 ROS 与强化学习框架，具备扎实的工程能力，"
+        return FakeTransport(
+            {
+                "website/job/list": lambda url, body: {
+                    "code": 100,
+                    "data": {
+                        "count": 2,
+                        "items": [
+                            {
+                                "id": "2046857577249112064",
+                                "title": "具身智能软件工程师",
+                                "duty": "负责具身智能系统研发，涵盖感知、决策与控制全栈算法工程"
+                                "落地与部署，参与机器人本体在真实场景中的大规模部署迭代。",
+                                "ability": "熟悉 ROS 与强化学习框架，具备扎实的工程能力，"
                                 "有大模型部署与机器人系统研发经验者优先考虑。",
-                     "cityInfo": "杭州"},
-                    {"id": "999", "title": "海外专员", "duty": "x", "ability": "y", "cityInfo": ""},
-
-
-                ]},
+                                "cityInfo": "杭州",
+                            },
+                            {
+                                "id": "999",
+                                "title": "海外专员",
+                                "duty": "x",
+                                "ability": "y",
+                                "cityInfo": "",
+                            },
+                        ],
+                    },
+                }
             }
-        })
+        )
     raise AssertionError(spec_key)
 
 
@@ -215,7 +228,8 @@ async def test_unitree_lister_maps_fields_and_filters_non_ai():
 def test_registry_exposes_all_specs():
     from web_task_agent.official_list_source import _SPECS
 
-    expected = set([
+    expected = set(
+        [
             "tencent-campus",
             "meituan",
             "unitree",
@@ -258,7 +272,8 @@ def test_registry_exposes_all_specs():
             "modelbest",
             "shengshu",
             "enflame",
-    ])
+        ]
+    )
     assert set(_SPECS) == expected
 
 
@@ -428,12 +443,11 @@ def _fake_pdd_transport() -> FakeTransport:
             return {
                 "success": True,
                 "result": {
-                    "jobDuty": "负责大模型训练与推理基础设施研发，"
-                            "覆盖集群调度与训练框架优化。",
+                    "jobDuty": "负责大模型训练与推理基础设施研发，覆盖集群调度与训练框架优化。",
                     "serveRequirement": "1. 计算机科学、人工智能、数学等相关专业优先；"
-                       "2. 扎实的机器学习基础与出色的编程能力。",
+                    "2. 扎实的机器学习基础与出色的编程能力。",
                     "shareUrl": "https://careers.pddglobalhr.com/cam"
-                        "pus/grad/detail?positionId=43b706c2",
+                    "pus/grad/detail?positionId=43b706c2",
                 },
             }
         return {"success": True, "result": {}}
@@ -474,9 +488,9 @@ async def test_pinduoduo_lister_falls_back_to_list_duty_and_skips_short_body():
                         "name": "大模型算法工程师",
                         "workLocationName": "上海",
                         "jobDuty": "负责电商领域多语言多模态大模型基座研发，"
-                       "全流程深入数据处理、样本标注、"
-                                   "模型预训练（Pretrain）、有监督微调（SFT）/强化学习（RL）等关键环节；"
-                                   "持续跟踪并攻关大模型领域前沿方向，驱动业务高效落地与技术创新。",
+                        "全流程深入数据处理、样本标注、"
+                        "模型预训练（Pretrain）、有监督微调（SFT）/强化学习（RL）等关键环节；"
+                        "持续跟踪并攻关大模型领域前沿方向，驱动业务高效落地与技术创新。",
                     },
                     {  # 正文过短 → 诚实原则直接跳过
                         "id": "short-body",
@@ -628,7 +642,7 @@ def _huawei_transport() -> FakeTransport:
                         "mainBusiness": "1、AI办公场景识别与需求洞察，深入理解华为办公业务场景；"
                         "2、设计AI辅助办公产品方案并推动落地。",
                         "jobRequire": "教育背景要求：本科及以上学历；技能要求：熟悉大模型应用落地、"
-                      "产品方案设计与跨团队协作。",
+                        "产品方案设计与跨团队协作。",
                     },
                     {
                         "advertisementId": "36415",
@@ -681,9 +695,7 @@ async def test_huawei_lister_stops_at_limit_and_paginates_until_empty():
 
 # ── 蔚来(第二批 agent 产出,实测冒烟通过)──
 
-_NIO_LONG_DUTY = (
-    "负责多模态大模型的算法迭代与应用落地，覆盖模型结构设计、训练与推理优化全流程工作"
-)
+_NIO_LONG_DUTY = "负责多模态大模型的算法迭代与应用落地，覆盖模型结构设计、训练与推理优化全流程工作"
 _NIO_LONG_REQ = "计算机相关专业本科及以上，具备扎实的机器学习基础与大模型训练落地经验者优先"
 
 
@@ -857,9 +869,7 @@ async def test_liauto_lister_maps_fields_and_filters_non_ai():
             },
         }
 
-    transport = FakeTransport(
-        {"job-page": _list_responder, "job/detail": _detail_responder}
-    )
+    transport = FakeTransport({"job-page": _list_responder, "job/detail": _detail_responder})
     jobs = await _liauto_lister(transport, limit=5)
 
     # social 页第一条命中 + 第二条被过滤;school 页详情失败被跳过
@@ -883,30 +893,48 @@ def _fake_transport_for_byd() -> FakeTransport:
     ]
     details = {
         "1802996110122344449": [
-            {"name": "工作职责", "detail": (
-                "1.开发解耦轨迹规划控制算法，实现控制车辆来跟踪运动轨迹；\r\n"
-                "2.针对多目标约束进行整车系统选型优化分析，支撑量产车型算法落地与迭代；")},
-            {"name": "任职要求", "detail": (
-                "硕士及以上学历，车辆工程/计算机/自动化相关专业，"
-                "熟悉控制理论与优化方法，有算法落地与量产项目经验者优先。")},
+            {
+                "name": "工作职责",
+                "detail": (
+                    "1.开发解耦轨迹规划控制算法，实现控制车辆来跟踪运动轨迹；\r\n"
+                    "2.针对多目标约束进行整车系统选型优化分析，支撑量产车型算法落地与迭代；"
+                ),
+            },
+            {
+                "name": "任职要求",
+                "detail": (
+                    "硕士及以上学历，车辆工程/计算机/自动化相关专业，"
+                    "熟悉控制理论与优化方法，有算法落地与量产项目经验者优先。"
+                ),
+            },
         ],
         "1803338074273374210": [
-            {"name": "工作职责", "detail": (
-                "1.负责机器人本体运动控制与感知模块的算法研发与工程落地；"
-                "2.参与机器人系统在真实场景中的部署调试与迭代优化。")},
-            {"name": "任职要求", "detail": (
-                "熟悉 ROS 与强化学习框架，具备扎实的工程实现能力，"
-                "有机器人系统研发与部署经验者优先。")},
+            {
+                "name": "工作职责",
+                "detail": (
+                    "1.负责机器人本体运动控制与感知模块的算法研发与工程落地；"
+                    "2.参与机器人系统在真实场景中的部署调试与迭代优化。"
+                ),
+            },
+            {
+                "name": "任职要求",
+                "detail": (
+                    "熟悉 ROS 与强化学习框架，具备扎实的工程实现能力，"
+                    "有机器人系统研发与部署经验者优先。"
+                ),
+            },
         ],
         "888": [{"name": "工作职责", "detail": "销售"}, {"name": "任职要求", "detail": "沟通"}],
     }
-    return FakeTransport({
-        "queryList": lambda url, body: {"code": 0, "data": {"data": list_items, "total": 3}},
-        "queryDetail": lambda url, body: {
-            "code": 0,
-            "data": {"tagDetailList": details.get(str((body or {}).get("id")), [])},
-        },
-    })
+    return FakeTransport(
+        {
+            "queryList": lambda url, body: {"code": 0, "data": {"data": list_items, "total": 3}},
+            "queryDetail": lambda url, body: {
+                "code": 0,
+                "data": {"tagDetailList": details.get(str((body or {}).get("id")), [])},
+            },
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -935,16 +963,18 @@ async def test_byd_lister_stops_at_limit():
 
 @pytest.mark.asyncio
 async def test_byd_lister_skips_job_with_short_jd_text():
-    transport = FakeTransport({
-        "queryList": lambda url, body: {
-            "code": 0,
-            "data": {"data": [{"id": "777", "positionName": "算法实习生", "city": "合肥市"}]},
-        },
-        "queryDetail": lambda url, body: {
-            "code": 0,
-            "data": {"tagDetailList": [{"name": "工作职责", "detail": "打杂"}]},
-        },
-    })
+    transport = FakeTransport(
+        {
+            "queryList": lambda url, body: {
+                "code": 0,
+                "data": {"data": [{"id": "777", "positionName": "算法实习生", "city": "合肥市"}]},
+            },
+            "queryDetail": lambda url, body: {
+                "code": 0,
+                "data": {"tagDetailList": [{"name": "工作职责", "detail": "打杂"}]},
+            },
+        }
+    )
     jobs = await _byd_lister(transport, limit=5)
 
     assert jobs == []  # <80 字符正文 → 诚实跳过
@@ -964,9 +994,7 @@ def _geely_envelope(payload: dict) -> dict:
     inner = json.dumps(payload).encode("utf-8")
     cipher = AES.new(key, AES.MODE_CBC, _moka_iv_bytes())
     return {
-        "data": base64.b64encode(
-            cipher.encrypt(pad(inner, AES.block_size))
-        ).decode("ascii"),
+        "data": base64.b64encode(cipher.encrypt(pad(inner, AES.block_size))).decode("ascii"),
         "necromancer": key.decode("ascii"),
     }
 
@@ -1033,8 +1061,7 @@ async def test_geely_lister_maps_fields_and_requires_verifiable_jd():
     assert job.company == "吉利"
     assert job.source == "geely"
     assert job.url == (
-        "https://campus.geely.com/campus-recruitment/geely/78436"
-        "?locale=zh-CN#/job/j-1"
+        "https://campus.geely.com/campus-recruitment/geely/78436?locale=zh-CN#/job/j-1"
     )
     assert job.location == "北京市"
     assert "负责智能座舱语义大模型" in job.jd_text
@@ -1050,9 +1077,11 @@ async def test_geely_lister_paginates_and_stops_at_limit():
     }
     detail_payload = {
         "code": 0,
-        "data": {"job": {  # Moka 通用形态:data.job 包一层,同样兼容
-            "jobDescription": "1、负责智能驾驶应用软件开发；" * 10,
-        }},
+        "data": {
+            "job": {  # Moka 通用形态:data.job 包一层,同样兼容
+                "jobDescription": "1、负责智能驾驶应用软件开发；" * 10,
+            }
+        },
     }
     list_offsets: list[int] = []
 
@@ -1076,6 +1105,7 @@ async def test_geely_lister_paginates_and_stops_at_limit():
 
 # ── 阶段 3 收尾:百度(form 表单)+ 3B Bing SERP ──
 
+
 def _baidu_payload(recruit_type: str, items: list[dict]) -> dict:
     return {"status": "ok", "data": {"total": len(items), "list": items}}
 
@@ -1089,17 +1119,24 @@ async def test_baidu_lister_maps_fields_and_stops_on_ratelimit():
     def responder(url: str, body: dict) -> dict:
         calls.append(body)
         if body["recruitType"] == "INTERN" and body["keyWord"] == "大模型":
-            return _baidu_payload("INTERN", [
-                {
-                    "name": "大模型评测实习生(J94494)",
-                    "postId": "eb731a6f-40f7",
-                    "workContent": "1、负责大模型效果评测体系建设" + "x" * 80,
-                    "serviceCondition": "1、计算机相关专业本科及以上" + "y" * 80,
-                    "workPlace": "北京",
-                },
-                {"name": "前台行政专员", "postId": "other-id",
-                 "workContent": "短", "serviceCondition": ""},
-            ])
+            return _baidu_payload(
+                "INTERN",
+                [
+                    {
+                        "name": "大模型评测实习生(J94494)",
+                        "postId": "eb731a6f-40f7",
+                        "workContent": "1、负责大模型效果评测体系建设" + "x" * 80,
+                        "serviceCondition": "1、计算机相关专业本科及以上" + "y" * 80,
+                        "workPlace": "北京",
+                    },
+                    {
+                        "name": "前台行政专员",
+                        "postId": "other-id",
+                        "workContent": "短",
+                        "serviceCondition": "",
+                    },
+                ],
+            )
         # 第二个查询即触发限流(冷却型,复核实录)
         return {"status": "no-auth", "message": "illegal-visit"}
 
@@ -1163,6 +1200,7 @@ def test_registry_now_has_22_specs():
 
 
 # ── 公平采样(discover 交错合并)──
+
 
 @pytest.mark.asyncio
 async def test_discover_interleaves_sources_for_breadth(monkeypatch):

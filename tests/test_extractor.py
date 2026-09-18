@@ -81,7 +81,7 @@ def test_extract_job_splits_skills_on_chinese_commas():
                 "Title: AI Intern\n"
                 "Company: Example AI\n"
                 "Location: Remote\n"
-                "Requirements: Python\uFF0C LangGraph\uFF0CLLM\n"
+                "Requirements: Python\uff0c LangGraph\uff0cLLM\n"
             )
         }
     )

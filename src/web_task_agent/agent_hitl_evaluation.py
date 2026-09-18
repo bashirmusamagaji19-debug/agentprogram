@@ -47,9 +47,7 @@ def evaluate_hitl_cases(cases: list[HitlCaseResult]) -> HitlEvaluationResult:
         cases=cases,
         pause_rate=(sum(case.paused for case in cases) / total if total else 0.0),
         rejected_effects=sum(case.saved_effects for case in cases if case.rejected),
-        duplicate_effects=sum(
-            max(case.saved_effects - 1, 0) for case in cases if case.replayed
-        ),
+        duplicate_effects=sum(max(case.saved_effects - 1, 0) for case in cases if case.replayed),
     )
 
 

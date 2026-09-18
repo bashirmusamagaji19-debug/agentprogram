@@ -76,9 +76,10 @@ def make_feishu_hire_lister(
                     for c in (item.get("city_list") or [])
                     if isinstance(c, dict) and c.get("name")
                 ]
-                location = "、".join(dict.fromkeys([city, *city_list])) or str(
-                    item.get("sub_title") or ""
-                ).strip()
+                location = (
+                    "、".join(dict.fromkeys([city, *city_list]))
+                    or str(item.get("sub_title") or "").strip()
+                )
                 jobs.append(
                     DiscoveredJob(
                         url=url_tmpl.format(id=job_id),
@@ -89,9 +90,7 @@ def make_feishu_hire_lister(
                             or _company_of(url_tmpl)
                         ),
                         location=location,
-                        jd_text=(
-                            f"岗位职责：\n{description}\n任职要求：\n{requirement}".strip()
-                        ),
+                        jd_text=(f"岗位职责：\n{description}\n任职要求：\n{requirement}".strip()),
                         source="feishu-hire",
                     )
                 )
@@ -163,14 +162,22 @@ def make_moka_lister(
         for _ in range(_PAGE_CAP):
             if paging == "page":
                 body = {
-                    "pageNo": page, "pageSize": 10, "orgId": org_id,
-                    "siteId": site_id, "keyword": "", "locale": "zh-CN",
+                    "pageNo": page,
+                    "pageSize": 10,
+                    "orgId": org_id,
+                    "siteId": site_id,
+                    "keyword": "",
+                    "locale": "zh-CN",
                 }
                 page += 1
             else:
                 body = {
-                    "orgId": org_id, "siteId": site_id, "limit": 50,
-                    "offset": offset, "needStat": True, "locale": "zh-CN",
+                    "orgId": org_id,
+                    "siteId": site_id,
+                    "limit": 50,
+                    "offset": offset,
+                    "needStat": True,
+                    "locale": "zh-CN",
                 }
                 offset += 50
             payload = transport.open_json("POST", api_url, body=body)
@@ -185,9 +192,7 @@ def make_moka_lister(
                 title = str(item.get("title") or item.get("jobName") or "").strip()
                 if not title or not _title_hits_ai(title):
                     continue
-                if require_intern_words and not any(
-                    w in title for w in ("实习", "校招", "应届")
-                ):
+                if require_intern_words and not any(w in title for w in ("实习", "校招", "应届")):
                     continue
                 plain = _strip_html(str(item.get("jobDescription") or ""))
                 job_id = str(item.get("id") or "").strip()
@@ -204,8 +209,10 @@ def make_moka_lister(
                             "POST",
                             _moka_detail_url(api_url),
                             body={
-                                "siteId": site_id, "orgId": org_id,
-                                "jobId": job_id, "locale": "zh-CN",
+                                "siteId": site_id,
+                                "orgId": org_id,
+                                "jobId": job_id,
+                                "locale": "zh-CN",
                             },
                         )
                         denv = detail if "necromancer" in detail else (detail.get("data") or {})
@@ -216,10 +223,10 @@ def make_moka_lister(
                             # 各租户详情结构差异(如无 job 键)→ 不误杀,退化 list-attested
                             if isinstance(data, dict) and "job" in data:
                                 djob = data.get("job") or {}
-                                detail_plain = _strip_html(
-                                    str(djob.get("jobDescription") or "")
+                                detail_plain = _strip_html(str(djob.get("jobDescription") or ""))
+                                verdict = (
+                                    "probed-ok" if (djob or detail_plain) else "probed-missing"
                                 )
-                                verdict = "probed-ok" if (djob or detail_plain) else "probed-missing"
                             else:
                                 verdict = "probe-error"
                         else:
@@ -238,8 +245,10 @@ def make_moka_lister(
                             "POST",
                             _moka_detail_url(api_url),
                             body={
-                                "siteId": site_id, "orgId": org_id,
-                                "jobId": job_id, "locale": "zh-CN",
+                                "siteId": site_id,
+                                "orgId": org_id,
+                                "jobId": job_id,
+                                "locale": "zh-CN",
                             },
                         )
                         detail_envelope = (

@@ -46,10 +46,7 @@ class JobMatcher:
 
         rule_result = self._rule_match(user=user, job=job, required_skills=required_skills)
 
-        if (
-            self._llm_matcher is not None
-            and rule_result.score < self._llm_min_rule_score
-        ):
+        if self._llm_matcher is not None and rule_result.score < self._llm_min_rule_score:
             try:
                 llm_payload = {
                     "user_skills": ", ".join(user.skills),
@@ -68,9 +65,7 @@ class JobMatcher:
                 # LLM 未返回 score 时沿用规则分，不做折减也不加标注
                 # （守卫与取值用同一默认值，#27 修复前两处默认不一致）。
                 raw_llm_score = float(llm_fields.get("score", rule_result.score))
-                llm_score = max(
-                    rule_result.score, round(raw_llm_score * self._llm_discount, 2)
-                )
+                llm_score = max(rule_result.score, round(raw_llm_score * self._llm_discount, 2))
                 llm_reason = str(llm_fields.get("reason", rule_result.reason))
                 if llm_score < raw_llm_score:
                     llm_reason = (
@@ -107,14 +102,10 @@ class JobMatcher:
             # 按词切分求交集必然全 0——降级为 JD 文本技能词扫描（#22）
             return self._text_scan_match(job=job, user_signal=user_signal)
         matched_skills = [
-            skill
-            for skill in required_skills
-            if normalize_skill(skill) in user_signal
+            skill for skill in required_skills if normalize_skill(skill) in user_signal
         ]
         missing_skills = [
-            skill
-            for skill in required_skills
-            if normalize_skill(skill) not in user_signal
+            skill for skill in required_skills if normalize_skill(skill) not in user_signal
         ]
         score = round(len(matched_skills) / len(required_skills), 2)
 
@@ -183,16 +174,8 @@ class JobMatcher:
                 reason="岗位正文未能识别出技能词（词表覆盖不足），建议人工查看。",
                 suggested_actions=["技能词表未覆盖该岗位方向，人工评估。"],
             )
-        matched = [
-            term
-            for key, term in scanned_by_canonical.items()
-            if key in user_signal
-        ]
-        missing = [
-            term
-            for key, term in scanned_by_canonical.items()
-            if key not in user_signal
-        ]
+        matched = [term for key, term in scanned_by_canonical.items() if key in user_signal]
+        missing = [term for key, term in scanned_by_canonical.items() if key not in user_signal]
         score = round(len(matched) / len(scanned_by_canonical), 2)
         return MatchResult(
             job_id=job.url,

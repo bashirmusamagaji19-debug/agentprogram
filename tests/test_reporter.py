@@ -168,7 +168,10 @@ def test_reporter_writes_relative_artifact_links(tmp_path):
     )
 
     content = report_path.read_text(encoding="utf-8")
-    assert "- 行动计划: [../action-plans/run-artifacts.md](../action-plans/run-artifacts.md)" in content
+    assert (
+        "- 行动计划: [../action-plans/run-artifacts.md](../action-plans/run-artifacts.md)"
+        in content
+    )
 
 
 def test_reporter_renders_agent_execution_trace(tmp_path):

@@ -59,9 +59,7 @@ class HtmlDashboard:
         orchestration_mode: str = "sequential",
     ) -> str:
         match_by_job_id = {match.job_id: match for match in matches}
-        job_rows = "\n".join(
-            self._job_row(job, match_by_job_id.get(job.url)) for job in jobs
-        )
+        job_rows = "\n".join(self._job_row(job, match_by_job_id.get(job.url)) for job in jobs)
         if not job_rows:
             job_rows = '<tr><td colspan="7">未找到有效岗位</td></tr>'
         input_trace = self._input_trace(
@@ -72,6 +70,10 @@ class HtmlDashboard:
         gap_summary = self._skill_gap_summary(matches)
         artifacts = self._artifact_links(artifact_links)
         agent_trace = self._agent_execution_trace(execution_trace)
+        subtitle = (
+            f"关键词：{escape(user.keyword)} · 地点：{escape(user.location)} · "
+            f"技能：{self._skills(user.skills)}"
+        )
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -234,7 +236,7 @@ class HtmlDashboard:
 <body>
   <main>
     <h1>Web Task Agent Dashboard</h1>
-    <div class="subtitle">关键词：{escape(user.keyword)} · 地点：{escape(user.location)} · 技能：{self._skills(user.skills)}</div>
+    <div class="subtitle">{subtitle}</div>
     <section class="metrics">
       {self._metric("访问页面数", metrics.pages_visited)}
       {self._metric("发现岗位数", metrics.jobs_found)}
@@ -350,7 +352,13 @@ class HtmlDashboard:
                 seen_terms.add(key)
                 search_text_parts.append(key)
         search_text = " ".join(search_text_parts)
-        return f"""<tr data-score="{score_value}" data-priority="{escape(priority)}" data-title="{escape(job.title.casefold())}" data-search="{escape(search_text)}">
+        row_attributes = (
+            f'data-score="{score_value}" '
+            f'data-priority="{escape(priority)}" '
+            f'data-title="{escape(job.title.casefold())}" '
+            f'data-search="{escape(search_text)}"'
+        )
+        return f"""<tr {row_attributes}>
   <td>{escape(job.title)}</td>
   <td>{escape(job.company)}<br><span>{escape(job.location)}</span></td>
   <td>{self._skills(job.skills)}</td>
@@ -372,9 +380,7 @@ class HtmlDashboard:
         gaps = summarize_skill_gaps(matches)
         if not gaps:
             return ""
-        items = "\n".join(
-            f"<li>{escape(skill)}: {count} 个岗位</li>" for skill, count in gaps
-        )
+        items = "\n".join(f"<li>{escape(skill)}: {count} 个岗位</li>" for skill, count in gaps)
         return f"""<section class="gap-summary">
       <h2>技能缺口汇总</h2>
       <ul>{items}</ul>
@@ -390,14 +396,11 @@ class HtmlDashboard:
         trace_parts: list[str] = []
         if user.seed_urls:
             items = "\n".join(
-                f'<li><a href="{escape(url)}">{escape(url)}</a></li>'
-                for url in user.seed_urls
+                f'<li><a href="{escape(url)}">{escape(url)}</a></li>' for url in user.seed_urls
             )
             trace_parts.append(f"<p>Seed URL mode</p><ul>{items}</ul>")
         if search_queries:
-            items = "\n".join(
-                f"<li>{escape(query)}</li>" for query in search_queries
-            )
+            items = "\n".join(f"<li>{escape(query)}</li>" for query in search_queries)
             trace_parts.append(f"<p>Search query mode</p><ul>{items}</ul>")
         if failed_url_errors:
             items = "\n".join(
@@ -412,7 +415,7 @@ class HtmlDashboard:
             return ""
         return f"""<section class="gap-summary">
       <h2>Input Trace</h2>
-      {''.join(trace_parts)}
+      {"".join(trace_parts)}
     </section>"""
 
     def _artifact_links(self, artifact_links: dict[str, str | Path] | None) -> str:
@@ -467,8 +470,7 @@ class HtmlDashboard:
             failure_rows = "<tr><td>-</td><td>0</td></tr>"
 
         task_rows = "\n".join(
-            self._evaluation_task_row(task_result)
-            for task_result in result.task_results
+            self._evaluation_task_row(task_result) for task_result in result.task_results
         )
         if not task_rows:
             task_rows = '<tr><td colspan="8">暂无评测任务</td></tr>'
@@ -550,30 +552,36 @@ class HtmlDashboard:
       <p>{escape(insight.engineering_judgement)}</p>
     </section>
 """
-        provider_rows = "\n".join(
-            "<tr>"
-            f"<td>{escape(p.provider)}</td>"
-            f"<td>{p.completed_tasks}/{p.total_tasks}</td>"
-            f"<td>{p.success_rate:.2f}</td>"
-            f"<td>{p.total_valid_jobs}</td>"
-            f"<td>{p.elapsed_seconds:.2f}s</td>"
-            f"<td>{escape(self._format_failure_counts(p.failure_counts))}</td>"
-            f'<td><a href="{escape(p.report_path)}">report</a></td>'
-            "</tr>"
-            for p in result.providers
-        ) or '<tr><td colspan="7">No providers</td></tr>'
+        provider_rows = (
+            "\n".join(
+                "<tr>"
+                f"<td>{escape(p.provider)}</td>"
+                f"<td>{p.completed_tasks}/{p.total_tasks}</td>"
+                f"<td>{p.success_rate:.2f}</td>"
+                f"<td>{p.total_valid_jobs}</td>"
+                f"<td>{p.elapsed_seconds:.2f}s</td>"
+                f"<td>{escape(self._format_failure_counts(p.failure_counts))}</td>"
+                f'<td><a href="{escape(p.report_path)}">report</a></td>'
+                "</tr>"
+                for p in result.providers
+            )
+            or '<tr><td colspan="7">No providers</td></tr>'
+        )
 
-        case_rows = "\n".join(
-            "<tr>"
-            f"<td>{escape(c.case_id)}</td>"
-            f"<td>{escape(c.company)}</td>"
-            f"<td>{escape(c.ats)}</td>"
-            f"<td>{escape(c.role_family)}</td>"
-            f'<td><a href="{escape(c.url)}">{escape(c.keyword)}</a></td>'
-            f"<td>{escape(c.expected_signal)}</td>"
-            "</tr>"
-            for c in result.cases
-        ) or '<tr><td colspan="6">No cases</td></tr>'
+        case_rows = (
+            "\n".join(
+                "<tr>"
+                f"<td>{escape(c.case_id)}</td>"
+                f"<td>{escape(c.company)}</td>"
+                f"<td>{escape(c.ats)}</td>"
+                f"<td>{escape(c.role_family)}</td>"
+                f'<td><a href="{escape(c.url)}">{escape(c.keyword)}</a></td>'
+                f"<td>{escape(c.expected_signal)}</td>"
+                "</tr>"
+                for c in result.cases
+            )
+            or '<tr><td colspan="6">No cases</td></tr>'
+        )
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -630,6 +638,4 @@ class HtmlDashboard:
     def _format_failure_counts(self, failure_counts: dict[str, int]) -> str:
         if not failure_counts:
             return "-"
-        return ", ".join(
-            f"{key}={value}" for key, value in sorted(failure_counts.items())
-        )
+        return ", ".join(f"{key}={value}" for key, value in sorted(failure_counts.items()))

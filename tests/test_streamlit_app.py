@@ -55,9 +55,7 @@ def make_result(tmp_path: Path, data_mode: str = "demo") -> UiRunResult:
             )
         ],
         metrics=RunMetrics(run_id="run-ui", valid_jobs=1),
-        diagnostics=[
-            {"url": "https://example.com/jobs/2", "error": "empty_page: no text"}
-        ],
+        diagnostics=[{"url": "https://example.com/jobs/2", "error": "empty_page: no text"}],
         execution_trace=[{"node": "planner", "summary": "planned 3 queries"}],
         artifacts={"report": report},
     )
@@ -177,7 +175,9 @@ def test_sync_provider_secrets_fills_missing_env(monkeypatch) -> None:
     import streamlit as st
 
     monkeypatch.setattr(
-        st, "secrets", dict.fromkeys(PROVIDER_API_KEY_ENV.values(), "sk-from-secrets"),
+        st,
+        "secrets",
+        dict.fromkeys(PROVIDER_API_KEY_ENV.values(), "sk-from-secrets"),
         raising=False,
     )
 
@@ -284,6 +284,7 @@ def test_demo_notice_marks_fixture_data(tmp_path: Path) -> None:
 
 
 # ── 公开演示的成本保护:LLM 会话限流 ──
+
 
 def test_llm_run_budget_allows_then_blocks():
     """公开演示定位:任何人可体验,但 LLM 额度有限 —
