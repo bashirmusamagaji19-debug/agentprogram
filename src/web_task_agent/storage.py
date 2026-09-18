@@ -193,9 +193,7 @@ class JobRepository:
             run_id=row["run_id"],
             started_at=datetime.fromisoformat(row["started_at"]),
             finished_at=(
-                datetime.fromisoformat(row["finished_at"])
-                if row["finished_at"]
-                else None
+                datetime.fromisoformat(row["finished_at"]) if row["finished_at"] else None
             ),
             pages_visited=row["pages_visited"],
             jobs_found=row["jobs_found"],
@@ -287,7 +285,9 @@ class JobRepository:
         if "canonical_url" not in columns:
             conn.execute("ALTER TABLE page_cache ADD COLUMN canonical_url TEXT NOT NULL DEFAULT ''")
         if "content_origin" not in columns:
-            conn.execute("ALTER TABLE page_cache ADD COLUMN content_origin TEXT NOT NULL DEFAULT ''")
+            conn.execute(
+                "ALTER TABLE page_cache ADD COLUMN content_origin TEXT NOT NULL DEFAULT ''"
+            )
 
     def _fetch_cache_row(self, url: str) -> sqlite3.Row | None:
         with self._connection() as conn:

@@ -140,9 +140,7 @@ async def test_planner_sends_compact_state_without_resume_or_page_body():
 async def test_planner_records_successful_call_telemetry_and_usage():
     def transport(url, headers, payload, timeout_seconds):
         return {
-            "choices": [
-                {"message": {"content": '{"action":"extract_text","reason":"Ready."}'}}
-            ],
+            "choices": [{"message": {"content": '{"action":"extract_text","reason":"Ready."}'}}],
             "usage": {
                 "prompt_tokens": 11,
                 "completion_tokens": 4,

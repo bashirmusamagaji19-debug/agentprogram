@@ -76,13 +76,9 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
         "thread_id": state.thread_id or None,
         "hitl_status": hitl_status,
         "pending_approval": (
-            state.pending_approval.public_payload()
-            if state.pending_approval is not None
-            else None
+            state.pending_approval.public_payload() if state.pending_approval is not None else None
         ),
-        "approval_audit": [
-            event.model_dump(mode="json") for event in state.approval_audit
-        ],
+        "approval_audit": [event.model_dump(mode="json") for event in state.approval_audit],
         "goal": {
             "keyword": state.user.keyword,
             "location": state.user.location,

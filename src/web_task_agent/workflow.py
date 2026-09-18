@@ -276,9 +276,7 @@ class WebTaskWorkflow:
             metrics.duplicate_jobs = int(state.metadata.get("duplicate_jobs", 0))
             metrics.failed_pages = len(state.failed_urls)
             metrics.avg_steps_per_job = (
-                round(metrics.pages_visited / len(state.jobs), 2)
-                if state.jobs
-                else 0.0
+                round(metrics.pages_visited / len(state.jobs), 2) if state.jobs else 0.0
             )
             metrics.finished_at = datetime.now(UTC)
         self._record_trace(

@@ -60,7 +60,9 @@ async def main() -> int:
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     # OS 环境变量可能有旧 key 且 load_dotenv 默认不覆盖——强制以 .env 为准
     env_key = ""
-    for line in (Path(__file__).resolve().parents[1] / ".env").read_text(encoding="utf-8").splitlines():
+    for line in (
+        (Path(__file__).resolve().parents[1] / ".env").read_text(encoding="utf-8").splitlines()
+    ):
         if line.startswith("DASHSCOPE_API_KEY="):
             env_key = line.split("=", 1)[1].strip()
             break
@@ -86,7 +88,15 @@ async def main() -> int:
         llm_job = rule_with_llm.extract(page)  # 规则 confidence<0.6 时触发 LLM
         used_llm = llm_job is not rule_job
         verdict = verifier.verify(llm_job)
-        rows.append({"label": label, "rule": rule_job, "llm": llm_job, "used_llm": used_llm, "verdict": verdict})
+        rows.append(
+            {
+                "label": label,
+                "rule": rule_job,
+                "llm": llm_job,
+                "used_llm": used_llm,
+                "verdict": verdict,
+            }
+        )
         await asyncio.sleep(2)  # 低频礼貌间隔
 
     field_names = ["title", "company", "location", "requirements", "responsibilities"]
@@ -105,7 +115,15 @@ async def main() -> int:
     print("\n=== LLM 抽取内容抽查 ===")
     for row in rows:
         job = row["llm"]
-        print(f"\n### {row['label']} (confidence={job.confidence:.2f}, verifier={'通过' if row['verdict'].is_valid else '拦截: ' + '; '.join(row['verdict'].reasons)})")
+        verdict = (
+            "通过"
+            if row["verdict"].is_valid
+            else "拦截: " + "; ".join(row["verdict"].reasons)
+        )
+        print(
+            f"\n### {row['label']} "
+            f"(confidence={job.confidence:.2f}, verifier={verdict})"
+        )
         print(f"    title    : {_short(job.title, 70)}")
         print(f"    company  : {_short(job.company, 50)} | location: {_short(job.location, 30)}")
         print(f"    skills   : {json.dumps(job.skills[:8], ensure_ascii=False)}")

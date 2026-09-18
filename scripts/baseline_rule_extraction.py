@@ -62,15 +62,17 @@ async def main() -> int:
             "responsibilities": job.responsibilities,
         }
         ok = {name: _field_ok(name, value) for name, value in fields.items()}
-        rows.append({
-            "label": label,
-            "ok": ok,
-            "confidence": job.confidence,
-            "skills_n": len(job.skills),
-            "skills_preview": [s[:40] for s in job.skills[:5]],
-            "req_preview": job.requirements[:120],
-            "title_actual": job.title[:60],
-        })
+        rows.append(
+            {
+                "label": label,
+                "ok": ok,
+                "confidence": job.confidence,
+                "skills_n": len(job.skills),
+                "skills_preview": [s[:40] for s in job.skills[:5]],
+                "req_preview": job.requirements[:120],
+                "title_actual": job.title[:60],
+            }
+        )
         await asyncio.sleep(2)  # 低频礼貌间隔
 
     # 汇总矩阵

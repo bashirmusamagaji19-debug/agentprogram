@@ -69,9 +69,7 @@ class OpenAiCompatibleAgentPlanner:
                 self.timeout_seconds,
             )
             content = self._response_content(response)
-            decision = AgentDecision.model_validate(
-                json.loads(self._strip_code_fence(content))
-            )
+            decision = AgentDecision.model_validate(json.loads(self._strip_code_fence(content)))
         except Exception:
             self.telemetry.failed_calls += 1
             raise
@@ -87,9 +85,7 @@ class OpenAiCompatibleAgentPlanner:
         if not isinstance(usage, dict):
             return
         self.telemetry.prompt_tokens += self._non_negative_int(usage.get("prompt_tokens"))
-        self.telemetry.completion_tokens += self._non_negative_int(
-            usage.get("completion_tokens")
-        )
+        self.telemetry.completion_tokens += self._non_negative_int(usage.get("completion_tokens"))
         self.telemetry.total_tokens += self._non_negative_int(usage.get("total_tokens"))
 
     @staticmethod

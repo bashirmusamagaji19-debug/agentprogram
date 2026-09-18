@@ -50,11 +50,11 @@ async def main() -> int:
 
     print(f"{'岗位':<28} {'结果':<12} {'标题':<24} 正文长度")
     print("-" * 100)
-    for label, status, title, length, preview in results:
+    for label, status, title, length, _preview in results:
         title_short = (title or "")[:22]
         print(f"{label:<28} {status:<12} {title_short:<24} {length}")
     print("-" * 100)
-    for label, status, title, length, preview in results:
+    for label, status, _title, length, preview in results:
         print(f"\n### {label} [{status}] len={length}")
         print(f"    {preview}")
 

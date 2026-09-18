@@ -40,9 +40,7 @@ SKILL_ALIAS_GROUPS: list[tuple[str, ...]] = [
 ]
 
 _ALIAS_TO_CANONICAL: dict[str, str] = {
-    alias: group[0]
-    for group in SKILL_ALIAS_GROUPS
-    for alias in group
+    alias: group[0] for group in SKILL_ALIAS_GROUPS for alias in group
 }
 
 

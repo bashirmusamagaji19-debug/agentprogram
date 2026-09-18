@@ -243,10 +243,7 @@ class CachedPageLoader:
         # 缓存命中也要过内容门槛：门槛收紧（50→120，#21）前写入的旧壳页
         # （腾讯 SPA 11 字符、第三方站兼容提示 98 字符）在 TTL 内仍会命中，
         # 空壳页抽出相同 title 后互判重复（#25）。低于门槛视为缓存失效重新抓取。
-        if (
-            cached is not None
-            and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS
-        ):
+        if cached is not None and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
             return cached
         page = await self._loader(url)
         self._repository.cache_page(page)
@@ -285,7 +282,9 @@ class HttpPageLoader:
         except URLError as exc:
             reason = getattr(exc, "reason", None)
             if isinstance(reason, (socket.timeout, TimeoutError)):
-                raise PageTimeoutError(f"connection timed out after {self.timeout_seconds}s: {url}") from exc
+                raise PageTimeoutError(
+                    f"connection timed out after {self.timeout_seconds}s: {url}"
+                ) from exc
             if isinstance(reason, OSError) and "getaddrinfo" in str(reason).lower():
                 raise PageTimeoutError(f"DNS resolution failed: {url}") from exc
             raise PageTimeoutError(f"URL error: {url} — {exc}") from exc

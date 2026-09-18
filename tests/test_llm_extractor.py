@@ -73,9 +73,7 @@ def test_extractor_prompt_mentions_skills_and_bilingual_content():
         api_key="test-key",
         transport=fake_transport,
     )
-    extractor(
-        BrowserPage(url="https://example.com/x", title="t", content="c", source="s")
-    )
+    extractor(BrowserPage(url="https://example.com/x", title="t", content="c", source="s"))
 
     # fake_transport 重新定义拿不到 payload——直接调 _payload 断言
     payload = extractor._payload(
@@ -143,9 +141,7 @@ def test_extractor_ignores_non_list_skills():
         transport=fake_transport,
     )
 
-    fields = extractor(
-        BrowserPage(url="https://example.com/x", title="t", content="c", source="s")
-    )
+    fields = extractor(BrowserPage(url="https://example.com/x", title="t", content="c", source="s"))
 
     assert fields["skills"] == []
 
@@ -177,15 +173,17 @@ def test_demo_llm_matcher_computes_skill_overlap():
     from web_task_agent.llm_extractor import DemoLlmMatcher
 
     matcher = DemoLlmMatcher()
-    result = matcher({
-        "user_skills": "Python, LangGraph",
-        "user_resume": "Built browser agents with FastAPI.",
-        "job_title": "AI Agent Intern",
-        "job_company": "Example AI",
-        "job_requirements": "Python, FastAPI, SQL",
-        "job_responsibilities": "Build browser agents",
-        "job_skills": "Python, FastAPI, SQL",
-    })
+    result = matcher(
+        {
+            "user_skills": "Python, LangGraph",
+            "user_resume": "Built browser agents with FastAPI.",
+            "job_title": "AI Agent Intern",
+            "job_company": "Example AI",
+            "job_requirements": "Python, FastAPI, SQL",
+            "job_responsibilities": "Build browser agents",
+            "job_skills": "Python, FastAPI, SQL",
+        }
+    )
 
     assert result["score"] == 0.67  # 2/3
     assert result["matched_skills"] == ["python", "fastapi"]
@@ -198,15 +196,17 @@ def test_demo_llm_matcher_high_match_when_all_skills_present():
     from web_task_agent.llm_extractor import DemoLlmMatcher
 
     matcher = DemoLlmMatcher()
-    result = matcher({
-        "user_skills": "Python, LangGraph, LLM",
-        "user_resume": "",
-        "job_title": "AI Intern",
-        "job_company": "Example",
-        "job_requirements": "",
-        "job_responsibilities": "",
-        "job_skills": "Python, LangGraph",
-    })
+    result = matcher(
+        {
+            "user_skills": "Python, LangGraph, LLM",
+            "user_resume": "",
+            "job_title": "AI Intern",
+            "job_company": "Example",
+            "job_requirements": "",
+            "job_responsibilities": "",
+            "job_skills": "Python, LangGraph",
+        }
+    )
 
     assert result["score"] == 1.0
     assert result["priority"] == "high"
@@ -217,15 +217,17 @@ def test_demo_llm_matcher_zero_match_when_no_overlap():
     from web_task_agent.llm_extractor import DemoLlmMatcher
 
     matcher = DemoLlmMatcher()
-    result = matcher({
-        "user_skills": "Java, Spring",
-        "user_resume": "",
-        "job_title": "AI Intern",
-        "job_company": "Example",
-        "job_requirements": "",
-        "job_responsibilities": "",
-        "job_skills": "Python, LangGraph",
-    })
+    result = matcher(
+        {
+            "user_skills": "Java, Spring",
+            "user_resume": "",
+            "job_title": "AI Intern",
+            "job_company": "Example",
+            "job_requirements": "",
+            "job_responsibilities": "",
+            "job_skills": "Python, LangGraph",
+        }
+    )
 
     assert result["score"] == 0.0
     assert result["priority"] == "low"

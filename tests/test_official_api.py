@@ -48,14 +48,10 @@ async def test_fetch_tencent_builds_bypostid_request(monkeypatch: pytest.MonkeyP
             }
         )
 
-    monkeypatch.setattr(
-        "web_task_agent.official_api.url_request.urlopen", fake_urlopen
-    )
+    monkeypatch.setattr("web_task_agent.official_api.url_request.urlopen", fake_urlopen)
     fetcher = OfficialApiContentFetcher()
 
-    content = await fetcher.fetch(
-        "https://careers.tencent.com/jobdesc.html?postId=123456"
-    )
+    content = await fetcher.fetch("https://careers.tencent.com/jobdesc.html?postId=123456")
 
     assert "postId=123456" in captured["url"]
     assert "language=zh-cn" in captured["url"]
@@ -122,14 +118,10 @@ async def test_fetch_meituan_filters_list_by_job_union_id(
             )
         return FakeResponse({"data": {"list": items}})
 
-    monkeypatch.setattr(
-        "web_task_agent.official_api.url_request.urlopen", fake_urlopen
-    )
+    monkeypatch.setattr("web_task_agent.official_api.url_request.urlopen", fake_urlopen)
     fetcher = OfficialApiContentFetcher()
 
-    content = await fetcher.fetch(
-        "https://zhaopin.meituan.com/jobdetail?jobUnionId=4241222974"
-    )
+    content = await fetcher.fetch("https://zhaopin.meituan.com/jobdetail?jobUnionId=4241222974")
 
     assert captured["body"]["page"]["pageNo"] == 2  # 翻到第 2 页才命中
     assert content.title == "大模型应用实习生"
@@ -149,9 +141,7 @@ async def test_fetch_meituan_not_found_raises(monkeypatch: pytest.MonkeyPatch):
     fetcher = OfficialApiContentFetcher()
 
     with pytest.raises(OfficialApiUnavailableError):
-        await fetcher.fetch(
-            "https://zhaopin.meituan.com/jobdetail?jobUnionId=missing"
-        )
+        await fetcher.fetch("https://zhaopin.meituan.com/jobdetail?jobUnionId=missing")
 
 
 @pytest.mark.asyncio
@@ -230,9 +220,7 @@ async def test_campus_api_empty_data_raises_unavailable(monkeypatch: pytest.Monk
     fetcher = OfficialApiContentFetcher()
 
     with pytest.raises(OfficialApiUnavailableError, match="tencent campus detail empty"):
-        await fetcher.fetch(
-            "https://careers.tencent.com/jobdesc.html?postId=000000"
-        )
+        await fetcher.fetch("https://careers.tencent.com/jobdesc.html?postId=000000")
     # 确认两库都真实尝试过，而非第一跳直接外抛
     assert len(calls) == 2
     assert "join.qq.com" in calls[1]
@@ -260,9 +248,7 @@ async def test_official_api_content_rule_extractable(monkeypatch: pytest.MonkeyP
         ),
     )
     fetcher = OfficialApiContentFetcher()
-    content = await fetcher.fetch(
-        "https://careers.tencent.com/jobdesc.html?postId=123456"
-    )
+    content = await fetcher.fetch("https://careers.tencent.com/jobdesc.html?postId=123456")
     page = BrowserPage(
         url="https://careers.tencent.com/jobdesc.html?postId=123456",
         title=content.title,
@@ -285,13 +271,14 @@ async def test_http_500_with_e1005_maps_to_unavailable(
 ):
     def fake_urlopen(req, timeout):  # noqa: ANN001
         raise HTTPError(
-            req.full_url, 500, "Internal Server Error", hdrs=None,  # type: ignore[arg-type]
+            req.full_url,
+            500,
+            "Internal Server Error",
+            hdrs=None,  # type: ignore[arg-type]
             fp=None,  # type: ignore[arg-type]
         )
 
-    monkeypatch.setattr(
-        "web_task_agent.official_api.url_request.urlopen", fake_urlopen
-    )
+    monkeypatch.setattr("web_task_agent.official_api.url_request.urlopen", fake_urlopen)
     # HTTPError.read() 在 fp=None 时会抛错——测试里容忍该路径归为 PageHttpError 分支
     fetcher = OfficialApiContentFetcher()
     try:
@@ -339,9 +326,7 @@ async def test_campus_all_topic_fields_null_raises_unavailable(
     fetcher = OfficialApiContentFetcher()
 
     with pytest.raises(OfficialApiUnavailableError):
-        await fetcher.fetch(
-            "https://careers.tencent.com/jobdesc.html?postId=1231829074687944725"
-        )
+        await fetcher.fetch("https://careers.tencent.com/jobdesc.html?postId=1231829074687944725")
 
 
 @pytest.mark.asyncio
@@ -363,15 +348,11 @@ async def test_generic_code_500_without_e1005_does_not_fall_back_to_campus(
             fp=io.BytesIO(b'{"Code":500,"CodeDesc":"ServerError","Data":null}'),
         )
 
-    monkeypatch.setattr(
-        "web_task_agent.official_api.url_request.urlopen", fake_urlopen
-    )
+    monkeypatch.setattr("web_task_agent.official_api.url_request.urlopen", fake_urlopen)
     fetcher = OfficialApiContentFetcher()
 
     with pytest.raises(PageHttpError):
-        await fetcher.fetch(
-            "https://careers.tencent.com/jobdesc.html?postId=2084123456789012345"
-        )
+        await fetcher.fetch("https://careers.tencent.com/jobdesc.html?postId=2084123456789012345")
 
     assert len(calls) == 1  # 只有一跳，没有 join.qq.com 兜底
 
@@ -429,9 +410,7 @@ async def test_social_hit_keeps_original_url(monkeypatch: pytest.MonkeyPatch):
     )
     fetcher = OfficialApiContentFetcher()
 
-    content = await fetcher.fetch(
-        "https://careers.tencent.com/jobdesc.html?postId=123456"
-    )
+    content = await fetcher.fetch("https://careers.tencent.com/jobdesc.html?postId=123456")
 
     assert content.canonical_url == ""
 
@@ -448,7 +427,10 @@ async def test_campus_fallback_accepts_desc_request_fields(
             "workCityList": ["深圳总部"],
             "topicDetail": "",
             "topicRequirement": "",
-            "desc": "1、负责产品业务系统的全栈开发，参与需求分析、架构设计与开发交付，构建基于大模型的全链路应用系统，实现端到端的AI应用落地。",
+            "desc": (
+                "1、负责产品业务系统的全栈开发，参与需求分析、架构设计与开发交付，"
+                "构建基于大模型的全链路应用系统，实现端到端的AI应用落地。"
+            ),
             "request": "1、本科及以上学历，计算机相关专业，具备扎实的编程功底与工程实践能力。",
         }
     }

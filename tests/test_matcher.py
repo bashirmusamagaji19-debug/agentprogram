@@ -154,6 +154,7 @@ def test_matcher_falls_back_to_rule_when_llm_errors():
 
 def test_llm_missing_score_keeps_rule_score_without_discount_note():
     """LLM 返回缺 score 键：沿用规则分，不折减也不加折减标注（#27）。"""
+
     def no_score_llm(payload: dict) -> dict:
         return {"reason": "LLM 判断", "priority": "high"}  # 缺 score
 
@@ -171,6 +172,7 @@ def test_llm_missing_score_keeps_rule_score_without_discount_note():
 
 def test_discount_never_below_rule_score():
     """规则 [0.4,0.6) 有真实关键词证据：折减不得把分数压到规则分以下（#27）。"""
+
     def llm(payload: dict) -> dict:
         return {"score": 0.7, "reason": "勉强", "priority": "medium"}
 
@@ -189,6 +191,7 @@ def test_discount_never_below_rule_score():
 
 def test_discount_param_is_configurable():
     """llm_discount 构造参数可配置（此前全仓库无测试传入）。"""
+
     def llm(payload: dict) -> dict:
         return {"score": 0.8, "reason": "r", "priority": "high"}
 

@@ -1,4 +1,3 @@
-
 import browser_use
 import pytest
 
@@ -127,9 +126,7 @@ async def test_browser_use_search_discovers_job_links_from_metadata():
 
     pages = await BrowserUseClient(page_loader=loader).search("AI intern", target_count=2)
 
-    assert pages[0].metadata["candidate_urls"] == [
-        "https://job-boards.greenhouse.io/acme/jobs/123"
-    ]
+    assert pages[0].metadata["candidate_urls"] == ["https://job-boards.greenhouse.io/acme/jobs/123"]
 
 
 @pytest.mark.asyncio
@@ -375,6 +372,7 @@ def test_http_loader_raises_page_timeout_error_on_connection_failure():
     browser_module.request.urlopen = fake_urlopen
     try:
         import asyncio
+
         with pytest.raises(PageTimeoutError) as exc:
             asyncio.run(loader("https://example.com/timeout"))
         assert "timed out" in str(exc.value)
@@ -399,6 +397,7 @@ def test_http_loader_raises_page_http_error_on_404():
     browser_module.request.urlopen = fake_urlopen
     try:
         import asyncio
+
         with pytest.raises(PageHttpError) as exc:
             asyncio.run(loader("https://example.com/404"))
         assert exc.value.status_code == 404
@@ -417,11 +416,13 @@ def test_http_loader_raises_page_empty_error_on_js_shell():
 
     def fake_urlopen(req, timeout=None):
         import io
+
         return io.BytesIO(b"<html><body><script>window.x=1;</script></body></html>")
 
     browser_module.request.urlopen = fake_urlopen
     try:
         import asyncio
+
         with pytest.raises(PageEmptyError) as exc:
             asyncio.run(loader("https://example.com/js-only"))
         assert "empty content" in str(exc.value)

@@ -94,8 +94,8 @@ class PageExtractor:
         )
         location = fields.get("location") or inferred_fields.get("location") or "Unknown Location"
         requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
-        responsibilities = (
-            fields.get("responsibilities") or inferred_fields.get("responsibilities", "")
+        responsibilities = fields.get("responsibilities") or inferred_fields.get(
+            "responsibilities", ""
         )
 
         job = JobPosting(
@@ -180,11 +180,7 @@ class PageExtractor:
 
     def _parse_labeled_lines(self, content: str) -> dict[str, str]:
         parsed: dict[str, str] = {}
-        label_map = {
-            label: field
-            for field, labels in self._LABELS.items()
-            for label in labels
-        }
+        label_map = {label: field for field, labels in self._LABELS.items() for label in labels}
         lines = content.splitlines()
 
         index = 0
@@ -386,11 +382,7 @@ class PageExtractor:
         return any(token in lower_value for token in location_tokens)
 
     def _has_labeled_lines(self, lines: list[str]) -> bool:
-        known_labels = {
-            label
-            for labels in self._LABELS.values()
-            for label in labels
-        }
+        known_labels = {label for labels in self._LABELS.values() for label in labels}
         for line in lines:
             label, separator, value = self._split_label_line(line)
             # 同行值式("公司: 腾讯")与 section 标题式("岗位职责:"值为空)
@@ -409,11 +401,7 @@ class PageExtractor:
         return False
 
     def _extract_skills(self, requirements: str) -> list[str]:
-        return [
-            skill.strip()
-            for skill in re.split(r"[,\uFF0C]", requirements)
-            if skill.strip()
-        ]
+        return [skill.strip() for skill in re.split(r"[,\uFF0C]", requirements) if skill.strip()]
 
     def _clean_skill_list(self, skills: Any) -> list[str]:
         """LLM skills 列表的最后防御：只留非空字符串，去重保序。"""

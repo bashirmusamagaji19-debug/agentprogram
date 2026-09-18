@@ -65,10 +65,7 @@ def test_halfwidth_colon_chinese_labels_still_work():
         url="https://example.com/cn",
         title="t",
         content=(
-            "职位名称: 后端开发实习生\n"
-            "公司名称: 示例公司\n"
-            "工作地点: 深圳市\n"
-            "任职要求: 熟悉Python\n"
+            "职位名称: 后端开发实习生\n公司名称: 示例公司\n工作地点: 深圳市\n任职要求: 熟悉Python\n"
         ),
         source="fixture",
     )

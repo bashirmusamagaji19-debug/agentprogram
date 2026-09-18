@@ -127,9 +127,7 @@ class OpenAiCompatibleLlmFieldExtractor:
             "company": str(parsed.get("company", "")).strip(),
             "location": str(parsed.get("location", "")).strip(),
             "requirements": self._string_or_join(parsed.get("requirements", "")),
-            "responsibilities": self._string_or_join(
-                parsed.get("responsibilities", "")
-            ),
+            "responsibilities": self._string_or_join(parsed.get("responsibilities", "")),
             "posted_at": str(parsed.get("posted_at", "")).strip(),
             "skills": self._skill_list(parsed.get("skills", [])),
         }
@@ -183,8 +181,8 @@ class OpenAiCompatibleLlmFieldExtractor:
                         "- skills: array of short normalized skill names "
                         "extracted from the requirements and responsibilities "
                         "(tech stack, tools, domains; Chinese or English "
-                        "as written in the posting; e.g. [\"Python\", \"大模型\", "
-                        "\"LangChain\", \"RAG\"]). Never output whole sentences "
+                        'as written in the posting; e.g. ["Python", "大模型", '
+                        '"LangChain", "RAG"]). Never output whole sentences '
                         "or numbered list items as skills.\n\n"
                         f"URL: {page.url}\nTitle: {page.title}\nContent:\n{page.content}"
                     ),
@@ -363,7 +361,7 @@ class DemoLlmMatcher:
             payload.get("user_skills", "") + " " + payload.get("user_resume", "")
         ).casefold()
         job_skills_raw = payload.get("job_skills", "").casefold()
-        job_reqs = payload.get("job_requirements", "").casefold()
+        payload.get("job_requirements", "").casefold()
         job_title = payload.get("job_title", "").casefold()
 
         job_skills = [s.strip() for s in re.split(r"[,\n]+", job_skills_raw) if s.strip()]
@@ -388,9 +386,9 @@ class DemoLlmMatcher:
                 f"还需补强 {', '.join(missing) if missing else '无需补强'}。"
             ),
             "priority": priority,
-            "suggested_actions": [
-                f"围绕 {s} 补一个最小可展示项目" for s in missing
-            ] if missing else ["匹配度高，优先准备投递材料。"],
+            "suggested_actions": [f"围绕 {s} 补一个最小可展示项目" for s in missing]
+            if missing
+            else ["匹配度高，优先准备投递材料。"],
         }
 
 

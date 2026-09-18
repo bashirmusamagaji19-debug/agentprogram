@@ -167,8 +167,8 @@ def artifact_cards_html(result: UiRunResult) -> str:
             continue
         cards.append(
             f'<div class="ui-download-card"><strong>{labels[artifact_key]}</strong>'
-            f'<span>{ARTIFACT_DESCRIPTIONS[artifact_key]}</span>'
-            f'<code>{path.name}</code></div>'
+            f"<span>{ARTIFACT_DESCRIPTIONS[artifact_key]}</span>"
+            f"<code>{path.name}</code></div>"
         )
     return '<div class="ui-download-grid">' + "".join(cards) + "</div>"
 
@@ -306,7 +306,10 @@ def main() -> None:
     st.set_page_config(page_title="岗位 Agent 运行台", layout="wide")
     result = st.session_state.get("latest_ui_result")
     st.markdown(app_styles(), unsafe_allow_html=True)
-    st.markdown(brand_header_html(result if isinstance(result, UiRunResult) else None), unsafe_allow_html=True)
+    st.markdown(
+        brand_header_html(result if isinstance(result, UiRunResult) else None),
+        unsafe_allow_html=True,
+    )
 
     with st.sidebar:
         st.markdown(
@@ -325,7 +328,9 @@ def main() -> None:
             "聚合岗位（上传/URL）": "aggregator",
             "指定岗位 URL": "seed_urls",
         }[mode_label or "内置 Demo"]
-        st.markdown(f'<div class="ui-mode-hint">{mode_hint(mode_key)}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="ui-mode-hint">{mode_hint(mode_key)}</div>', unsafe_allow_html=True
+        )
         if mode_label == "内置 Demo":
             st.caption("岗位链接指向 example.com，仅用于演示链路。")
         official_specs = None
@@ -334,45 +339,108 @@ def main() -> None:
             official_specs = st.multiselect(
                 "发现源",
                 [
-                    "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
-                    "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
-                    "robotera", "fourier", "ubtech", "jd", "pinduoduo",
-                    "ctrip", "huawei", "nio", "liauto", "byd", "geely",
-                    "baidu", "bing-serp",
-                    "zhongqi", "xinghai", "tarsrobot", "x2robot", "limx",
-                    "ai2robotics", "astribot", "dexmal", "booster", "deeprobotics",
-                    "moonshot", "zhipu", "minimax", "stepfun", "deepseek", "baichuan",
-                    "modelbest", "shengshu", "enflame",
+                    "tencent-campus",
+                    "meituan",
+                    "unitree",
+                    "xiaomi",
+                    "netease",
+                    "xiaohongshu",
+                    "mihoyo",
+                    "xpeng",
+                    "agibot",
+                    "galaxea",
+                    "robotera",
+                    "fourier",
+                    "ubtech",
+                    "jd",
+                    "pinduoduo",
+                    "ctrip",
+                    "huawei",
+                    "nio",
+                    "liauto",
+                    "byd",
+                    "geely",
+                    "baidu",
+                    "bing-serp",
+                    "zhongqi",
+                    "xinghai",
+                    "tarsrobot",
+                    "x2robot",
+                    "limx",
+                    "ai2robotics",
+                    "astribot",
+                    "dexmal",
+                    "booster",
+                    "deeprobotics",
+                    "moonshot",
+                    "zhipu",
+                    "minimax",
+                    "stepfun",
+                    "deepseek",
+                    "baichuan",
+                    "modelbest",
+                    "shengshu",
+                    "enflame",
                 ],
                 default=[
-                    "tencent-campus", "meituan", "unitree", "xiaomi", "netease",
-                    "xiaohongshu", "mihoyo", "xpeng", "agibot", "galaxea",
-                    "robotera", "fourier", "ubtech", "jd", "pinduoduo",
-                    "ctrip", "huawei", "nio", "liauto", "byd", "geely",
-                    "baidu", "bing-serp",
-                    "zhongqi", "xinghai", "tarsrobot", "x2robot", "limx",
-                    "ai2robotics", "astribot", "dexmal", "booster", "deeprobotics",
-                    "moonshot", "zhipu", "minimax", "stepfun", "deepseek", "baichuan",
-                    "modelbest", "shengshu", "enflame",
+                    "tencent-campus",
+                    "meituan",
+                    "unitree",
+                    "xiaomi",
+                    "netease",
+                    "xiaohongshu",
+                    "mihoyo",
+                    "xpeng",
+                    "agibot",
+                    "galaxea",
+                    "robotera",
+                    "fourier",
+                    "ubtech",
+                    "jd",
+                    "pinduoduo",
+                    "ctrip",
+                    "huawei",
+                    "nio",
+                    "liauto",
+                    "byd",
+                    "geely",
+                    "baidu",
+                    "bing-serp",
+                    "zhongqi",
+                    "xinghai",
+                    "tarsrobot",
+                    "x2robot",
+                    "limx",
+                    "ai2robotics",
+                    "astribot",
+                    "dexmal",
+                    "booster",
+                    "deeprobotics",
+                    "moonshot",
+                    "zhipu",
+                    "minimax",
+                    "stepfun",
+                    "deepseek",
+                    "baichuan",
+                    "modelbest",
+                    "shengshu",
+                    "enflame",
                 ],
             )
         st.markdown('<div class="ui-sidebar-label">模型能力</div>', unsafe_allow_html=True)
         use_llm_extractor = st.toggle("启用 LLM 抽取", value=False)
         extractor_provider = (
-            st.selectbox("抽取模型", ["qwen", "deepseek"])
-            if use_llm_extractor
-            else None
+            st.selectbox("抽取模型", ["qwen", "deepseek"]) if use_llm_extractor else None
         )
         use_llm_match = st.toggle("启用 LLM 匹配", value=False)
-        match_provider = (
-            st.selectbox("匹配模型", ["qwen", "deepseek"])
-            if use_llm_match
-            else None
-        )
+        match_provider = st.selectbox("匹配模型", ["qwen", "deepseek"]) if use_llm_match else None
 
     with st.form("agent-run-form"):
         st.markdown('<div class="ui-form-title">配置一次岗位扫描</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ui-form-caption">先设定搜索范围，再让 Agent 发现、验证并解释岗位匹配。</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="ui-form-caption">先设定搜索范围，再让 Agent 发现、验证并解释岗位匹配。</div>',
+            unsafe_allow_html=True,
+        )
         st.markdown('<div class="ui-section-label">搜索条件</div>', unsafe_allow_html=True)
         first, second = st.columns(2)
         with first:
@@ -384,8 +452,12 @@ def main() -> None:
                 "目标岗位数", min_value=1, max_value=50, value=10, step=1
             )
 
-        st.markdown('<div class="ui-section-label">候选人信息（可选）</div>', unsafe_allow_html=True)
-        resume_text = st.text_area("简历文本", height=180, placeholder="粘贴简历摘要，Agent 会用它解释匹配技能和缺口。")
+        st.markdown(
+            '<div class="ui-section-label">候选人信息（可选）</div>', unsafe_allow_html=True
+        )
+        resume_text = st.text_area(
+            "简历文本", height=180, placeholder="粘贴简历摘要，Agent 会用它解释匹配技能和缺口。"
+        )
         resume_upload = st.file_uploader("简历文件", type=["md", "txt"])
         aggregator_upload = None
         aggregator_url_text = ""

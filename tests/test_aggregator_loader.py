@@ -28,7 +28,10 @@ class FakeOfficialApi:
 
         class _Content:
             # 正文必须过 120 字符门槛（#27 起官方 API 路径与 http/jd_text 同门槛）
-            content = "岗位职责：官方API正文，长度需要超过一百二十个字符的有效内容门槛，用于确认解析链命中官方接口路径，这里持续填充内容确保长度达标，保证测试稳定不抖动不误报。" * 2
+            content = (
+                "岗位职责：官方API正文，长度需要超过一百二十个字符的有效内容门槛，用于确认解析链命中官方接口路径，这里持续填充内容确保长度达标，保证测试稳定不抖动不误报。"
+                * 2
+            )
             title = "官方API标题"
             company = "官方公司"
 
@@ -54,13 +57,17 @@ def jobs() -> list[DiscoveredJob]:
             url="https://a.example.com/job/1",
             title="大模型算法实习生",
             company="示例A",
-            jd_text="岗位职责：jd兜底正文，需要有足够的长度才能通过有效内容门槛（120 字符），这里持续填充长度直到超过门槛线为止，确保测试稳定。" * 2,
+            jd_text=(
+                "岗位职责：jd兜底正文，需要有足够的长度才能通过有效内容门槛"
+                "（120 字符），这里持续填充长度直到超过门槛线为止，确保测试稳定。"
+            )
+            * 2,
         ),
         DiscoveredJob(
             url="https://b.example.com/job/2",
             title="算法实习生",
             company="示例B",
-            jd_text="岗位职责：B站兜底正文。" + "内容填充。"*25,
+            jd_text="岗位职责：B站兜底正文。" + "内容填充。" * 25,
         ),
     ]
 
@@ -76,9 +83,7 @@ def repo(tmp_path: Path) -> JobRepository:
 async def test_official_api_wins_over_http_and_jd_text(jobs, repo):
     official = FakeOfficialApi()
     http = FakeHttpLoader(pages={jobs[0].url: "HTTP正文" * 50})
-    loader = AggregatorPageLoader(
-        jobs, official_api=official, http_loader=http, repository=repo
-    )
+    loader = AggregatorPageLoader(jobs, official_api=official, http_loader=http, repository=repo)
 
     page = await loader(jobs[0].url)
 
@@ -174,7 +179,8 @@ async def test_boilerplate_http_page_below_threshold_rejected():
     job = DiscoveredJob(
         url="https://c.example.com/job/5",
         title="算法实习生",
-        jd_text="岗位职责：兜底正文，长度足够通过有效内容门槛检查，继续填充内容直到超过一百二十个字符的门槛线，保证测试稳定不抖动。" * 3,
+        jd_text="岗位职责：兜底正文，长度足够通过有效内容门槛检查，继续填充内容直到超过一百二十个字符的门槛线，保证测试稳定不抖动。"
+        * 3,
     )
     boilerplate = "【温馨提示】检测到您正在使用兼容模式/旧版IE浏览器，功能可能无法正常使用。\nChrome | Firefox | Edge"
     http = FakeHttpLoader(pages={job.url: boilerplate})
@@ -206,9 +212,7 @@ async def test_stale_shell_page_cache_is_ignored(jobs, repo):
     from web_task_agent.browser import CachedPageLoader, HttpPageLoader
     from web_task_agent.official_api import OfficialApiUnavailableError
 
-    shell_page = BrowserPage(
-        url=jobs[0].url, title="壳", content="热搜", source="browser"
-    )
+    shell_page = BrowserPage(url=jobs[0].url, title="壳", content="热搜", source="browser")
     repo.cache_page(shell_page)  # 模拟旧版本写入的 11 字符壳页缓存
 
     official = FakeOfficialApi()
@@ -274,6 +278,7 @@ async def test_cachedpageloader_ignores_below_threshold_cache(jobs, repo):
 @pytest.mark.asyncio
 async def test_official_api_short_content_falls_through_without_caching(jobs, repo):
     """官方 API 短正文（<120 字符）不得进管线也不得写缓存，落后续兜底（#27）。"""
+
     class ShortOfficialApi:
         def __init__(self) -> None:
             self.calls: list[str] = []
@@ -289,9 +294,7 @@ async def test_official_api_short_content_falls_through_without_caching(jobs, re
             return _Content()
 
     official = ShortOfficialApi()
-    loader = AggregatorPageLoader(
-        jobs, official_api=official, http_loader=None, repository=repo
-    )
+    loader = AggregatorPageLoader(jobs, official_api=official, http_loader=None, repository=repo)
 
     page = await loader(jobs[0].url)
 

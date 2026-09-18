@@ -31,6 +31,7 @@ def test_real_site_benchmark_v2_catalog_has_metadata_and_tasks():
     assert all(case.url.startswith("https://") for case in cases)
 
     task = cases[0].to_evaluation_task()
+    assert task.case_id == cases[0].case_id
     assert task.seed_urls == [cases[0].url]
     assert task.keyword == cases[0].keyword
     assert task.location == cases[0].location
@@ -55,9 +56,11 @@ def test_benchmark_case_rejects_empty_url():
 def test_parse_benchmark_providers_defaults_and_dedupes():
     assert parse_benchmark_providers("") == ["baseline", "llm-demo"]
     assert parse_benchmark_providers(None) == ["baseline", "llm-demo"]
-    assert parse_benchmark_providers(
-        "baseline,llm-demo,baseline,deepseek"
-    ) == ["baseline", "llm-demo", "deepseek"]
+    assert parse_benchmark_providers("baseline,llm-demo,baseline,deepseek") == [
+        "baseline",
+        "llm-demo",
+        "deepseek",
+    ]
 
 
 def test_parse_benchmark_providers_rejects_unknown():
@@ -87,9 +90,7 @@ def _fake_eval(
                 success=bool(completed),
                 failure_category="" if completed else "verification_filtered",
                 failure_reason="" if completed else "no valid jobs",
-                failure_details=""
-                if completed
-                else "confidence below 0.5",
+                failure_details="" if completed else "confidence below 0.5",
             )
         ],
     )
@@ -116,9 +117,7 @@ def test_render_benchmark_markdown_contains_matrix_and_failures():
         providers=[
             BenchmarkProviderResult.from_evaluation(
                 provider="baseline",
-                result=_fake_eval(
-                    completed=0, total=1, failures={"verification_filtered": 1}
-                ),
+                result=_fake_eval(completed=0, total=1, failures={"verification_filtered": 1}),
                 elapsed_seconds=0.1,
             ),
             BenchmarkProviderResult.from_evaluation(

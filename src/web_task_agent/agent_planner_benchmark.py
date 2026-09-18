@@ -80,8 +80,7 @@ class PlannerBenchmarkCaseResult(BaseModel):
             terminal_status=state.terminal_status,
             terminal_reason=state.terminal_reason,
             completed=(
-                state.terminal_status == "completed"
-                and state.terminal_reason == "target_reached"
+                state.terminal_status == "completed" and state.terminal_reason == "target_reached"
             ),
             terminated=state.terminal_status != "running",
             consumed_steps=state.budget.consumed_steps,
@@ -149,9 +148,7 @@ class _ScenarioBrowser:
 
 def parse_planner_benchmark_providers(raw: str | None) -> list[str]:
     requested = raw.split(",") if raw else list(SUPPORTED_PLANNER_BENCHMARK_PROVIDERS)
-    providers = list(
-        dict.fromkeys(item.strip().lower() for item in requested if item.strip())
-    )
+    providers = list(dict.fromkeys(item.strip().lower() for item in requested if item.strip()))
     for provider in providers:
         if provider not in SUPPORTED_PLANNER_BENCHMARK_PROVIDERS:
             raise ValueError(f"Unsupported planner benchmark provider: {provider!r}")

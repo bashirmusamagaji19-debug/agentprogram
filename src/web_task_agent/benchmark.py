@@ -49,6 +49,7 @@ class BenchmarkCase(BaseModel):
 
     def to_evaluation_task(self) -> EvaluationTask:
         return EvaluationTask(
+            case_id=self.case_id,
             keyword=self.keyword,
             location=self.location,
             target_count=1,
@@ -174,8 +175,7 @@ def parse_benchmark_providers(raw: str | None) -> list[str]:
         if provider not in SUPPORTED_BENCHMARK_PROVIDERS:
             supported = ", ".join(sorted(SUPPORTED_BENCHMARK_PROVIDERS))
             raise ValueError(
-                f"Unsupported benchmark provider: {provider!r}. "
-                f"Supported: {supported}"
+                f"Unsupported benchmark provider: {provider!r}. Supported: {supported}"
             )
         if provider not in providers:
             providers.append(provider)
@@ -215,9 +215,7 @@ class BenchmarkProviderResult(BaseModel):
             average_pages_visited=result.average_pages_visited,
             failure_counts=result.failure_counts,
             elapsed_seconds=round(elapsed_seconds, 2),
-            report_path=(
-                result.report_path.as_posix() if result.report_path else ""
-            ),
+            report_path=(result.report_path.as_posix() if result.report_path else ""),
         )
 
 
@@ -241,9 +239,7 @@ class BenchmarkMatrixResult(BaseModel):
 def _failure_summary(failure_counts: dict[str, int]) -> str:
     if not failure_counts:
         return "-"
-    return ", ".join(
-        f"{key}={value}" for key, value in sorted(failure_counts.items())
-    )
+    return ", ".join(f"{key}={value}" for key, value in sorted(failure_counts.items()))
 
 
 def render_benchmark_markdown(result: BenchmarkMatrixResult) -> str:
@@ -275,7 +271,8 @@ def render_benchmark_markdown(result: BenchmarkMatrixResult) -> str:
             "",
             "## Case Catalog",
             "",
-            "| Case ID | Company | ATS | Role Family | Keyword | Location | URL | Expected Signal |",
+            "| Case ID | Company | ATS | Role Family | Keyword | Location | URL "
+            "| Expected Signal |",
             "|---|---|---|---|---|---|---|---|",
         ]
     )
@@ -298,9 +295,7 @@ def write_benchmark_artifacts(
     output.mkdir(parents=True, exist_ok=True)
     json_path = output / "benchmark-v2.json"
     md_path = output / "benchmark-v2.md"
-    json_path.write_text(
-        result.model_dump_json(indent=2), encoding="utf-8"
-    )
+    json_path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     md_path.write_text(render_benchmark_markdown(result), encoding="utf-8")
     return json_path, md_path
 
@@ -325,8 +320,7 @@ async def run_benchmark_matrix(
     """
     if run_provider is None:
         raise RuntimeError(
-            "run_provider must be injected by the CLI layer "
-            "(run_cli_benchmark_v2 provides it)"
+            "run_provider must be injected by the CLI layer (run_cli_benchmark_v2 provides it)"
         )
     tasks = [case.to_evaluation_task() for case in cases]
     provider_results: list[BenchmarkProviderResult] = []

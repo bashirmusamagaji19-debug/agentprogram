@@ -82,9 +82,7 @@ class MarkdownReporter:
         skill_gaps = summarize_skill_gaps(matches or [])
         if skill_gaps:
             lines.extend(["## 技能缺口汇总", ""])
-            lines.extend(
-                f"- {skill}: {count} 个岗位缺失" for skill, count in skill_gaps
-            )
+            lines.extend(f"- {skill}: {count} 个岗位缺失" for skill, count in skill_gaps)
             lines.append("")
 
         self._append_execution_trace(lines, execution_trace)
@@ -167,10 +165,14 @@ class MarkdownReporter:
             [
                 "## 面试讲述要点",
                 "",
-                "- BrowserClient 抽象隔离 fake browser 和 browser-use session adapter，保证 demo 可复现，同时保留真实网页接入边界。",
-                f"- 编排模式: {orchestration_mode}；同一组节点可用顺序执行或 LangGraph 编排，便于解释工作流设计而不是一次性脚本。",
-                "- Agent 执行轨迹记录 planner、browser、extractor、verifier、matcher、reporter 节点摘要，方便展示可观测性和问题定位。",
-                "- 评测闭环通过 fixture、失败分类、JSON 输出和 Dashboard 证明工作流稳定性，避免只依赖单次 prompt demo。",
+                "- BrowserClient 抽象隔离 fake browser 和 browser-use session adapter，"
+                "保证 demo 可复现，同时保留真实网页接入边界。",
+                f"- 编排模式: {orchestration_mode}；同一组节点可用顺序执行或 "
+                "LangGraph 编排，便于解释工作流设计而不是一次性脚本。",
+                "- Agent 执行轨迹记录 planner、browser、extractor、verifier、"
+                "matcher、reporter 节点摘要，方便展示可观测性和问题定位。",
+                "- 评测闭环通过 fixture、失败分类、JSON 输出和 Dashboard "
+                "证明工作流稳定性，避免只依赖单次 prompt demo。",
                 "",
             ]
         )

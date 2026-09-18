@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：`422 passed`、总覆盖率 `89.83%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：`520 passed`、总覆盖率 `84.89%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -246,6 +246,30 @@ API key。批准后使用 `approval_id` 作为业务数据库幂等键；即使 
 ```
 
 **已知边界**（诚实记录，不夸大泛化）：wecruit.hotjob.cn 类第三方站为 JS 壳无官方 API，失败分类兜底；网易 hr.163.com 页面可达但抽取字段质量不稳定；join.qq.com 校招接口依赖其前端未公开承诺的稳定性；标注集 16 条与合成简历结论不代表全量中文招聘站分布。
+
+## Real Job Benchmark V1
+
+`evaluations/real-job-benchmark-v1/` 固定了 2026-09-09 showcase 的 40 条样本：
+37 条有归档正文，3 条保留原始来源失败。目录、人工标签、冻结快照和三轮/六轮汇总均已版本化。
+
+```powershell
+# 3 轮直接 URL 基线 + 3 轮冻结快照基线
+.\.venv\Scripts\python.exe scripts\run_real_job_benchmark.py `
+  --offline --providers baseline,snapshot-baseline --runs 3 `
+  --recommendation-k 6
+```
+
+2026-09-18 首轮基线的结论分两层：
+
+| 路径 | 结果 | 能证明什么 |
+|---|---|---|
+| 直接访问固定 URL | 3 轮均为 0/40 成功；最近一轮 14 个页面可达，失败为 page_drift 20、source_unavailable 6、verification_filtered 14 | 说明原 showcase 依赖官方列表 API/聚合正文；单独保存详情 URL 不能复现实时抓取 |
+| 冻结快照回放 | 3 轮均为 37/37 抽取成功；Title 100%、Company 92.5%、Location 100%、Role family 64.86%、Relevance 81.08% | 说明归档正文上的抽取和规则匹配可重复，P@6/R@6 66.67%、NDCG@6 74.09% |
+
+`Company 92.5%` 的分母包含 3 条已知来源失败；Title、Location、Role family 和
+Relevance 的缺失标签不进入分母，也不填 0。该结果不是全网覆盖率、在线字段准确率或
+真实简历推荐准确率。完整数字、失败分类和每次 run 见 `summary.json`、`summary.md`、
+`summary.html`。
 
 ## 真实 browser-use adapter 状态
 

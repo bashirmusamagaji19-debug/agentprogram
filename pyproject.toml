@@ -44,7 +44,7 @@ show_missing = true
 
 [tool.ruff]
 target-version = "py311"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -52,3 +52,4 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["B011"]
 "src/web_task_agent/streamlit_app.py" = ["E501"]  # 内嵌 CSS/HTML 模板行
+"src/web_task_agent/cli.py" = ["E402"]  # dotenv 必须在业务模块导入前加载
