@@ -9,9 +9,14 @@ htmlcov/
 reports/
 dashboards/
 action-plans/
-evaluations/
+evaluations/*
 !evaluations/ground-truth/
+!evaluations/ground-truth/**
 !evaluations/synthetic-resumes/
+!evaluations/synthetic-resumes/**
+!evaluations/real-job-benchmark-v1/
+!evaluations/real-job-benchmark-v1/**
+evaluations/real-job-benchmark-v1/runs/
 outputs/
 browser-artifacts/
 portfolio-artifacts/
