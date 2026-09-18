@@ -82,7 +82,7 @@ async def test_demo_request_returns_jobs_diagnostics_and_artifacts(tmp_path) -> 
     result = await run_ui_request(
         UiRunRequest(
             keyword="AI intern",
-            location="Remote",
+            location="全国",
             target_count=2,
             skills=["Python", "LangGraph"],
             resume_text="Built a LangGraph job agent with Python.",
