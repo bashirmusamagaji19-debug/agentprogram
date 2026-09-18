@@ -17,7 +17,7 @@ from web_task_agent.browser import (
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import UserProfile
+from web_task_agent.models import JobPosting, MatchResult, UserProfile
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.site_fixtures import PUBLIC_JOB_FIXTURE_PAGES
 from web_task_agent.storage import JobRepository
@@ -26,6 +26,7 @@ from web_task_agent.workflow import WebTaskWorkflow
 
 
 class EvaluationTask(BaseModel):
+    case_id: str = ""
     keyword: str
     location: str = "Remote"
     target_count: int = Field(default=2, ge=1)
@@ -36,6 +37,7 @@ class EvaluationTask(BaseModel):
 
 
 class TaskEvaluationResult(BaseModel):
+    case_id: str = ""
     keyword: str
     location: str
     pages_visited: int
@@ -44,6 +46,8 @@ class TaskEvaluationResult(BaseModel):
     failure_reason: str = ""
     failure_category: str = ""
     failure_details: str = ""
+    jobs: list[JobPosting] = Field(default_factory=list, exclude=True)
+    matches: list[MatchResult] = Field(default_factory=list, exclude=True)
 
 
 class EvaluationResult(BaseModel):
@@ -118,6 +122,7 @@ class EvaluationRunner:
                 category, reason = _classify_browser_error(exc)
                 task_results.append(
                     TaskEvaluationResult(
+                        case_id=task.case_id,
                         keyword=task.keyword,
                         location=task.location,
                         pages_visited=0,
@@ -146,6 +151,7 @@ class EvaluationRunner:
             )
             task_results.append(
                 TaskEvaluationResult(
+                    case_id=task.case_id,
                     keyword=task.keyword,
                     location=task.location,
                     pages_visited=pages_visited,
@@ -154,6 +160,8 @@ class EvaluationRunner:
                     failure_reason=failure_reason,
                     failure_category=failure_category,
                     failure_details=failure_details,
+                    jobs=state.jobs,
+                    matches=state.matches,
                 )
             )
 
@@ -209,10 +217,7 @@ class EvaluationRunner:
         errors = state.metadata.get("failed_url_errors", [])
         if not errors:
             return ""
-        return "; ".join(
-            f"{item.get('url', '-')} -> {item.get('error', '-')}"
-            for item in errors
-        )
+        return "; ".join(f"{item.get('url', '-')} -> {item.get('error', '-')}" for item in errors)
 
     def _format_filtered_jobs(self, state) -> str:
         filtered_jobs = state.metadata.get("filtered_jobs", [])
@@ -255,7 +260,8 @@ class EvaluationRunner:
                 "",
                 "## 任务明细",
                 "",
-                "| # | 关键词 | 地点 | 访问页面数 | 有效岗位数 | 状态 | 失败类别 | 失败原因 | 失败细节 |",
+                "| # | 关键词 | 地点 | 访问页面数 | 有效岗位数 | 状态 "
+                "| 失败类别 | 失败原因 | 失败细节 |",
                 "|---|---|---|---:|---:|---|---|---|---|",
             ]
         )
@@ -278,7 +284,8 @@ def _classify_browser_error(exc: BrowserConfigurationError) -> tuple[str, str]:
     if isinstance(exc, PageTimeoutError):
         return "http_timeout", "HTTP timeout or DNS failure"
     if isinstance(exc, PageHttpError):
-        return "http_error", f"HTTP error (status {exc.status_code})" if exc.status_code else "HTTP error"
+        reason = f"HTTP error (status {exc.status_code})" if exc.status_code else "HTTP error"
+        return "http_error", reason
     if isinstance(exc, PageEmptyError):
         return "empty_page", "empty page (JS-rendered or no body)"
     return "browser_error", "browser error"

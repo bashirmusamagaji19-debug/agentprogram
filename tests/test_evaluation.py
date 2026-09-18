@@ -131,6 +131,7 @@ async def test_evaluation_runner_opens_seed_urls_without_searching(tmp_path):
             )
 
     task = EvaluationTask(
+        case_id="seed-case-1",
         keyword="AI intern",
         target_count=1,
         skills=["Python"],
@@ -147,6 +148,9 @@ async def test_evaluation_runner_opens_seed_urls_without_searching(tmp_path):
     assert opened_urls == ["https://example.com/jobs/ai-agent-intern"]
     assert result.completed_tasks == 1
     assert result.task_results[0].pages_visited == 1
+    assert result.task_results[0].case_id == "seed-case-1"
+    assert result.task_results[0].jobs[0].title == "AI Agent Engineering Intern"
+    assert result.task_results[0].matches[0].job_id == result.task_results[0].jobs[0].url
 
 
 @pytest.mark.asyncio
