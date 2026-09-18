@@ -28,6 +28,20 @@ run-843296ac:visited=47  valid=39  failed=3  有效发现源=12
 
 **对比纯黑盒推荐**:每个分都能回答"匹配了什么/缺什么/为什么这个分"(score/reason 字段)。
 
+## 可重复基线(2026-09-18)
+
+本轮 showcase 已冻结为 `real-job-benchmark-v1`：40 条样本，其中 37 条正文回放、3 条来源失败。
+
+| 路径 | 运行 | 结果 |
+|---|---:|---|
+| 直接 URL 基线 | 3 轮 | 0/40 有效岗位；page drift 20、source unavailable 6、verification filtered 14 |
+| 冻结正文快照 | 3 轮 | 37/37 抽取；Title 100%、Company 92.5%、Relevance 81.08%、P@6/R@6 66.67%、NDCG@6 74.09% |
+
+这里最值得保留的结论不是“100% 标题准确”，而是边界：原 showcase 依赖官方列表
+API/聚合正文，保存详情 URL 本身无法复现实时链路；冻结快照能复现抽取和排序，但不能
+替代在线可达性和长期稳定性证据。详见
+`evaluations/real-job-benchmark-v1/README.md` 与 `summary.md`。
+
 ## 本轮运行暴露并当场修复的 3 个缺陷(实录)
 
 1. **顺序填充吃掉名额**:第一个源(腾讯)即可填满任意 limit → 改为公平采样(每源预算 ceil(limit/N) + 跨源轮转交错)
