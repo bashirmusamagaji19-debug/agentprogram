@@ -3,16 +3,21 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
+from collections.abc import Mapping
+from hmac import compare_digest
 from pathlib import Path
 from typing import Any
 
+from web_task_agent.artifact_store import ArtifactStore, FileArtifactStore
 from web_task_agent.models import RunMetrics
+from web_task_agent.run_store import FileRunStore, RunRecord
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
     UiRequestError,
     UiRunRequest,
     UiRunResult,
     decode_resume_upload,
+    load_persisted_ui_result,
     parse_seed_urls,
     parse_skills,
     read_download_artifact,
@@ -41,6 +46,63 @@ ARTIFACT_DESCRIPTIONS = {
     "dashboard": "可筛选岗位、匹配分和执行轨迹的 HTML 页面。",
     "action_plan": "根据岗位缺口生成的投递和技能补强计划。",
 }
+
+DEFAULT_PERSISTENCE_ROOT = "streamlit-persistence"
+RUN_STATUS_LABELS = {
+    "queued": "排队中",
+    "running": "运行中",
+    "succeeded": "已完成",
+    "partial": "部分完成",
+    "failed": "失败",
+}
+
+
+def configured_app_passcode(
+    *,
+    environ: Mapping[str, str] | None = None,
+    secrets: Mapping[str, Any] | None = None,
+) -> str:
+    current_environ = os.environ if environ is None else environ
+    environment_value = str(current_environ.get("APP_PASSCODE", "")).strip()
+    if environment_value:
+        return environment_value
+    secret_value = (secrets or {}).get("APP_PASSCODE", "")
+    return str(secret_value).strip()
+
+
+def app_access_granted(configured_passcode: str, supplied_passcode: str) -> bool:
+    if not configured_passcode:
+        return True
+    return compare_digest(configured_passcode, supplied_passcode)
+
+
+def recent_run_rows(records: list[RunRecord]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        rows.append(
+            {
+                "运行 ID": record.run_id,
+                "状态": RUN_STATUS_LABELS.get(record.status, record.status),
+                "数据模式": record.data_mode,
+                "有效岗位": int(record.metrics.get("valid_jobs", 0) or 0),
+                "创建时间": record.created_at.strftime("%Y-%m-%d %H:%M"),
+            }
+        )
+    return rows
+
+
+def build_file_persistence(
+    root: str | Path = DEFAULT_PERSISTENCE_ROOT,
+) -> tuple[FileRunStore, FileArtifactStore]:
+    base = Path(root)
+    return FileRunStore(base / "runs"), FileArtifactStore(base / "artifacts")
+
+
+def _streamlit_secrets(st: Any) -> dict[str, Any]:
+    try:
+        return dict(st.secrets)
+    except Exception:
+        return {}
 
 
 def mode_hint(data_mode: str) -> str:
@@ -162,13 +224,15 @@ def artifact_cards_html(result: UiRunResult) -> str:
         "action_plan": "行动计划",
     }
     for artifact_key, (_label, _) in ARTIFACT_SPECS.items():
+        record = result.artifact_records.get(artifact_key)
         path = result.artifacts.get(artifact_key)
-        if path is None:
+        if record is None and path is None:
             continue
+        file_name = record.display_name if record is not None else path.name
         cards.append(
             f'<div class="ui-download-card"><strong>{labels[artifact_key]}</strong>'
             f"<span>{ARTIFACT_DESCRIPTIONS[artifact_key]}</span>"
-            f"<code>{path.name}</code></div>"
+            f"<code>{file_name}</code></div>"
         )
     return '<div class="ui-download-grid">' + "".join(cards) + "</div>"
 
@@ -221,9 +285,17 @@ def diagnostic_rows(result: UiRunResult) -> list[dict[str, str]]:
 def artifact_download_spec(
     result: UiRunResult,
     artifact_key: str,
+    *,
+    artifact_store: ArtifactStore | None = None,
+    owner_id: str | None = None,
 ) -> tuple[str, str, str, bytes]:
     label, mime = ARTIFACT_SPECS[artifact_key]
-    file_name, content = read_download_artifact(result, artifact_key)
+    file_name, content = read_download_artifact(
+        result,
+        artifact_key,
+        artifact_store=artifact_store,
+        owner_id=owner_id,
+    )
     return label, file_name, mime, content
 
 
@@ -304,18 +376,61 @@ def main() -> None:
 
     sync_provider_secrets()
     st.set_page_config(page_title="岗位 Agent 运行台", layout="wide")
-    result = st.session_state.get("latest_ui_result")
     st.markdown(app_styles(), unsafe_allow_html=True)
-    st.markdown(
-        brand_header_html(result if isinstance(result, UiRunResult) else None),
-        unsafe_allow_html=True,
+    passcode = configured_app_passcode(
+        environ=os.environ,
+        secrets=_streamlit_secrets(st),
     )
+    if passcode and not st.session_state.get("app_access_granted"):
+        st.markdown(
+            '<div class="ui-brand"><div><div class="ui-eyebrow">Private workspace</div>'
+            '<div class="ui-brand-mark"><span class="ui-brand-dot"></span>'
+            "<h1>岗位 Agent 运行台</h1></div>"
+            "<p>输入访问口令后查看和创建共享历史运行。</p></div></div>",
+            unsafe_allow_html=True,
+        )
+        with st.form("app-access-form"):
+            supplied_passcode = st.text_input("访问口令", type="password")
+            access_submitted = st.form_submit_button(
+                "进入运行台",
+                type="primary",
+                width="stretch",
+            )
+        if access_submitted:
+            if app_access_granted(passcode, supplied_passcode):
+                st.session_state["app_access_granted"] = True
+                st.rerun()
+            st.error("访问口令不正确。")
+        return
+
+    owner_id = str(os.environ.get("APP_OWNER_ID", "demo")).strip() or "demo"
+    persistence_root = os.environ.get("PERSISTENCE_ROOT", DEFAULT_PERSISTENCE_ROOT)
+    run_store, artifact_store = build_file_persistence(persistence_root)
+    artifact_store.cleanup_expired()
+    run_store.cleanup_expired()
+    history_records = run_store.list_runs(owner_id, limit=10)
+    history_labels = {
+        f"{record.run_id} · {RUN_STATUS_LABELS.get(record.status, record.status)}": record.run_id
+        for record in history_records
+    }
 
     with st.sidebar:
         st.markdown(
             '<div class="ui-sidebar-brand"><strong>岗位 Agent</strong><span>实时发现 · 可解释匹配</span></div>',
             unsafe_allow_html=True,
         )
+        st.markdown('<div class="ui-sidebar-label">历史运行</div>', unsafe_allow_html=True)
+        if history_labels:
+            selected_history_label = st.selectbox(
+                "最近 10 次",
+                list(history_labels),
+                key=f"history-select-{owner_id}",
+            )
+            selected_run_id = history_labels[selected_history_label]
+            st.dataframe(recent_run_rows(history_records), hide_index=True, width="stretch")
+        else:
+            selected_run_id = None
+            st.caption("当前 owner 还没有持久化运行记录。")
         st.markdown('<div class="ui-sidebar-label">数据来源</div>', unsafe_allow_html=True)
         mode_label = st.segmented_control(
             "数据模式",
@@ -510,11 +625,20 @@ def main() -> None:
                 llm_match_provider=match_provider,
             )
             if should_consume_llm_budget(request):
-                consume_llm_budget(st.session_state.setdefault("llm_budget", {}))
+                consume_llm_budget(
+                    st.session_state.setdefault(f"llm_budget-{owner_id}", {})
+                )
             with st.spinner("Agent 正在运行..."):
                 st.session_state["latest_ui_result"] = asyncio.run(
-                    run_ui_request(request, environ=os.environ)
+                    run_ui_request(
+                        request,
+                        environ=os.environ,
+                        run_store=run_store,
+                        artifact_store=artifact_store,
+                        owner_id=owner_id,
+                    )
                 )
+                st.session_state["latest_ui_owner"] = owner_id
         except (UiRequestError, ValueError, OSError) as exc:
             st.error(str(exc))
         except Exception as exc:  # noqa: BLE001
@@ -524,11 +648,51 @@ def main() -> None:
                 temporary_path.unlink(missing_ok=True)
 
     result = st.session_state.get("latest_ui_result")
+    latest_owner = st.session_state.get("latest_ui_owner")
+    if submitted and isinstance(result, UiRunResult) and latest_owner == owner_id:
+        view_run_id = result.run_id
+    else:
+        view_run_id = selected_run_id
+        if view_run_id and (
+            not isinstance(result, UiRunResult)
+            or result.run_id != view_run_id
+            or latest_owner != owner_id
+        ):
+            result = load_persisted_ui_result(
+                run_store,
+                artifact_store,
+                owner_id,
+                view_run_id,
+            )
+        elif view_run_id is None and latest_owner != owner_id:
+            result = None
+
+    st.markdown(
+        brand_header_html(result if isinstance(result, UiRunResult) else None),
+        unsafe_allow_html=True,
+    )
     if isinstance(result, UiRunResult):
-        _render_result(st, result)
+        _render_result(
+            st,
+            result,
+            artifact_store=artifact_store,
+            owner_id=owner_id,
+        )
+    elif view_run_id:
+        record = run_store.get_run(owner_id, view_run_id)
+        if record is not None and record.status == "failed":
+            st.error(record.error_summary or "该运行失败，没有可展示的产物。")
+        elif record is not None:
+            st.info(f"运行 {record.run_id} 当前状态：{RUN_STATUS_LABELS.get(record.status, record.status)}")
 
 
-def _render_result(st: Any, result: UiRunResult) -> None:
+def _render_result(
+    st: Any,
+    result: UiRunResult,
+    *,
+    artifact_store: ArtifactStore | None = None,
+    owner_id: str | None = None,
+) -> None:
     status, detail, tone = run_status(result)
     st.markdown(
         f'<div class="ui-result-header"><div><h2>运行结果</h2><p>{detail} · Run ID {result.run_id}</p></div>'
@@ -571,9 +735,14 @@ def _render_result(st: Any, result: UiRunResult) -> None:
     with downloads_tab:
         st.markdown(artifact_cards_html(result), unsafe_allow_html=True)
         for artifact_key in ARTIFACT_SPECS:
-            if artifact_key not in result.artifacts:
+            if artifact_key not in result.artifacts and artifact_key not in result.artifact_records:
                 continue
-            label, file_name, mime, content = artifact_download_spec(result, artifact_key)
+            label, file_name, mime, content = artifact_download_spec(
+                result,
+                artifact_key,
+                artifact_store=artifact_store,
+                owner_id=owner_id,
+            )
             st.download_button(
                 label,
                 data=content,

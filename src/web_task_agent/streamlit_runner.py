@@ -4,6 +4,7 @@ import json
 import os
 import re
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
@@ -12,6 +13,11 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from web_task_agent.action_plan import ActionPlanWriter
+from web_task_agent.artifact_store import (
+    ArtifactNotFoundError,
+    ArtifactRecord,
+    ArtifactStore,
+)
 from web_task_agent.browser import BrowserUseClient, FakeBrowserClient, HttpPageLoader
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
@@ -26,11 +32,13 @@ from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfi
 from web_task_agent.official_api import OfficialApiContentFetcher
 from web_task_agent.official_list_source import OfficialListSource
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.run_store import RunRecord, RunStore
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
 
 UiDataMode = Literal["demo", "aggregator", "seed_urls", "official"]
+RETENTION_DAYS = 7
 
 # job-radar 聚合仓库发布的 jobs.json（GitHub raw，含 official_url/jd_text），
 # 云端/本地都可直接拉取——让 Streamlit 入口无需上传文件即可走真实数据链路。
@@ -93,6 +101,7 @@ class UiRunResult(BaseModel):
     diagnostics: list[dict[str, Any]] = Field(default_factory=list)
     execution_trace: list[dict[str, str]] = Field(default_factory=list)
     artifacts: dict[str, Path] = Field(default_factory=dict)
+    artifact_records: dict[str, ArtifactRecord] = Field(default_factory=dict)
 
 
 def _unique(values: list[str]) -> list[str]:
@@ -179,9 +188,17 @@ async def run_ui_request(
     output_root: str | Path = "streamlit-runs",
     environ: Mapping[str, str] | None = None,
     page_loader: Callable[[str], Awaitable[Any]] | None = None,
+    run_store: RunStore | None = None,
+    artifact_store: ArtifactStore | None = None,
+    owner_id: str | None = None,
 ) -> UiRunResult:
     current_environ = os.environ if environ is None else environ
     validate_ui_request(request, environ=current_environ)
+    if (run_store is None) != (artifact_store is None):
+        raise ValueError("run_store and artifact_store must be provided together")
+    persistence_owner = (owner_id or "demo").strip()
+    if not persistence_owner:
+        raise ValueError("owner_id must not be blank")
 
     run_id = f"run-{uuid4().hex[:8]}"
     run_dir = Path(output_root) / run_id
@@ -189,94 +206,254 @@ async def run_ui_request(
     repository = JobRepository(run_dir / "agent.db")
     repository.initialize()
 
-    browser, seed_urls = await _build_browser(
-        request,
-        repository=repository,
-        page_loader=page_loader,
-    )
-    user = UserProfile(
-        keyword=request.keyword,
-        location=request.location,
-        target_count=request.target_count,
-        skills=request.skills,
-        resume_text=request.resume_text,
-        seed_urls=seed_urls,
-    )
-    workflow = WebTaskWorkflow(
-        browser=browser,
-        extractor=PageExtractor(
-            llm_field_extractor=(
-                build_configured_llm_field_extractor(
-                    provider=request.llm_extractor_provider,
-                )
-                if request.llm_extractor_provider
-                else None
+    created_at = datetime.now(UTC)
+    retention_deadline = created_at + timedelta(days=RETENTION_DAYS)
+    if run_store is not None:
+        run_store.create_run(
+            RunRecord(
+                run_id=run_id,
+                owner_id=persistence_owner,
+                status="queued",
+                data_mode=request.data_mode,
+                request_summary=_safe_request_summary(request),
+                created_at=created_at,
+                updated_at=created_at,
+                retention_deadline=retention_deadline,
             )
-        ),
-        matcher=JobMatcher(
-            llm_matcher=(
-                build_configured_llm_matcher(provider=request.llm_match_provider)
-                if request.llm_match_provider
-                else None
-            )
-        ),
-        verifier=JobVerifier(),
-        repository=repository,
-        reporter=MarkdownReporter(run_dir / "reports"),
-    )
-    state = await workflow.run_with_langgraph(user=user, run_id=run_id)
-    if state.metrics is None:
-        raise RuntimeError("Agent run completed without metrics")
+        )
+        run_store.update_run(
+            persistence_owner,
+            run_id,
+            status="running",
+            updated_at=datetime.now(UTC),
+        )
 
-    action_plan_path = ActionPlanWriter(run_dir / "action-plans").write_plan(
-        run_id=run_id,
-        user=user,
-        jobs=state.jobs,
-        matches=state.matches,
-    )
-    dashboard_path = HtmlDashboard(run_dir / "dashboards").write_dashboard(
-        user=user,
-        jobs=state.jobs,
-        matches=state.matches,
-        metrics=state.metrics,
-        search_queries=state.search_queries,
-        failed_url_errors=state.metadata.get("failed_url_errors", []),
-        artifact_links={
-            "Markdown 报告": state.report_path or "",
-            "行动计划": action_plan_path,
-        },
-        execution_trace=state.metadata.get("execution_trace", []),
-        orchestration_mode=str(state.metadata.get("orchestration_mode", "langgraph")),
-    )
-    json_path = run_dir / "result.json"
-    json_path.write_text(
-        json.dumps(state.model_dump(mode="json"), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    diagnostics = list(state.metadata.get("failed_url_errors", []))
-    diagnostics.extend(
-        {
-            "url": str(item.get("url", "")),
-            "error": "verification_filtered: " + ", ".join(item.get("reasons", [])),
-        }
-        for item in state.metadata.get("filtered_jobs", [])
-    )
-    return UiRunResult(
-        run_id=run_id,
-        data_mode=request.data_mode,
-        jobs=state.jobs,
-        matches=state.matches,
-        metrics=state.metrics,
-        failed_urls=state.failed_urls,
-        diagnostics=diagnostics,
-        execution_trace=state.metadata.get("execution_trace", []),
-        artifacts={
-            "json": json_path,
-            "report": Path(state.report_path or ""),
-            "dashboard": dashboard_path,
-            "action_plan": action_plan_path,
-        },
-    )
+    try:
+        browser, seed_urls = await _build_browser(
+            request,
+            repository=repository,
+            page_loader=page_loader,
+        )
+        user = UserProfile(
+            keyword=request.keyword,
+            location=request.location,
+            target_count=request.target_count,
+            skills=request.skills,
+            resume_text=request.resume_text,
+            seed_urls=seed_urls,
+        )
+        workflow = WebTaskWorkflow(
+            browser=browser,
+            extractor=PageExtractor(
+                llm_field_extractor=(
+                    build_configured_llm_field_extractor(
+                        provider=request.llm_extractor_provider,
+                    )
+                    if request.llm_extractor_provider
+                    else None
+                )
+            ),
+            matcher=JobMatcher(
+                llm_matcher=(
+                    build_configured_llm_matcher(provider=request.llm_match_provider)
+                    if request.llm_match_provider
+                    else None
+                )
+            ),
+            verifier=JobVerifier(),
+            repository=repository,
+            reporter=MarkdownReporter(run_dir / "reports"),
+        )
+        state = await workflow.run_with_langgraph(user=user, run_id=run_id)
+        if state.metrics is None:
+            raise RuntimeError("Agent run completed without metrics")
+
+        action_plan_path = ActionPlanWriter(run_dir / "action-plans").write_plan(
+            run_id=run_id,
+            user=user,
+            jobs=state.jobs,
+            matches=state.matches,
+        )
+        dashboard_path = HtmlDashboard(run_dir / "dashboards").write_dashboard(
+            user=user,
+            jobs=state.jobs,
+            matches=state.matches,
+            metrics=state.metrics,
+            search_queries=state.search_queries,
+            failed_url_errors=state.metadata.get("failed_url_errors", []),
+            artifact_links={
+                "Markdown 报告": state.report_path or "",
+                "行动计划": action_plan_path,
+            },
+            execution_trace=state.metadata.get("execution_trace", []),
+            orchestration_mode=str(state.metadata.get("orchestration_mode", "langgraph")),
+        )
+        diagnostics = list(state.metadata.get("failed_url_errors", []))
+        diagnostics.extend(
+            {
+                "url": str(item.get("url", "")),
+                "error": "verification_filtered: " + ", ".join(item.get("reasons", [])),
+            }
+            for item in state.metadata.get("filtered_jobs", [])
+        )
+        result = UiRunResult(
+            run_id=run_id,
+            data_mode=request.data_mode,
+            jobs=state.jobs,
+            matches=state.matches,
+            metrics=state.metrics,
+            failed_urls=state.failed_urls,
+            diagnostics=diagnostics,
+            execution_trace=state.metadata.get("execution_trace", []),
+            artifacts={
+                "json": run_dir / "result.json",
+                "report": Path(state.report_path or ""),
+                "dashboard": dashboard_path,
+                "action_plan": action_plan_path,
+            },
+        )
+        json_path = result.artifacts["json"]
+        json_path.write_text(
+            json.dumps(
+                result.model_dump(
+                    mode="json",
+                    exclude={"artifacts", "artifact_records"},
+                ),
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        if artifact_store is not None:
+            result.artifact_records = _persist_artifacts(
+                artifact_store=artifact_store,
+                owner_id=persistence_owner,
+                run_id=run_id,
+                artifacts=result.artifacts,
+                retention_deadline=retention_deadline,
+            )
+        if run_store is not None:
+            run_status = _terminal_run_status(
+                failed_pages=state.metrics.failed_pages,
+                diagnostics=diagnostics,
+            )
+            run_store.update_run(
+                persistence_owner,
+                run_id,
+                status=run_status,
+                metrics=state.metrics.model_dump(mode="json"),
+                error_summary=_safe_terminal_summary(
+                    run_status,
+                    failed_pages=state.metrics.failed_pages,
+                    diagnostics=diagnostics,
+                ),
+                updated_at=datetime.now(UTC),
+                retention_deadline=retention_deadline,
+            )
+        return result
+    except Exception as exc:
+        if run_store is not None:
+            run_store.update_run(
+                persistence_owner,
+                run_id,
+                status="failed",
+                error_summary=f"运行失败：{type(exc).__name__}",
+                updated_at=datetime.now(UTC),
+            )
+        raise
+
+
+def _safe_request_summary(request: UiRunRequest) -> dict[str, Any]:
+    return {
+        "keyword": request.keyword,
+        "location": request.location,
+        "target_count": request.target_count,
+        "skills": list(request.skills),
+        "data_mode": request.data_mode,
+        "seed_url_count": len(request.seed_urls),
+        "official_spec_count": len(request.official_specs or []),
+        "uses_llm_extractor": bool(request.llm_extractor_provider),
+        "uses_llm_match": bool(request.llm_match_provider),
+    }
+
+
+def _persist_artifacts(
+    *,
+    artifact_store: ArtifactStore,
+    owner_id: str,
+    run_id: str,
+    artifacts: Mapping[str, Path],
+    retention_deadline: datetime,
+) -> dict[str, ArtifactRecord]:
+    records: dict[str, ArtifactRecord] = {}
+    for artifact_key, path in artifacts.items():
+        if not path.is_file():
+            continue
+        display_name, mime = _artifact_metadata(artifact_key, path)
+        records[artifact_key] = artifact_store.put_bytes(
+            owner_id,
+            run_id,
+            artifact_key,
+            path.read_bytes(),
+            display_name=display_name,
+            mime=mime,
+            retention_deadline=retention_deadline,
+        )
+    return records
+
+
+def _artifact_metadata(artifact_key: str, path: Path) -> tuple[str, str]:
+    mime_by_key = {
+        "json": "application/json",
+        "report": "text/markdown",
+        "dashboard": "text/html",
+        "action_plan": "text/markdown",
+    }
+    return path.name, mime_by_key.get(artifact_key, "application/octet-stream")
+
+
+def _terminal_run_status(
+    *,
+    failed_pages: int,
+    diagnostics: list[dict[str, Any]],
+) -> Literal["succeeded", "partial"]:
+    return "partial" if failed_pages or diagnostics else "succeeded"
+
+
+def _safe_terminal_summary(
+    status: Literal["succeeded", "partial"],
+    *,
+    failed_pages: int,
+    diagnostics: list[dict[str, Any]],
+) -> str:
+    if status == "succeeded":
+        return ""
+    failure_count = max(failed_pages, len(diagnostics))
+    return f"运行完成，但有 {failure_count} 个页面或诊断项失败"
+
+
+def load_persisted_ui_result(
+    run_store: RunStore,
+    artifact_store: ArtifactStore,
+    owner_id: str,
+    run_id: str,
+) -> UiRunResult | None:
+    if run_store.get_run(owner_id, run_id) is None:
+        return None
+    try:
+        _, content = artifact_store.get_artifact(owner_id, run_id, "json")
+    except ArtifactNotFoundError:
+        return None
+    try:
+        result = UiRunResult.model_validate_json(content)
+    except ValueError:
+        return None
+    result.artifacts = {}
+    result.artifact_records = {
+        record.artifact_key: record
+        for record in artifact_store.list_artifacts(owner_id, run_id)
+    }
+    return result
 
 
 async def _build_browser(
@@ -306,7 +483,21 @@ async def _build_browser(
     return BrowserUseClient(page_loader=loader), [job.url for job in jobs]
 
 
-def read_download_artifact(result: UiRunResult, artifact_key: str) -> tuple[str, bytes]:
+def read_download_artifact(
+    result: UiRunResult,
+    artifact_key: str,
+    *,
+    artifact_store: ArtifactStore | None = None,
+    owner_id: str | None = None,
+) -> tuple[str, bytes]:
+    if artifact_store is not None and owner_id is not None:
+        if artifact_key in result.artifact_records:
+            record, content = artifact_store.get_artifact(
+                owner_id,
+                result.run_id,
+                artifact_key,
+            )
+            return record.display_name, content
     path = result.artifacts.get(artifact_key)
     if path is None or not path.is_file():
         raise UiRequestError("该产物不可下载。")
