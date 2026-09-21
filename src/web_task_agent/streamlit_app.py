@@ -3,14 +3,18 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from hmac import compare_digest
 from pathlib import Path
 from typing import Any
 
-from web_task_agent.artifact_store import ArtifactStore, FileArtifactStore
+from web_task_agent.artifact_store import (
+    ArtifactStore,
+    FileArtifactStore,
+    S3ArtifactStore,
+)
 from web_task_agent.models import RunMetrics
-from web_task_agent.run_store import FileRunStore, RunRecord
+from web_task_agent.run_store import FileRunStore, PostgresRunStore, RunRecord, RunStore
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
     UiRequestError,
@@ -96,6 +100,57 @@ def build_file_persistence(
 ) -> tuple[FileRunStore, FileArtifactStore]:
     base = Path(root)
     return FileRunStore(base / "runs"), FileArtifactStore(base / "artifacts")
+
+
+def build_configured_persistence(
+    root: str | Path = DEFAULT_PERSISTENCE_ROOT,
+    *,
+    environ: Mapping[str, str] | None = None,
+    postgres_factory: Callable[[str], RunStore] | None = None,
+    s3_factory: Callable[..., ArtifactStore] | None = None,
+) -> tuple[RunStore, ArtifactStore]:
+    current_environ = os.environ if environ is None else environ
+    cloud_names = (
+        "DATABASE_URL",
+        "OBJECT_STORAGE_ENDPOINT",
+        "OBJECT_STORAGE_BUCKET",
+        "OBJECT_STORAGE_ACCESS_KEY",
+        "OBJECT_STORAGE_SECRET_KEY",
+    )
+    configured = {
+        name for name in cloud_names if str(current_environ.get(name, "")).strip()
+    }
+    if not configured:
+        return build_file_persistence(root)
+    missing = [name for name in cloud_names if name not in configured]
+    if missing:
+        raise ValueError(f"云端持久化配置不完整：{', '.join(missing)}")
+
+    database_url = str(current_environ["DATABASE_URL"]).strip()
+    run_store = (
+        postgres_factory(database_url)
+        if postgres_factory is not None
+        else PostgresRunStore(database_url)
+    )
+    initialize = getattr(run_store, "initialize", None)
+    if callable(initialize):
+        initialize()
+    artifact_store = (
+        s3_factory(
+            bucket=str(current_environ["OBJECT_STORAGE_BUCKET"]).strip(),
+            endpoint_url=str(current_environ["OBJECT_STORAGE_ENDPOINT"]).strip(),
+            access_key=str(current_environ["OBJECT_STORAGE_ACCESS_KEY"]).strip(),
+            secret_key=str(current_environ["OBJECT_STORAGE_SECRET_KEY"]).strip(),
+        )
+        if s3_factory is not None
+        else S3ArtifactStore(
+            bucket=str(current_environ["OBJECT_STORAGE_BUCKET"]).strip(),
+            endpoint_url=str(current_environ["OBJECT_STORAGE_ENDPOINT"]).strip(),
+            access_key=str(current_environ["OBJECT_STORAGE_ACCESS_KEY"]).strip(),
+            secret_key=str(current_environ["OBJECT_STORAGE_SECRET_KEY"]).strip(),
+        )
+    )
+    return run_store, artifact_store
 
 
 def _streamlit_secrets(st: Any) -> dict[str, Any]:
@@ -405,7 +460,10 @@ def main() -> None:
 
     owner_id = str(os.environ.get("APP_OWNER_ID", "demo")).strip() or "demo"
     persistence_root = os.environ.get("PERSISTENCE_ROOT", DEFAULT_PERSISTENCE_ROOT)
-    run_store, artifact_store = build_file_persistence(persistence_root)
+    run_store, artifact_store = build_configured_persistence(
+        persistence_root,
+        environ=os.environ,
+    )
     artifact_store.cleanup_expired()
     run_store.cleanup_expired()
     history_records = run_store.list_runs(owner_id, limit=10)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,7 @@ from web_task_agent.run_store import FileRunStore, RunRecord
 from web_task_agent.streamlit_app import (
     app_access_granted,
     artifact_download_spec,
+    build_configured_persistence,
     configured_app_passcode,
     recent_run_rows,
 )
@@ -18,6 +20,8 @@ from web_task_agent.streamlit_runner import (
     load_persisted_ui_result,
     run_ui_request,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.asyncio
@@ -170,6 +174,41 @@ async def test_persisted_run_uses_seven_day_retention(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_persisted_artifacts_do_not_contain_resume_or_absolute_paths(tmp_path) -> None:
+    run_store = FileRunStore(tmp_path / "runs")
+    artifact_store = FileArtifactStore(tmp_path / "artifacts")
+    output_root = tmp_path / "output"
+    private_resume = "PRIVATE-RESUME-TOKEN-4f04"
+
+    result = await run_ui_request(
+        UiRunRequest(
+            keyword="AI intern",
+            target_count=2,
+            skills=["Python", "LangGraph"],
+            resume_text=private_resume,
+        ),
+        output_root=output_root,
+        environ={},
+        run_store=run_store,
+        artifact_store=artifact_store,
+        owner_id="owner-a",
+    )
+
+    persisted_files = [
+        path
+        for base in (tmp_path / "runs", tmp_path / "artifacts")
+        for path in base.rglob("*")
+        if path.is_file()
+    ]
+    combined = b"\n".join(path.read_bytes() for path in persisted_files)
+    record = run_store.get_run("owner-a", result.run_id)
+    assert private_resume.encode() not in combined
+    assert str(output_root.resolve()).encode() not in combined
+    assert record is not None
+    assert record.run_id == result.run_id
+
+
+@pytest.mark.asyncio
 async def test_failed_run_is_recorded_without_leaking_exception_text(
     tmp_path,
     monkeypatch,
@@ -247,3 +286,68 @@ def test_recent_run_rows_uses_owner_visible_status_and_metrics() -> None:
             "创建时间": "2026-09-21 08:00",
         }
     ]
+
+
+def test_build_configured_persistence_defaults_to_local_files(tmp_path) -> None:
+    run_store, artifact_store = build_configured_persistence(
+        tmp_path,
+        environ={},
+    )
+
+    assert isinstance(run_store, FileRunStore)
+    assert isinstance(artifact_store, FileArtifactStore)
+
+
+def test_build_configured_persistence_rejects_partial_cloud_config(tmp_path) -> None:
+    with pytest.raises(ValueError, match="OBJECT_STORAGE_BUCKET"):
+        build_configured_persistence(
+            tmp_path,
+            environ={"DATABASE_URL": "postgresql://example"},
+        )
+
+
+def test_build_configured_persistence_uses_injected_cloud_factories(tmp_path) -> None:
+    initialized: list[str] = []
+
+    class FakeRunStore:
+        def initialize(self) -> None:
+            initialized.append("yes")
+
+    class FakeArtifactStore:
+        pass
+
+    run_store, artifact_store = build_configured_persistence(
+        tmp_path,
+        environ={
+            "DATABASE_URL": "postgresql://example",
+            "OBJECT_STORAGE_ENDPOINT": "https://objects.example",
+            "OBJECT_STORAGE_BUCKET": "private-bucket",
+            "OBJECT_STORAGE_ACCESS_KEY": "access",
+            "OBJECT_STORAGE_SECRET_KEY": "secret",
+        },
+        postgres_factory=lambda _url: FakeRunStore(),
+        s3_factory=lambda **_kwargs: FakeArtifactStore(),
+    )
+
+    assert isinstance(run_store, FakeRunStore)
+    assert isinstance(artifact_store, FakeArtifactStore)
+    assert initialized == ["yes"]
+
+
+def test_streamlit_app_enforces_passcode_before_showing_history(monkeypatch, tmp_path) -> None:
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setenv("APP_PASSCODE", "apptest-pass")
+    monkeypatch.setenv("PERSISTENCE_ROOT", str(tmp_path / "persistence"))
+
+    app = AppTest.from_file(REPO_ROOT / "streamlit_app.py").run(timeout=20)
+    assert not app.exception
+    assert [item.label for item in app.text_input] == ["访问口令"]
+
+    app.text_input[0].input("apptest-pass")
+    app.button[0].click()
+    app.run(timeout=20)
+
+    assert not app.exception
+    assert app.session_state["app_access_granted"] is True
+    assert len(app.segmented_control) == 1

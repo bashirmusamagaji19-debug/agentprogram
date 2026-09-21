@@ -26,6 +26,10 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.12",
 ]
+cloud = [
+  "psycopg[binary]>=3.2,<4",
+  "boto3>=1.35,<2",
+]
 
 [project.scripts]
 web-task-agent = "web_task_agent.cli:main"

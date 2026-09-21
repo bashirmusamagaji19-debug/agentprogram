@@ -8,7 +8,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：`520 passed`、总覆盖率 `84.89%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+当前可复核证据：`568 passed`、`1 skipped`、总覆盖率 `84.92%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。skip 是未配置 `TEST_DATABASE_URL` 的 PostgreSQL 集成测试；这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -53,7 +53,9 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
 ```
 
-浏览器访问 `http://localhost:8501`。默认的“内置 Demo”不访问公网、不需要 API key；页面还支持上传 UTF-8 编码的 Markdown/TXT 简历、上传聚合岗位 JSON，或逐行填写岗位 URL。每次运行都在 `streamlit-runs/<run-id>/` 下独立生成 JSON、Markdown 报告、HTML Dashboard、行动计划和 SQLite 数据库。
+浏览器访问 `http://localhost:8501`。默认的“内置 Demo”不访问公网、不需要 API key；页面还支持上传 UTF-8 编码的 Markdown/TXT 简历、上传聚合岗位 JSON，或逐行填写岗位 URL。每次运行都在 `streamlit-runs/<run-id>/` 下独立生成 JSON、Markdown 报告、HTML Dashboard、行动计划和 SQLite 数据库，同时把安全产物副本写入 `streamlit-persistence/`。
+
+运行记录默认保留 7 天；侧栏按 `owner_id` 展示最近 10 次运行。无 `APP_PASSCODE` 时本地开发使用固定 `demo` owner；配置 `APP_PASSCODE` 后，访问者必须先输入口令才能查看或创建共享历史运行。
 
 开启 LLM 抽取或 LLM 匹配时，只从服务进程环境变量读取凭据：
 
@@ -73,11 +75,18 @@ $env:DEEPSEEK_API_KEY="..."   # deepseek
 streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port $PORT
 ```
 
-Streamlit Community Cloud 可直接将入口文件设置为 `streamlit_app.py`，并在平台 Secrets/环境变量中配置 `DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY`。
+Streamlit Community Cloud 可直接将入口文件设置为 `streamlit_app.py`，并在平台 Secrets/环境变量中配置 `DASHSCOPE_API_KEY`、`DEEPSEEK_API_KEY` 和可选的 `APP_PASSCODE`。
 
-云端定位是**单实例演示**：`streamlit-runs/` 文件和 SQLite 数据属于实例本地临时状态，重启或重新部署后可能丢失；多个实例之间不共享任务、缓存或历史记录。真实招聘网站还可能受到云出口、反爬和页面变化影响。需要多用户持久化时，应另行接入共享数据库、对象存储和任务队列。
+云端持久化支持两种模式：
 
-已部署实例（2026-09-08 验证）：`https://agentprogram-lpfrmgsybu89iaffxyzc5f.streamlit.app/`。部署细节与验证边界见 `docs/work-log/2026-09-08-cloud-deploy-verification.md`。注意：Streamlit 平台对自动化/匿名请求（curl 等）统一跳转登录页，外部 health 监控不可行，公开访问以浏览器为准。
+- 未配置云端存储：继续使用实例本地 `streamlit-persistence/` 文件，适合本地调试；实例重启或重新部署后不保证保留。
+- 配置全部五项云端存储变量：`DATABASE_URL`、`OBJECT_STORAGE_ENDPOINT`、`OBJECT_STORAGE_BUCKET`、`OBJECT_STORAGE_ACCESS_KEY`、`OBJECT_STORAGE_SECRET_KEY`，运行元数据进入 PostgreSQL-compatible 数据库，产物进入私有 S3-compatible bucket。缺一项会直接报配置错误，不会静默退回临时文件。
+
+对象 key 不公开，数据库记录按 `owner_id + run_id` 隔离。状态覆盖 `queued/running/succeeded/partial/failed`，默认 retention 为 7 天。当前仍不包含 FastAPI、Redis 或常驻 Worker，因此长任务仍会占用当前 Streamlit 请求；多实例并发控制也不在本阶段范围内。
+
+2026-09-21 已在本地用两个独立 Python 进程验证：同一目录创建 `run-ffa41d11` 后，第二个进程恢复出 2 个有效岗位，JSON、Markdown、HTML 和行动计划的 sha256 全部一致。该证据验证 File adapter 的重启恢复，不代表云端 PostgreSQL/S3 已完成真实部署验收；真实云验收必须等待目标平台凭据和私有 bucket。详见 `docs/work-log/2026-09-09-cloud-persistence.md`。
+
+历史单实例实例（2026-09-08 验证）：`https://agentprogram-lpfrmgsybu89iaffxyzc5f.streamlit.app/`；该版本尚未证明已加载本阶段持久化改动。Streamlit 平台对自动化/匿名请求（curl 等）可能统一跳转登录页，公开访问以浏览器为准。
 
 ```powershell
 python -m venv .venv
