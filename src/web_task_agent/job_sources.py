@@ -15,6 +15,8 @@ HttpPageLoader 失败时用 jd_text 构造 BrowserPage，保证抽取链路有�
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -26,9 +28,68 @@ from web_task_agent.keywords import (
     INTERN_TITLE_KEYWORDS,
     classify_company_tier,
 )
+from web_task_agent.skill_aliases import SKILL_ALIAS_GROUPS, term_in_text
 
 # 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
 AI_TITLE_KEYWORDS = AI_JOB_KEYWORDS
+
+_KEYWORD_SEPARATORS = re.compile(r"[\s,，、;/；|+\-_—]+")
+_NON_DISCRIMINATIVE_KEYWORDS = {"岗位", "职位", "机会", "招聘", "job", "role"}
+_FILTER_ONLY_KEYWORDS = {"intern"}
+_EXTRA_KEYWORD_ALIAS_GROUPS = (
+    ("ai", ("ai", "人工智能", "artificial intelligence")),
+    ("intern", ("实习", "intern", "internship")),
+    ("development", ("开发", "研发", "developer", "development", "engineering")),
+)
+
+
+def _normalize_keyword_text(value: str) -> str:
+    return unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+
+
+def _keyword_alias_groups() -> list[tuple[str, ...]]:
+    return [*_EXTRA_KEYWORD_ALIAS_GROUPS, *SKILL_ALIAS_GROUPS]
+
+
+_KEYWORD_ALIAS_TO_CANONICAL = {
+    _normalize_keyword_text(alias): group[0]
+    for group in _keyword_alias_groups()
+    for alias in group
+}
+_KEYWORD_VARIANTS = {
+    group[0]: tuple(_normalize_keyword_text(alias) for alias in group)
+    for group in _keyword_alias_groups()
+}
+
+
+def matches_keyword(keyword: str, *parts: str) -> bool:
+    """判断岗位文本是否命中用户关键词。
+
+    相关性优先匹配非通用词，避免仅凭“实习/Intern”让无关岗位通过。
+    中英文别名在 ``skill_aliases`` 基础上补充招聘语境词。
+    """
+    normalized_keyword = _normalize_keyword_text(keyword)
+    if not normalized_keyword:
+        return True
+    text = _normalize_keyword_text(" ".join(parts))
+    if normalized_keyword in text:
+        return True
+
+    canonical_terms = []
+    for token in _KEYWORD_SEPARATORS.split(normalized_keyword):
+        if not token or token in _NON_DISCRIMINATIVE_KEYWORDS:
+            continue
+        canonical_terms.append(_KEYWORD_ALIAS_TO_CANONICAL.get(token, token))
+
+    discriminative_terms = [
+        term for term in canonical_terms if term not in _FILTER_ONLY_KEYWORDS
+    ]
+    target_terms = discriminative_terms or canonical_terms
+    return any(
+        term_in_text(variant, text)
+        for term in target_terms
+        for variant in _KEYWORD_VARIANTS.get(term, (term,))
+    )
 
 
 @dataclass(frozen=True)
@@ -47,8 +108,13 @@ class DiscoveredJob:
 
 
 class JobSource(Protocol):
-    async def discover(self, limit: int) -> list[DiscoveredJob]:
-        """发现岗位，返回至多 limit 条。"""
+    async def discover(
+        self,
+        limit: int,
+        *,
+        keyword: str = "",
+    ) -> list[DiscoveredJob]:
+        """发现岗位，返回至多 limit 条；关键词用于相关性过滤。"""
         ...
 
 
@@ -71,11 +137,23 @@ class AggregatorRepoSource:
         self.source_location = source_location
         self.source_name = source_name
 
-    async def discover(self, limit: int) -> list[DiscoveredJob]:
+    async def discover(
+        self,
+        limit: int,
+        *,
+        keyword: str = "",
+    ) -> list[DiscoveredJob]:
         if limit <= 0:
             return []
         payload = self._load_payload()
-        return self._parse_jobs(payload)[:limit]
+        jobs = self._parse_jobs(payload)
+        if keyword.strip():
+            jobs = [
+                job
+                for job in jobs
+                if matches_keyword(keyword, job.title, job.jd_text, " ".join(job.tags))
+            ]
+        return jobs[:limit]
 
     def _load_payload(self) -> dict:
         location = self.source_location.strip()

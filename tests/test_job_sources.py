@@ -12,6 +12,7 @@ from web_task_agent.job_sources import (
     DiscoveredJob,
     build_discovered_page,
     is_intern_ai_job,
+    matches_keyword,
 )
 
 
@@ -122,6 +123,17 @@ async def test_discover_respects_limit(payload_path: Path):
 
 
 @pytest.mark.asyncio
+async def test_discover_filters_jobs_by_keyword(payload_path: Path):
+    source = AggregatorRepoSource(str(payload_path))
+
+    jobs = await source.discover(limit=10, keyword="多模态")
+
+    assert [job.url for job in jobs] == [
+        "https://careers.tencent.com/jobdesc.html?postId=222"
+    ]
+
+
+@pytest.mark.asyncio
 async def test_discover_zero_limit_returns_empty(payload_path: Path):
     source = AggregatorRepoSource(str(payload_path))
 
@@ -145,6 +157,12 @@ def test_is_intern_ai_job_keyword_matrix():
     assert not is_intern_ai_job("前端开发实习生")  # 实习但非 AI
     assert not is_intern_ai_job("大模型算法工程师")  # AI 但非实习
     assert not is_intern_ai_job("")
+
+
+def test_matches_keyword_supports_bilingual_aliases():
+    assert matches_keyword("AI Agent 实习", "AI Agent Intern")
+    assert matches_keyword("大模型 实习", "LLM Engineer Intern")
+    assert not matches_keyword("AI Agent 实习", "Frontend Developer Intern")
 
 
 def test_build_discovered_page_uses_jd_text_as_content():

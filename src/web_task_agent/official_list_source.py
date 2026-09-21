@@ -18,7 +18,12 @@ import json
 from urllib import parse as url_parse
 from urllib import request as url_request
 
-from web_task_agent.job_sources import AI_TITLE_KEYWORDS, DiscoveredJob, is_intern_ai_job
+from web_task_agent.job_sources import (
+    AI_TITLE_KEYWORDS,
+    DiscoveredJob,
+    is_intern_ai_job,
+    matches_keyword,
+)
 from web_task_agent.official_list_families import (
     _strip_html,
     decrypt_moka_envelope,
@@ -1672,7 +1677,12 @@ class OfficialListSource:
                 raise ValueError(f"unknown spec: {spec} (available: {sorted(_SPECS)})")
         self.transport = transport if transport is not None else DefaultTransport()
 
-    async def discover(self, limit: int) -> list[DiscoveredJob]:
+    async def discover(
+        self,
+        limit: int,
+        *,
+        keyword: str = "",
+    ) -> list[DiscoveredJob]:
         """公平采样发现:每源预算 = ceil(limit/源数),跨源交错合并。
 
         顺序填充会让第一个源吃掉全部名额(腾讯一家即可填满任意 limit),
@@ -1697,7 +1707,10 @@ class OfficialListSource:
                 )
             return batches
 
-        budget = max(1, -(-limit // len(self.specs)))  # ceil
+        sample_limit = (
+            max(limit * 5, len(self.specs) * 3) if keyword.strip() else limit
+        )
+        budget = max(1, -(-sample_limit // len(self.specs)))  # ceil
         batches = await _collect(budget)
 
         def _interleave(
@@ -1718,6 +1731,13 @@ class OfficialListSource:
                         if key in seen:
                             continue
                         seen.add(key)
+                        if keyword.strip() and not matches_keyword(
+                            keyword,
+                            job.title,
+                            job.jd_text,
+                            " ".join(job.tags),
+                        ):
+                            continue
                         jobs.append(job)
                         round_added = True
                         break

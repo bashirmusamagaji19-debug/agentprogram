@@ -473,7 +473,10 @@ async def _build_browser(
         source = OfficialListSource(specs=request.official_specs or None)
     else:
         source = AggregatorRepoSource(resolve_aggregator_location(request))
-    jobs = await source.discover(limit=request.target_count)
+    jobs = await source.discover(
+        limit=request.target_count,
+        keyword=request.keyword,
+    )
     loader = AggregatorPageLoader(
         jobs,
         official_api=OfficialApiContentFetcher(),

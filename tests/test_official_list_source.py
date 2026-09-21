@@ -1234,6 +1234,32 @@ async def test_discover_interleaves_sources_for_breadth(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_discover_filters_jobs_by_keyword(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    async def fake_lister(transport, limit):
+        return [
+            DiscoveredJob(
+                url="https://example.com/jobs/agent-intern",
+                title="AI Agent Intern",
+                source="fake",
+            ),
+            DiscoveredJob(
+                url="https://example.com/jobs/frontend-intern",
+                title="Frontend Developer Intern",
+                source="fake",
+            ),
+        ][:limit]
+
+    monkeypatch.setattr(ols, "_SPECS", {"fake": fake_lister})
+    source = ols.OfficialListSource(specs=["fake"], transport=object())
+
+    jobs = await source.discover(limit=2, keyword="AI Agent 实习")
+
+    assert [job.url for job in jobs] == ["https://example.com/jobs/agent-intern"]
+
+
+@pytest.mark.asyncio
 async def test_discover_handles_empty_sources(monkeypatch):
     import web_task_agent.official_list_source as ols
 

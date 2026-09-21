@@ -78,6 +78,33 @@ def test_request_rejects_target_count_above_ui_limit() -> None:
 
 
 @pytest.mark.asyncio
+async def test_aggregator_request_passes_keyword_to_source(monkeypatch, tmp_path) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    captured: dict[str, str | int] = {}
+
+    async def fake_discover(self, limit: int, *, keyword: str = ""):
+        captured["limit"] = limit
+        captured["keyword"] = keyword
+        return []
+
+    monkeypatch.setattr(runner_module.AggregatorRepoSource, "discover", fake_discover)
+
+    await run_ui_request(
+        UiRunRequest(
+            data_mode="aggregator",
+            aggregator_url="https://example.com/jobs.json",
+            keyword="AI Agent 实习",
+            target_count=7,
+        ),
+        output_root=tmp_path,
+        environ={},
+    )
+
+    assert captured == {"limit": 7, "keyword": "AI Agent 实习"}
+
+
+@pytest.mark.asyncio
 async def test_demo_request_returns_jobs_diagnostics_and_artifacts(tmp_path) -> None:
     result = await run_ui_request(
         UiRunRequest(
