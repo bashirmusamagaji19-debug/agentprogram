@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -42,6 +42,14 @@ from web_task_agent.workflow import WebTaskWorkflow
 
 UiDataMode = Literal["demo", "aggregator", "seed_urls", "official"]
 RETENTION_DAYS = 7
+
+
+class _BuiltBrowser(NamedTuple):
+    browser: FakeBrowserClient | BrowserUseClient
+    seed_urls: list[str]
+    source_diagnostics: list[dict[str, object]]
+    page_diagnostics: list[dict[str, str]]
+
 
 # job-radar 聚合仓库发布的 jobs.json（GitHub raw，含 official_url/jd_text），
 # 云端/本地都可直接拉取——让 Streamlit 入口无需上传文件即可走真实数据链路。
@@ -259,9 +267,12 @@ def _source_diagnostic_rows(
             detail = str(item.get("detail") or "").strip()
             message = ": ".join(part for part in (error_type, detail) if part)
             error_prefix = "source_failed"
-        else:
+        elif status == "empty":
             message = "no jobs returned"
             error_prefix = "source_empty"
+        else:
+            message = "no jobs returned"
+            error_prefix = "source_unknown"
         rows.append({"url": source, "error": f"{error_prefix}: {message}"})
     return rows
 
@@ -333,16 +344,15 @@ async def run_ui_request(
         )
 
     try:
-        (
-            browser,
-            seed_urls,
-            source_diagnostics,
-            page_diagnostics,
-        ) = await _build_browser(
+        built_browser = await _build_browser(
             request,
             repository=repository,
             page_loader=page_loader,
         )
+        browser = built_browser.browser
+        seed_urls = built_browser.seed_urls
+        source_diagnostics = built_browser.source_diagnostics
+        page_diagnostics = built_browser.page_diagnostics
         user = UserProfile(
             keyword=request.keyword,
             location=request.location,
@@ -412,13 +422,15 @@ async def run_ui_request(
         )
         diagnostics = _source_diagnostic_rows(source_diagnostics)
         diagnostics.extend(_page_diagnostic_rows(classified_page_diagnostics))
-        classified_page_urls = {
-            str(item.get("url") or "") for item in classified_page_diagnostics
+        removed_page_urls = {
+            str(item.get("url") or "")
+            for item in classified_page_diagnostics
+            if item.get("category") == "removed"
         }
         diagnostics.extend(
             item
             for item in state.metadata.get("failed_url_errors", [])
-            if str(item.get("url") or "") not in classified_page_urls
+            if str(item.get("url") or "") not in removed_page_urls
         )
         diagnostics.extend(
             {
@@ -593,20 +605,20 @@ async def _build_browser(
     *,
     repository: JobRepository,
     page_loader: Callable[[str], Awaitable[Any]] | None,
-) -> tuple[
-    FakeBrowserClient | BrowserUseClient,
-    list[str],
-    list[dict[str, object]],
-    list[dict[str, str]],
-]:
+) -> _BuiltBrowser:
     if request.data_mode == "demo":
-        return FakeBrowserClient(DEMO_JOB_PAGES), [], [], []
+        return _BuiltBrowser(
+            browser=FakeBrowserClient(DEMO_JOB_PAGES),
+            seed_urls=[],
+            source_diagnostics=[],
+            page_diagnostics=[],
+        )
     if request.data_mode == "seed_urls":
-        return (
-            BrowserUseClient(page_loader=page_loader or HttpPageLoader()),
-            request.seed_urls,
-            [],
-            [],
+        return _BuiltBrowser(
+            browser=BrowserUseClient(page_loader=page_loader or HttpPageLoader()),
+            seed_urls=request.seed_urls,
+            source_diagnostics=[],
+            page_diagnostics=[],
         )
 
     # official(实时列表)与 aggregator(快照)共用同一内容解析链:
@@ -626,11 +638,12 @@ async def _build_browser(
         http_loader=page_loader or HttpPageLoader(),
         repository=repository,
     )
-    return (
-        BrowserUseClient(page_loader=loader),
-        [job.url for job in jobs],
-        source_diagnostics,
-        loader.resolution_log,
+    return _BuiltBrowser(
+        browser=BrowserUseClient(page_loader=loader),
+        seed_urls=[job.url for job in jobs],
+        source_diagnostics=source_diagnostics,
+        # 来源诊断是发现阶段快照;页面诊断是 loader 的实时日志,工作流结束后读取。
+        page_diagnostics=loader.resolution_log,
     )
 
 

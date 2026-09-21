@@ -257,7 +257,7 @@ async def test_official_source_diagnostics_and_page_diagnostics_are_in_result_an
     assert payload["metadata"]["page_diagnostics"][0]["category"] == "blocked"
 
 
-def test_non_failed_source_statuses_are_reported_as_empty() -> None:
+def test_source_status_rows_distinguish_empty_and_unknown() -> None:
     import web_task_agent.streamlit_runner as runner_module
 
     rows = runner_module._source_diagnostic_rows(
@@ -270,9 +270,61 @@ def test_non_failed_source_statuses_are_reported_as_empty() -> None:
 
     assert [row["error"] for row in rows] == [
         "source_empty: no jobs returned",
-        "source_empty: no jobs returned",
-        "source_empty: no jobs returned",
+        "source_unknown: no jobs returned",
+        "source_unknown: no jobs returned",
     ]
+
+
+@pytest.mark.asyncio
+async def test_blocked_page_preserves_terminal_workflow_failure(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+    from web_task_agent.browser import PageHttpError
+    from web_task_agent.job_sources import DiscoveredJob
+
+    url = "https://example.com/jobs/blocked-short-jd"
+
+    class FakeOfficialSource:
+        def __init__(self, specs=None):  # noqa: ANN001
+            self.diagnostics: list[dict[str, object]] = []
+
+        async def discover(self, limit: int, *, keyword: str = ""):
+            return [
+                DiscoveredJob(
+                    url=url,
+                    title="大模型算法实习生",
+                    company="示例公司",
+                    location="北京",
+                    jd_text="岗位职责：模型训练。",
+                    source="official-test",
+                )
+            ]
+
+    async def blocked_page_loader(_url: str):
+        raise PageHttpError("HTTP 403 forbidden", status_code=403)
+
+    monkeypatch.setattr(runner_module, "OfficialListSource", FakeOfficialSource)
+
+    result = await run_ui_request(
+        UiRunRequest(
+            data_mode="official",
+            official_specs=["test"],
+            target_count=1,
+        ),
+        output_root=tmp_path,
+        environ={},
+        page_loader=blocked_page_loader,
+    )
+
+    assert result.jobs == []
+    assert result.failed_urls == [url]
+    assert len(result.diagnostics) == 2
+    assert result.diagnostics[0]["url"] == url
+    assert result.diagnostics[0]["error"].startswith("page_blocked:")
+    assert result.diagnostics[1]["url"] == url
+    assert result.diagnostics[1]["error"].startswith("PageEmptyError:")
 
 
 @pytest.mark.asyncio
