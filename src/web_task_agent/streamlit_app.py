@@ -583,6 +583,10 @@ def diagnostic_rows(result: UiRunResult) -> list[dict[str, str]]:
     return rows
 
 
+def diagnostics_empty_message() -> str:
+    return "本次运行没有来源或页面诊断。"
+
+
 def artifact_download_spec(
     result: UiRunResult,
     artifact_key: str,
@@ -983,7 +987,7 @@ def _render_result(
         if rows:
             st.dataframe(rows, width="stretch", hide_index=True)
         else:
-            st.success("本次运行没有页面级失败。")
+            st.success(diagnostics_empty_message())
     with trace_tab:
         if result.execution_trace:
             st.dataframe(result.execution_trace, width="stretch", hide_index=True)

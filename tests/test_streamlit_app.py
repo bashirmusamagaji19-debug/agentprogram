@@ -11,6 +11,7 @@ from web_task_agent.streamlit_app import (
     artifact_cards_html,
     artifact_download_spec,
     diagnostic_rows,
+    diagnostics_empty_message,
     job_result_rows,
     metric_grid_html,
     mode_hint,
@@ -109,6 +110,34 @@ def test_diagnostic_rows_preserve_category_and_url(tmp_path: Path) -> None:
             "详情": "no text",
         }
     ]
+
+
+def test_diagnostic_rows_render_source_and_page_categories(tmp_path: Path) -> None:
+    result = make_result(tmp_path)
+    result.diagnostics = [
+        {"url": "agibot", "error": "source_failed: RuntimeError: API changed"},
+        {
+            "url": "https://example.com/dead",
+            "error": "PageRemovedError: job page removed",
+        },
+    ]
+
+    assert diagnostic_rows(result) == [
+        {
+            "类别": "source_failed",
+            "目标": "agibot",
+            "详情": "RuntimeError: API changed",
+        },
+        {
+            "类别": "PageRemovedError",
+            "目标": "https://example.com/dead",
+            "详情": "job page removed",
+        },
+    ]
+
+
+def test_diagnostics_empty_message_covers_source_and_page_diagnostics() -> None:
+    assert diagnostics_empty_message() == "本次运行没有来源或页面诊断。"
 
 
 def test_artifact_download_spec_uses_safe_label_and_mime(tmp_path: Path) -> None:
