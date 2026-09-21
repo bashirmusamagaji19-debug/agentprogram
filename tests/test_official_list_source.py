@@ -1355,3 +1355,65 @@ async def test_source_diagnostic_redacts_and_truncates_error(monkeypatch):
     assert source.diagnostics[0]["error_type"] == "RuntimeError"
     assert "secret-value" not in source.diagnostics[0]["detail"]
     assert len(source.diagnostics[0]["detail"]) <= 160
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_stays_healthy_after_later_failure(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def unstable_lister(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [DiscoveredJob(url="https://ok.example.com/1", title="OK", source="unstable")]
+        if calls == 2:
+            return []
+        raise RuntimeError("backfill failed")
+
+    monkeypatch.setattr(ols, "_SPECS", {"unstable": unstable_lister})
+    source = ols.OfficialListSource(specs=["unstable"], transport=object())
+
+    await source.discover(limit=2)
+
+    assert source.diagnostics == [
+        {
+            "source": "unstable",
+            "status": "healthy",
+            "attempts": 3,
+            "jobs_discovered": 1,
+            "error_type": "",
+            "detail": "",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_stays_healthy_after_later_empty_attempts(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def transient_lister(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [DiscoveredJob(url="https://ok.example.com/1", title="OK", source="transient")]
+        return []
+
+    monkeypatch.setattr(ols, "_SPECS", {"transient": transient_lister})
+    source = ols.OfficialListSource(specs=["transient"], transport=object())
+
+    await source.discover(limit=2)
+
+    assert source.diagnostics == [
+        {
+            "source": "transient",
+            "status": "healthy",
+            "attempts": 3,
+            "jobs_discovered": 1,
+            "error_type": "",
+            "detail": "",
+        }
+    ]

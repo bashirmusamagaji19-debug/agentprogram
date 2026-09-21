@@ -1692,50 +1692,79 @@ class OfficialListSource:
         每源内部仍由各 lister 自行分页,预算用尽即停。
         """
         self.diagnostics = []
-        diagnostic_by_source: dict[str, dict[str, object]] = {
+        run_state_by_source: dict[str, dict[str, object]] = {
             spec: {
-                "source": spec,
-                "status": "empty",
                 "attempts": 0,
-                "jobs_discovered": 0,
+                "successful_attempts": 0,
+                "failed_attempts": 0,
+                "max_jobs": 0,
                 "error_type": "",
                 "detail": "",
             }
             for spec in self.specs
         }
-        self.diagnostics = [dict(diagnostic_by_source[spec]) for spec in self.specs]
+
+        def _refresh_diagnostics() -> None:
+            diagnostics: list[dict[str, object]] = []
+            for spec in self.specs:
+                state = run_state_by_source[spec]
+                max_jobs = int(state["max_jobs"])
+                if max_jobs:
+                    status = "healthy"
+                    error_type = ""
+                    detail = ""
+                elif int(state["successful_attempts"]):
+                    status = "empty"
+                    error_type = ""
+                    detail = ""
+                elif int(state["failed_attempts"]):
+                    status = "failed"
+                    error_type = str(state["error_type"])
+                    detail = str(state["detail"])
+                else:
+                    status = "empty"
+                    error_type = ""
+                    detail = ""
+                diagnostics.append(
+                    {
+                        "source": spec,
+                        "status": status,
+                        "attempts": int(state["attempts"]),
+                        "jobs_discovered": max_jobs,
+                        "error_type": error_type,
+                        "detail": detail,
+                    }
+                )
+            self.diagnostics = diagnostics
+
+        _refresh_diagnostics()
         if limit <= 0:
             return []
 
         async def _collect(budget: int) -> list[list[DiscoveredJob]]:
             batches: list[list[DiscoveredJob]] = []
             for spec in self.specs:
-                diagnostic = diagnostic_by_source[spec]
-                diagnostic["attempts"] = int(diagnostic["attempts"]) + 1
+                state = run_state_by_source[spec]
+                state["attempts"] = int(state["attempts"]) + 1
                 try:
                     per_source = await _SPECS[spec](self.transport, budget)
                 except Exception as exc:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
                     per_source = []
-                    diagnostic.update(
-                        status="failed",
-                        jobs_discovered=0,
-                        error_type=type(exc).__name__,
-                        detail=safe_diagnostic_detail(exc),
-                    )
+                    state["failed_attempts"] = int(state["failed_attempts"]) + 1
+                    state["error_type"] = type(exc).__name__
+                    state["detail"] = safe_diagnostic_detail(exc)
                 else:
-                    diagnostic.update(
-                        status="healthy" if per_source else "empty",
-                        jobs_discovered=len(per_source),
-                        error_type="",
-                        detail="",
-                    )
+                    state["successful_attempts"] = int(state["successful_attempts"]) + 1
+                    # Backfill rounds can re-return overlapping jobs. Keep the largest
+                    # successful batch instead of summing duplicate discoveries.
+                    state["max_jobs"] = max(int(state["max_jobs"]), len(per_source))
                 batches.append(
                     [
                         job if job.tier else dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
                         for job in per_source
                     ]
                 )
-            self.diagnostics = [dict(diagnostic_by_source[spec]) for spec in self.specs]
+            _refresh_diagnostics()
             return batches
 
         sample_limit = (
