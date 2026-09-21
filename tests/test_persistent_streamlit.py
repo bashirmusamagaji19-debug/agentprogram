@@ -351,3 +351,19 @@ def test_streamlit_app_enforces_passcode_before_showing_history(monkeypatch, tmp
     assert not app.exception
     assert app.session_state["app_access_granted"] is True
     assert len(app.segmented_control) == 1
+
+
+def test_streamlit_app_renders_dual_column_workspace(monkeypatch, tmp_path) -> None:
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.delenv("APP_PASSCODE", raising=False)
+    monkeypatch.setenv("PERSISTENCE_ROOT", str(tmp_path / "persistence"))
+
+    app = AppTest.from_file(REPO_ROOT / "streamlit_app.py").run(timeout=20)
+    rendered_markdown = "\n".join(item.value for item in app.markdown)
+
+    assert not app.exception
+    assert "配置任务" in rendered_markdown
+    assert "运行结果" in rendered_markdown
+    assert "ui-workspace-config" in rendered_markdown
+    assert "ui-result-shell" in rendered_markdown
