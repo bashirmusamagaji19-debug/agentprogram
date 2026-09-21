@@ -1234,6 +1234,32 @@ async def test_discover_interleaves_sources_for_breadth(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_discover_filters_jobs_by_keyword(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    async def fake_lister(transport, limit):
+        return [
+            DiscoveredJob(
+                url="https://example.com/jobs/agent-intern",
+                title="AI Agent Intern",
+                source="fake",
+            ),
+            DiscoveredJob(
+                url="https://example.com/jobs/frontend-intern",
+                title="Frontend Developer Intern",
+                source="fake",
+            ),
+        ][:limit]
+
+    monkeypatch.setattr(ols, "_SPECS", {"fake": fake_lister})
+    source = ols.OfficialListSource(specs=["fake"], transport=object())
+
+    jobs = await source.discover(limit=2, keyword="AI Agent 实习")
+
+    assert [job.url for job in jobs] == ["https://example.com/jobs/agent-intern"]
+
+
+@pytest.mark.asyncio
 async def test_discover_handles_empty_sources(monkeypatch):
     import web_task_agent.official_list_source as ols
 
@@ -1270,3 +1296,170 @@ async def test_discover_isolates_failing_source(monkeypatch):
 
     assert len(jobs) == 1
     assert jobs[0].source == "ok"
+    assert source.diagnostics == [
+        {
+            "source": "boom",
+            "status": "failed",
+            "attempts": 3,
+            "jobs_discovered": 0,
+            "error_type": "RuntimeError",
+            "detail": "simulated SSL EOF",
+            "failed_attempts": 3,
+            "last_error_type": "RuntimeError",
+            "last_error_detail": "simulated SSL EOF",
+        },
+        {
+            "source": "ok",
+            "status": "healthy",
+            "attempts": 3,
+            "jobs_discovered": 1,
+            "error_type": "",
+            "detail": "",
+            "failed_attempts": 0,
+            "last_error_type": "",
+            "last_error_detail": "",
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_discover_distinguishes_empty_source_and_resets_diagnostics(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def changing_lister(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls <= 3:
+            return []
+        return [DiscoveredJob(url="https://ok.example.com/1", title="OK", source="changing")]
+
+    monkeypatch.setattr(ols, "_SPECS", {"changing": changing_lister})
+    source = ols.OfficialListSource(specs=["changing"], transport=object())
+
+    assert await source.discover(limit=1) == []
+    assert source.diagnostics[0]["status"] == "empty"
+    jobs = await source.discover(limit=1)
+    assert len(jobs) == 1
+    assert source.diagnostics[0]["status"] == "healthy"
+    assert source.diagnostics[0]["attempts"] == 1
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_redacts_and_truncates_error(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    async def secret_failure(transport, limit):  # noqa: ARG001
+        raise RuntimeError("api_key=secret-value " + "x" * 300)
+
+    monkeypatch.setattr(ols, "_SPECS", {"secret": secret_failure})
+    source = ols.OfficialListSource(specs=["secret"], transport=object())
+
+    await source.discover(limit=1)
+
+    assert source.diagnostics[0]["error_type"] == "RuntimeError"
+    assert "secret-value" not in source.diagnostics[0]["detail"]
+    assert len(source.diagnostics[0]["detail"]) <= 160
+    assert "secret-value" not in source.diagnostics[0]["last_error_detail"]
+    assert len(source.diagnostics[0]["last_error_detail"]) <= 160
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_stays_healthy_after_later_failure(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def unstable_lister(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [DiscoveredJob(url="https://ok.example.com/1", title="OK", source="unstable")]
+        if calls == 2:
+            return []
+        raise RuntimeError("backfill failed")
+
+    monkeypatch.setattr(ols, "_SPECS", {"unstable": unstable_lister})
+    source = ols.OfficialListSource(specs=["unstable"], transport=object())
+
+    await source.discover(limit=2)
+
+    assert source.diagnostics == [
+        {
+            "source": "unstable",
+            "status": "healthy",
+            "attempts": 3,
+            "jobs_discovered": 1,
+            "error_type": "",
+            "detail": "",
+            "failed_attempts": 1,
+            "last_error_type": "RuntimeError",
+            "last_error_detail": "backfill failed",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_stays_healthy_after_later_empty_attempts(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def transient_lister(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [DiscoveredJob(url="https://ok.example.com/1", title="OK", source="transient")]
+        return []
+
+    monkeypatch.setattr(ols, "_SPECS", {"transient": transient_lister})
+    source = ols.OfficialListSource(specs=["transient"], transport=object())
+
+    await source.discover(limit=2)
+
+    assert source.diagnostics == [
+        {
+            "source": "transient",
+            "status": "healthy",
+            "attempts": 3,
+            "jobs_discovered": 1,
+            "error_type": "",
+            "detail": "",
+            "failed_attempts": 0,
+            "last_error_type": "",
+            "last_error_detail": "",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_keeps_failure_evidence_when_empty(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def empty_with_failure(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("empty backfill failed")
+        return []
+
+    monkeypatch.setattr(ols, "_SPECS", {"empty": empty_with_failure})
+    source = ols.OfficialListSource(specs=["empty"], transport=object())
+
+    assert await source.discover(limit=2) == []
+    assert source.diagnostics == [
+        {
+            "source": "empty",
+            "status": "empty",
+            "attempts": 3,
+            "jobs_discovered": 0,
+            "error_type": "",
+            "detail": "",
+            "failed_attempts": 1,
+            "last_error_type": "RuntimeError",
+            "last_error_detail": "empty backfill failed",
+        }
+    ]

@@ -114,12 +114,14 @@ class BrowserUseClient:
         ]
 
     async def open_url(self, url: str) -> BrowserPage:
+        from web_task_agent.page_reliability import PageRemovedError
+
         try:
             if self._page_loader is not None:
                 return await self._page_loader(url)
             return await self._load_with_browser_use(url)
-        except BrowserConfigurationError:
-            raise  # pass through specific subtypes (PageTimeoutError, etc.)
+        except (BrowserConfigurationError, PageRemovedError):
+            raise  # pass through stable browser/page failure types
         except Exception as exc:
             raise BrowserConfigurationError(
                 f"browser-use failed while opening {url}: {exc}"

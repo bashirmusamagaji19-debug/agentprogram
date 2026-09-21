@@ -18,7 +18,12 @@ import json
 from urllib import parse as url_parse
 from urllib import request as url_request
 
-from web_task_agent.job_sources import AI_TITLE_KEYWORDS, DiscoveredJob, is_intern_ai_job
+from web_task_agent.job_sources import (
+    AI_TITLE_KEYWORDS,
+    DiscoveredJob,
+    is_intern_ai_job,
+    matches_keyword,
+)
 from web_task_agent.official_list_families import (
     _strip_html,
     decrypt_moka_envelope,
@@ -26,6 +31,7 @@ from web_task_agent.official_list_families import (
     make_moka_lister,
     make_zhiye_lister,
 )
+from web_task_agent.page_reliability import safe_diagnostic_detail
 
 # 具身智能/机器人是目标求职域(用户新增车企与具身智能厂商),与 AI 词并列为命中口径
 _DOMAIN_TITLE_KEYWORDS = (*AI_TITLE_KEYWORDS, "具身", "机器人", "自动驾驶", "智驾")
@@ -1671,33 +1677,105 @@ class OfficialListSource:
             if spec not in _SPECS:
                 raise ValueError(f"unknown spec: {spec} (available: {sorted(_SPECS)})")
         self.transport = transport if transport is not None else DefaultTransport()
+        self.diagnostics: list[dict[str, object]] = []
 
-    async def discover(self, limit: int) -> list[DiscoveredJob]:
+    async def discover(
+        self,
+        limit: int,
+        *,
+        keyword: str = "",
+    ) -> list[DiscoveredJob]:
         """公平采样发现:每源预算 = ceil(limit/源数),跨源交错合并。
 
         顺序填充会让第一个源吃掉全部名额(腾讯一家即可填满任意 limit),
         全局搜索模式需要跨梯队/跨公司的广度,故按源预算 + 轮转交错。
         每源内部仍由各 lister 自行分页,预算用尽即停。
         """
+        self.diagnostics = []
+        run_state_by_source: dict[str, dict[str, object]] = {
+            spec: {
+                "attempts": 0,
+                "successful_attempts": 0,
+                "failed_attempts": 0,
+                "max_jobs": 0,
+                "last_error_type": "",
+                "last_error_detail": "",
+            }
+            for spec in self.specs
+        }
+
+        def _refresh_diagnostics() -> None:
+            diagnostics: list[dict[str, object]] = []
+            for spec in self.specs:
+                state = run_state_by_source[spec]
+                max_jobs = int(state["max_jobs"])
+                if max_jobs:
+                    status = "healthy"
+                    error_type = ""
+                    detail = ""
+                elif int(state["successful_attempts"]):
+                    status = "empty"
+                    error_type = ""
+                    detail = ""
+                elif int(state["failed_attempts"]):
+                    status = "failed"
+                    error_type = str(state["last_error_type"])
+                    detail = str(state["last_error_detail"])
+                else:
+                    status = "empty"
+                    error_type = ""
+                    detail = ""
+                diagnostics.append(
+                    {
+                        "source": spec,
+                        "status": status,
+                        "attempts": int(state["attempts"]),
+                        "jobs_discovered": max_jobs,
+                        "error_type": error_type,
+                        "detail": detail,
+                        "failed_attempts": int(state["failed_attempts"]),
+                        "last_error_type": str(state["last_error_type"]),
+                        "last_error_detail": str(state["last_error_detail"]),
+                    }
+                )
+            self.diagnostics = diagnostics
+
+        _refresh_diagnostics()
         if limit <= 0:
             return []
 
         async def _collect(budget: int) -> list[list[DiscoveredJob]]:
             batches: list[list[DiscoveredJob]] = []
             for spec in self.specs:
+                state = run_state_by_source[spec]
+                state["attempts"] = int(state["attempts"]) + 1
                 try:
                     per_source = await _SPECS[spec](self.transport, budget)
-                except Exception:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
+                except Exception as exc:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
                     per_source = []
+                    state["failed_attempts"] = int(state["failed_attempts"]) + 1
+                    state["last_error_type"] = safe_diagnostic_detail(
+                        type(exc).__name__
+                    )
+                    state["last_error_detail"] = safe_diagnostic_detail(exc)
+                else:
+                    state["successful_attempts"] = int(state["successful_attempts"]) + 1
+                    # Backfill rounds can re-return overlapping jobs. Keep the largest
+                    # successful batch instead of summing duplicate discoveries.
+                    state["max_jobs"] = max(int(state["max_jobs"]), len(per_source))
                 batches.append(
                     [
                         job if job.tier else dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
                         for job in per_source
                     ]
                 )
+            _refresh_diagnostics()
             return batches
 
-        budget = max(1, -(-limit // len(self.specs)))  # ceil
+        sample_limit = (
+            max(limit * 5, len(self.specs) * 3) if keyword.strip() else limit
+        )
+        budget = max(1, -(-sample_limit // len(self.specs)))  # ceil
         batches = await _collect(budget)
 
         def _interleave(
@@ -1718,6 +1796,13 @@ class OfficialListSource:
                         if key in seen:
                             continue
                         seen.add(key)
+                        if keyword.strip() and not matches_keyword(
+                            keyword,
+                            job.title,
+                            job.jd_text,
+                            " ".join(job.tags),
+                        ):
+                            continue
                         jobs.append(job)
                         round_added = True
                         break

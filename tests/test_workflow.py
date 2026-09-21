@@ -6,7 +6,7 @@ from tests.fixtures.job_pages import FAKE_JOB_PAGES
 from web_task_agent.browser import FakeBrowserClient
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.matcher import JobMatcher
-from web_task_agent.models import UserProfile
+from web_task_agent.models import JobPosting, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
@@ -458,3 +458,58 @@ async def test_workflow_skips_browser_when_visual_extractor_uses_own_browser(tmp
     assert browser_called is False
     assert state.jobs[0].title == "Real Visual Job"
     assert "deferred 1 seed URLs to visual provider" in str(state.metadata["execution_trace"])
+
+
+def test_workflow_filters_by_each_runs_location(tmp_path):
+    repo = JobRepository(tmp_path / "agent.db")
+    repo.initialize()
+    workflow = WebTaskWorkflow(
+        browser=FakeBrowserClient([]),
+        extractor=PageExtractor(),
+        matcher=JobMatcher(),
+        verifier=JobVerifier(required_keywords=["AI"]),
+        repository=repo,
+        reporter=MarkdownReporter(output_dir=tmp_path / "reports"),
+    )
+
+    jobs = [
+        JobPosting(
+            title=f"AI Engineer {index}",
+            company="Example",
+            location=location,
+            source="fixture",
+            url=f"https://example.com/jobs/{index}",
+            requirements="Python AI",
+            responsibilities="Build AI systems",
+            confidence=0.9,
+        )
+        for index, location in enumerate(
+            ["深圳", "北京", "深圳、北京", "Unknown Location"]
+        )
+    ]
+
+    shenzhen_state = workflow._verifier_node(
+        WorkflowState(
+            user=UserProfile(keyword="AI", location="深圳"),
+            metadata={"extracted_jobs": jobs},
+        )
+    )
+    beijing_state = workflow._verifier_node(
+        WorkflowState(
+            user=UserProfile(keyword="AI", location="北京"),
+            metadata={"extracted_jobs": jobs},
+        )
+    )
+
+    assert [job.location for job in shenzhen_state.jobs] == ["深圳", "深圳、北京"]
+    assert [job.location for job in beijing_state.jobs] == ["北京", "深圳、北京"]
+    assert any(
+        "location mismatch" in reason
+        for item in shenzhen_state.metadata["filtered_jobs"]
+        for reason in item["reasons"]
+    )
+    assert any(
+        "location unknown" in reason
+        for item in shenzhen_state.metadata["filtered_jobs"]
+        for reason in item["reasons"]
+    )

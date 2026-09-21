@@ -9,6 +9,7 @@ from web_task_agent.agent_models import AgentBudget, DecisionAgentState
 from web_task_agent.agent_runtime import HybridAgentRuntime
 from web_task_agent.browser import BrowserClient
 from web_task_agent.extractor import PageExtractor
+from web_task_agent.location_filter import is_unknown_location, location_matches
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import BrowserPage, RunMetrics, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
@@ -241,15 +242,33 @@ class WebTaskWorkflow:
         filtered_jobs: list[dict[str, object]] = []
         for job in unique_jobs:
             result = self.verifier.verify(job)
-            if result.is_valid:
+            if not result.is_valid:
+                filtered_jobs.append(
+                    {
+                        "title": job.title,
+                        "company": job.company,
+                        "url": job.url,
+                        "reasons": result.reasons,
+                    }
+                )
+                continue
+            if location_matches(state.user.location, job.location):
                 verified_jobs.append(job)
                 continue
+            reason = (
+                f"location unknown: requested {state.user.location}"
+                if is_unknown_location(job.location)
+                else (
+                    f"location mismatch: requested {state.user.location}, "
+                    f"got {job.location}"
+                )
+            )
             filtered_jobs.append(
                 {
                     "title": job.title,
                     "company": job.company,
                     "url": job.url,
-                    "reasons": result.reasons,
+                    "reasons": [reason],
                 }
             )
         state.jobs = verified_jobs

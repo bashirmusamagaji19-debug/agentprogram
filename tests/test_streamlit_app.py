@@ -6,13 +6,17 @@ from pathlib import Path
 
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics
 from web_task_agent.streamlit_app import (
+    THEME_COLORS,
+    app_styles,
     artifact_cards_html,
     artifact_download_spec,
     diagnostic_rows,
+    diagnostics_empty_message,
     job_result_rows,
     metric_grid_html,
     mode_hint,
     run_status,
+    workspace_empty_state_html,
 )
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
@@ -26,6 +30,23 @@ from web_task_agent.streamlit_runner import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def contrast_ratio(foreground: str, background: str) -> float:
+    def luminance(color: str) -> float:
+        value = color.lstrip("#")
+        channels = [int(value[index : index + 2], 16) / 255 for index in (0, 2, 4)]
+        linear = [
+            channel / 12.92
+            if channel <= 0.04045
+            else ((channel + 0.055) / 1.055) ** 2.4
+            for channel in channels
+        ]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    first = luminance(foreground)
+    second = luminance(background)
+    return (max(first, second) + 0.05) / (min(first, second) + 0.05)
 
 
 def make_result(tmp_path: Path, data_mode: str = "demo") -> UiRunResult:
@@ -91,6 +112,34 @@ def test_diagnostic_rows_preserve_category_and_url(tmp_path: Path) -> None:
     ]
 
 
+def test_diagnostic_rows_render_source_and_page_categories(tmp_path: Path) -> None:
+    result = make_result(tmp_path)
+    result.diagnostics = [
+        {"url": "agibot", "error": "source_failed: RuntimeError: API changed"},
+        {
+            "url": "https://example.com/dead",
+            "error": "PageRemovedError: job page removed",
+        },
+    ]
+
+    assert diagnostic_rows(result) == [
+        {
+            "类别": "source_failed",
+            "目标": "agibot",
+            "详情": "RuntimeError: API changed",
+        },
+        {
+            "类别": "PageRemovedError",
+            "目标": "https://example.com/dead",
+            "详情": "job page removed",
+        },
+    ]
+
+
+def test_diagnostics_empty_message_covers_source_and_page_diagnostics() -> None:
+    assert diagnostics_empty_message() == "本次运行没有来源或页面诊断。"
+
+
 def test_artifact_download_spec_uses_safe_label_and_mime(tmp_path: Path) -> None:
     result = make_result(tmp_path)
 
@@ -117,11 +166,69 @@ def test_run_status_distinguishes_ready_success_and_partial_failure(tmp_path: Pa
     assert run_status(make_result(tmp_path)) == ("已完成", "1 个有效岗位 · 1 个页面失败", "warning")
 
 
+def test_run_status_marks_non_blocking_diagnostics_without_page_failure(
+    tmp_path: Path,
+) -> None:
+    result = make_result(tmp_path)
+    result.metrics.failed_pages = 0
+    result.diagnostics = [
+        {
+            "url": "empty-source",
+            "error": "source_empty: no jobs returned",
+            "is_failure": False,
+        }
+    ]
+
+    status, detail, tone = run_status(result)
+
+    assert status == "已完成"
+    assert "页面失败" not in detail
+    assert "非阻断诊断" in detail
+    assert tone == "warning"
+
+
 def test_mode_hint_explains_each_data_mode() -> None:
     assert "内置夹具" in mode_hint("demo")
     assert "官方招聘 API" in mode_hint("official")
     assert "聚合岗位" in mode_hint("aggregator")
     assert "指定岗位 URL" in mode_hint("seed_urls")
+
+
+def test_theme_colors_keep_core_text_above_wcag_aa() -> None:
+    core_pairs = [
+        ("ink", "canvas"),
+        ("muted", "surface"),
+        ("brand", "surface"),
+        ("sidebar_text", "sidebar"),
+        ("sidebar_muted", "sidebar"),
+        ("warning", "surface"),
+        ("error", "surface"),
+    ]
+
+    for foreground, background in core_pairs:
+        assert contrast_ratio(
+            THEME_COLORS[foreground],
+            THEME_COLORS[background],
+        ) >= 4.5, f"{foreground} on {background} is too low contrast"
+
+
+def test_app_styles_avoid_global_sidebar_color_override() -> None:
+    styles = app_styles()
+
+    assert '[data-testid="stSidebar"] *' not in styles
+    assert "--ui-sidebar-text: #EAF4EE" in styles
+    assert "--ui-sidebar-muted: #AEC3B7" in styles
+    assert "max-height: calc(100vh - 2rem)" in styles
+    assert "overflow-y: auto" in styles
+
+
+def test_workspace_empty_state_explains_deliverables() -> None:
+    html = workspace_empty_state_html()
+
+    assert "岗位列表" in html
+    assert "匹配解释" in html
+    assert "诊断轨迹" in html
+    assert "下载产物" in html
 
 
 def test_metric_grid_contains_status_classes_and_accessible_labels() -> None:
@@ -152,7 +259,14 @@ def test_cloud_requirements_cover_runtime_deps_without_browser_use() -> None:
         for part in [line.split(";")[0].split(">=")[0].split("<")[0].split("==")[0]]
     }
 
-    assert {"streamlit", "langgraph", "pydantic", "python-dotenv"} <= names
+    assert {
+        "streamlit",
+        "langgraph",
+        "pydantic",
+        "python-dotenv",
+        "pypdf",
+        "python-docx",
+    } <= names
     assert not any("browser-use" in name or "browser_use" in name for name in names)
 
 

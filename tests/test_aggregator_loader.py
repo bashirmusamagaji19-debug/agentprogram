@@ -203,7 +203,212 @@ async def test_non_aggregator_url_delegates_to_http_loader(jobs):
     assert page.content == "非聚合URL正文" * 20
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [404, 410])
+async def test_permanently_removed_http_page_does_not_fall_back_to_list_jd(jobs, status):
+    from web_task_agent.browser import PageHttpError
+    from web_task_agent.page_reliability import PageRemovedError
+
+    class RemovedLoader:
+        async def __call__(self, url):  # noqa: ANN001, ANN202
+            raise PageHttpError(f"HTTP {status}: {url}", status_code=status)
+
+    loader = AggregatorPageLoader(jobs, official_api=None, http_loader=RemovedLoader())
+
+    with pytest.raises(PageRemovedError, match="removed"):
+        await loader(jobs[0].url)
+
+    assert loader.resolution_log[-1]["category"] == "removed"
+    assert loader.resolution_log[-1]["detail"]
+    assert all(item["strategy"] != "jd_text-fallback" for item in loader.resolution_log)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "category"),
+    [(403, "blocked"), (429, "blocked"), (503, "transient")],
+)
+async def test_non_permanent_http_failure_keeps_list_jd_fallback(jobs, status, category):
+    from web_task_agent.browser import PageHttpError
+
+    class FailingLoader:
+        async def __call__(self, url):  # noqa: ANN001, ANN202
+            raise PageHttpError(f"HTTP {status}: {url}", status_code=status)
+
+    loader = AggregatorPageLoader(jobs, official_api=None, http_loader=FailingLoader())
+
+    page = await loader(jobs[0].url)
+
+    assert page.source.startswith("aggregator:")
+    assert loader.resolution_log[-2]["category"] == category
+    assert loader.resolution_log[-2]["detail"]
+    assert loader.resolution_log[-1]["strategy"] == "jd_text-fallback"
+
+
+@pytest.mark.asyncio
+async def test_explicit_short_tombstone_does_not_fall_back_to_list_jd(jobs):
+    from web_task_agent.page_reliability import PageRemovedError
+
+    http = FakeHttpLoader(pages={jobs[0].url: "该职位已下线，请查看其他职位。"})
+    loader = AggregatorPageLoader(jobs, official_api=None, http_loader=http)
+
+    with pytest.raises(PageRemovedError, match="removed"):
+        await loader(jobs[0].url)
+
+    assert loader.resolution_log[-1]["category"] == "removed"
+    assert loader.resolution_log[-1]["detail"] == "explicit removal page"
+    assert all(item["strategy"] != "jd_text-fallback" for item in loader.resolution_log)
+
+
+@pytest.mark.asyncio
+async def test_official_api_short_tombstone_does_not_fall_back_to_list_jd(jobs):
+    from web_task_agent.page_reliability import PageRemovedError
+
+    class TombstoneOfficialApi:
+        async def fetch(self, url):  # noqa: ANN001, ANN202
+            class _Content:
+                content = "该职位已下线，请查看其他职位。"
+                title = "职位已下线"
+                canonical_url = ""
+
+            return _Content()
+
+    loader = AggregatorPageLoader(jobs, official_api=TombstoneOfficialApi(), http_loader=None)
+
+    with pytest.raises(PageRemovedError, match="removed"):
+        await loader(jobs[0].url)
+
+    assert loader.resolution_log[-1]["category"] == "removed"
+    assert loader.resolution_log[-1]["detail"] == "explicit removal page"
+    assert all(item["strategy"] != "jd_text-fallback" for item in loader.resolution_log)
+
+
+@pytest.mark.asyncio
+async def test_unsupported_official_api_domain_keeps_existing_fallback(jobs):
+    from web_task_agent.official_api import UnsupportedOfficialApiError
+
+    class UnsupportedOfficialApi:
+        async def fetch(self, url):  # noqa: ANN001, ANN202
+            raise UnsupportedOfficialApiError(f"unsupported: {url}")
+
+    http = FakeHttpLoader()
+    loader = AggregatorPageLoader(
+        jobs,
+        official_api=UnsupportedOfficialApi(),
+        http_loader=http,
+    )
+
+    page = await loader(jobs[0].url)
+
+    assert page.source.startswith("aggregator:")
+    assert loader.resolution_log[-3] == {
+        "url": jobs[0].url,
+        "strategy": "official-api:unsupported",
+    }
+    assert loader.resolution_log[-1]["strategy"] == "jd_text-fallback"
+
+
 # ── 旧壳页缓存绕过内容门槛（#25）─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_cached_long_tombstone_does_not_fall_back_to_list_jd(jobs, repo):
+    from web_task_agent.page_reliability import PageRemovedError
+
+    cached = BrowserPage(
+        url=jobs[0].url,
+        title="职位已下线",
+        content="导航和推荐内容。" * 30,
+        source="browser",
+    )
+    repo.cache_page(cached)
+
+    class RecordingOfficialApi:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def fetch(self, url):  # noqa: ANN001, ANN202
+            self.calls.append(url)
+            raise AssertionError("official API must not run after a cached tombstone")
+
+    class RecordingHttpLoader:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def __call__(self, url):  # noqa: ANN001, ANN202
+            self.calls.append(url)
+            raise AssertionError("HTTP must not run after a cached tombstone")
+
+    official = RecordingOfficialApi()
+    http = RecordingHttpLoader()
+    loader = AggregatorPageLoader(
+        jobs,
+        official_api=official,
+        http_loader=http,
+        repository=repo,
+    )
+
+    with pytest.raises(PageRemovedError, match="removed"):
+        await loader(jobs[0].url)
+
+    assert official.calls == []
+    assert http.calls == []
+    assert loader.resolution_log[-1]["strategy"] == "cache"
+    assert loader.resolution_log[-1]["category"] == "removed"
+    assert loader.resolution_log[-1]["detail"] == "explicit removal page"
+
+
+@pytest.mark.asyncio
+async def test_cached_short_tombstone_does_not_fall_back_to_list_jd(jobs, repo):
+    from web_task_agent.page_reliability import PageRemovedError
+
+    cached = BrowserPage(
+        url=jobs[0].url,
+        title="算法实习生",
+        content="该职位已下线，请查看其他职位。",
+        source="browser",
+    )
+    repo.cache_page(cached)
+
+    class RecordingHttpLoader:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def __call__(self, url):  # noqa: ANN001, ANN202
+            self.calls.append(url)
+            raise AssertionError("HTTP must not run after a cached tombstone")
+
+    http = RecordingHttpLoader()
+    loader = AggregatorPageLoader(jobs, official_api=None, http_loader=http, repository=repo)
+
+    with pytest.raises(PageRemovedError, match="removed"):
+        await loader(jobs[0].url)
+
+    assert http.calls == []
+    assert loader.resolution_log[-1]["strategy"] == "cache"
+    assert loader.resolution_log[-1]["category"] == "removed"
+    assert loader.resolution_log[-1]["detail"] == "explicit removal page"
+
+
+@pytest.mark.asyncio
+async def test_cached_short_non_tombstone_shell_is_ignored(jobs, repo):
+    cached = BrowserPage(
+        url=jobs[0].url,
+        title="招聘",
+        content="请启用 JavaScript 后继续访问。",
+        source="browser",
+    )
+    repo.cache_page(cached)
+    http_content = "服务端渲染的完整正文，" * 30
+    http = FakeHttpLoader(pages={jobs[0].url: http_content})
+    loader = AggregatorPageLoader(jobs, official_api=None, http_loader=http, repository=repo)
+
+    page = await loader(jobs[0].url)
+
+    assert page.content == http_content
+    assert http.calls == [jobs[0].url]
+    assert all(item["strategy"] != "cache" for item in loader.resolution_log)
+    assert loader.resolution_log[-1]["strategy"] == "http"
 
 
 @pytest.mark.asyncio

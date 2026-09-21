@@ -4,14 +4,23 @@ import json
 import os
 import re
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from docx import Document
 from pydantic import BaseModel, Field
+from pypdf import PdfReader
 
 from web_task_agent.action_plan import ActionPlanWriter
+from web_task_agent.artifact_store import (
+    ArtifactNotFoundError,
+    ArtifactRecord,
+    ArtifactStore,
+)
 from web_task_agent.browser import BrowserUseClient, FakeBrowserClient, HttpPageLoader
 from web_task_agent.dashboard import HtmlDashboard
 from web_task_agent.demo_pages import DEMO_JOB_PAGES
@@ -26,11 +35,21 @@ from web_task_agent.models import JobPosting, MatchResult, RunMetrics, UserProfi
 from web_task_agent.official_api import OfficialApiContentFetcher
 from web_task_agent.official_list_source import OfficialListSource
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.run_store import RunRecord, RunStore
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
 
 UiDataMode = Literal["demo", "aggregator", "seed_urls", "official"]
+RETENTION_DAYS = 7
+
+
+class _BuiltBrowser(NamedTuple):
+    browser: FakeBrowserClient | BrowserUseClient
+    seed_urls: list[str]
+    source_diagnostics: list[dict[str, object]]
+    page_diagnostics: list[dict[str, str]]
+
 
 # job-radar 聚合仓库发布的 jobs.json（GitHub raw，含 official_url/jd_text），
 # 云端/本地都可直接拉取——让 Streamlit 入口无需上传文件即可走真实数据链路。
@@ -92,7 +111,9 @@ class UiRunResult(BaseModel):
     failed_urls: list[str] = Field(default_factory=list)
     diagnostics: list[dict[str, Any]] = Field(default_factory=list)
     execution_trace: list[dict[str, str]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     artifacts: dict[str, Path] = Field(default_factory=dict)
+    artifact_records: dict[str, ArtifactRecord] = Field(default_factory=dict)
 
 
 def _unique(values: list[str]) -> list[str]:
@@ -115,11 +136,70 @@ def parse_seed_urls(value: str) -> list[str]:
     return _unique(re.split(r"[\s,，]+", value))
 
 
+def _clean_extracted_text(parts: list[str]) -> str:
+    lines = [
+        line.strip()
+        for part in parts
+        for line in str(part).splitlines()
+        if line.strip()
+    ]
+    return "\n".join(lines).strip()
+
+
 def decode_resume_upload(content: bytes) -> str:
     try:
         return content.decode("utf-8-sig").strip()
     except UnicodeDecodeError as exc:
         raise UiRequestError("简历文件必须使用 UTF-8 编码。") from exc
+
+
+def _extract_pdf_resume(content: bytes) -> str:
+    try:
+        reader = PdfReader(BytesIO(content))
+        if reader.is_encrypted:
+            raise UiRequestError("PDF 简历已加密，请解除密码后重新上传。")
+        text = _clean_extracted_text(
+            [page.extract_text() or "" for page in reader.pages]
+        )
+    except UiRequestError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - normalize parser errors for the UI
+        raise UiRequestError("无法解析 PDF 简历，请确认文件未损坏。") from exc
+    if not text:
+        raise UiRequestError(
+            "PDF 未提取到文本，可能是扫描版；请上传可复制文本的 PDF。"
+        )
+    return text
+
+
+def _extract_docx_resume(content: bytes) -> str:
+    try:
+        document = Document(BytesIO(content))
+        parts = [paragraph.text for paragraph in document.paragraphs]
+        for table in document.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells]
+                if any(cells):
+                    parts.append(" | ".join(cells))
+        text = _clean_extracted_text(parts)
+    except Exception as exc:  # noqa: BLE001 - normalize parser errors for the UI
+        raise UiRequestError("无法解析 Word 简历，请确认文件为有效的 .docx。") from exc
+    if not text:
+        raise UiRequestError("Word 简历中未提取到可读文本。")
+    return text
+
+
+def extract_resume_upload(content: bytes, *, filename: str) -> str:
+    suffix = Path(filename).suffix.casefold()
+    if suffix in {".md", ".markdown", ".txt"}:
+        return decode_resume_upload(content)
+    if suffix == ".pdf":
+        return _extract_pdf_resume(content)
+    if suffix == ".docx":
+        return _extract_docx_resume(content)
+    if suffix == ".doc":
+        raise UiRequestError("旧版 .doc 暂不支持，请将 Word 简历另存为 .docx。")
+    raise UiRequestError("简历文件仅支持 PDF、Word (.docx)、Markdown 和 TXT。")
 
 
 def validate_ui_request(
@@ -173,15 +253,136 @@ def resolve_aggregator_location(request: UiRunRequest) -> str:
     return (request.aggregator_url or "").strip()
 
 
+def _safe_failed_attempts(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value if value >= 0 else 0
+    if isinstance(value, str):
+        normalized = value.strip()
+        if (
+            len(normalized) <= 9
+            and normalized.isascii()
+            and normalized.isdigit()
+        ):
+            return int(normalized)
+    return 0
+
+
+def _source_diagnostic_rows(
+    diagnostics: list[dict[str, object]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in diagnostics:
+        status = str(item.get("status") or "unknown").strip().casefold() or "unknown"
+        failed_attempts = _safe_failed_attempts(item.get("failed_attempts"))
+        last_error_type = str(item.get("last_error_type") or "").strip()
+        last_error_detail = str(item.get("last_error_detail") or "").strip()
+        if failed_attempts > 0:
+            last_error_type = last_error_type or "unknown"
+            last_error_detail = last_error_detail or "no safe detail"
+        if status == "healthy" and failed_attempts <= 0:
+            continue
+        source = str(item.get("source") or "unknown").strip() or "unknown"
+        if status == "healthy":
+            rows.append(
+                {
+                    "url": source,
+                    "error": (
+                        f"source_degraded: {last_error_type}: "
+                        f"{last_error_detail} (failed_attempts={failed_attempts})"
+                    ),
+                    "is_failure": False,
+                }
+            )
+            continue
+        if status == "failed":
+            error_type = str(
+                item.get("error_type") or item.get("last_error_type") or ""
+            ).strip()
+            detail = str(
+                item.get("detail") or item.get("last_error_detail") or ""
+            ).strip()
+            error_type = error_type or "unknown"
+            detail = detail or "no safe detail"
+            message = f"{error_type}: {detail}"
+            error_prefix = "source_failed"
+        elif status == "empty":
+            message = "no jobs returned"
+            if failed_attempts > 0:
+                message = (
+                    f"{message}; failed_attempts={failed_attempts}: "
+                    f"{last_error_type}: {last_error_detail}"
+                )
+            error_prefix = "source_empty"
+        else:
+            message = "no jobs returned"
+            error_prefix = "source_unknown"
+        row: dict[str, Any] = {
+            "url": source,
+            "error": f"{error_prefix}: {message}",
+        }
+        if status == "empty":
+            row["is_failure"] = False
+        rows.append(row)
+    return rows
+
+
+def _is_explicit_non_failure(value: object) -> bool:
+    if value is False:
+        return True
+    if isinstance(value, int) and not isinstance(value, bool) and value == 0:
+        return True
+    if isinstance(value, str):
+        return value.strip().casefold() in {"false", "0"}
+    return False
+
+
+def diagnostic_failure_count(diagnostics: list[dict[str, Any]]) -> int:
+    return sum(
+        1
+        for diagnostic in diagnostics
+        if not _is_explicit_non_failure(diagnostic.get("is_failure"))
+    )
+
+
+def _page_diagnostic_rows(
+    diagnostics: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in diagnostics:
+        category = str(item.get("category") or "").strip()
+        if not category:
+            continue
+        strategy = str(item.get("strategy") or "unknown").strip() or "unknown"
+        detail = str(item.get("detail") or "").strip()
+        message = ": ".join(part for part in (strategy, detail) if part)
+        rows.append(
+            {
+                "url": str(item.get("url") or ""),
+                "error": f"page_{category}: {message}",
+            }
+        )
+    return rows
+
+
 async def run_ui_request(
     request: UiRunRequest,
     *,
     output_root: str | Path = "streamlit-runs",
     environ: Mapping[str, str] | None = None,
     page_loader: Callable[[str], Awaitable[Any]] | None = None,
+    run_store: RunStore | None = None,
+    artifact_store: ArtifactStore | None = None,
+    owner_id: str | None = None,
 ) -> UiRunResult:
     current_environ = os.environ if environ is None else environ
     validate_ui_request(request, environ=current_environ)
+    if (run_store is None) != (artifact_store is None):
+        raise ValueError("run_store and artifact_store must be provided together")
+    persistence_owner = (owner_id or "demo").strip()
+    if not persistence_owner:
+        raise ValueError("owner_id must not be blank")
 
     run_id = f"run-{uuid4().hex[:8]}"
     run_dir = Path(output_root) / run_id
@@ -189,94 +390,285 @@ async def run_ui_request(
     repository = JobRepository(run_dir / "agent.db")
     repository.initialize()
 
-    browser, seed_urls = await _build_browser(
-        request,
-        repository=repository,
-        page_loader=page_loader,
-    )
-    user = UserProfile(
-        keyword=request.keyword,
-        location=request.location,
-        target_count=request.target_count,
-        skills=request.skills,
-        resume_text=request.resume_text,
-        seed_urls=seed_urls,
-    )
-    workflow = WebTaskWorkflow(
-        browser=browser,
-        extractor=PageExtractor(
-            llm_field_extractor=(
-                build_configured_llm_field_extractor(
-                    provider=request.llm_extractor_provider,
-                )
-                if request.llm_extractor_provider
-                else None
+    created_at = datetime.now(UTC)
+    retention_deadline = created_at + timedelta(days=RETENTION_DAYS)
+    if run_store is not None:
+        run_store.create_run(
+            RunRecord(
+                run_id=run_id,
+                owner_id=persistence_owner,
+                status="queued",
+                data_mode=request.data_mode,
+                request_summary=_safe_request_summary(request),
+                created_at=created_at,
+                updated_at=created_at,
+                retention_deadline=retention_deadline,
             )
-        ),
-        matcher=JobMatcher(
-            llm_matcher=(
-                build_configured_llm_matcher(provider=request.llm_match_provider)
-                if request.llm_match_provider
-                else None
-            )
-        ),
-        verifier=JobVerifier(),
-        repository=repository,
-        reporter=MarkdownReporter(run_dir / "reports"),
-    )
-    state = await workflow.run_with_langgraph(user=user, run_id=run_id)
-    if state.metrics is None:
-        raise RuntimeError("Agent run completed without metrics")
+        )
+        run_store.update_run(
+            persistence_owner,
+            run_id,
+            status="running",
+            updated_at=datetime.now(UTC),
+        )
 
-    action_plan_path = ActionPlanWriter(run_dir / "action-plans").write_plan(
-        run_id=run_id,
-        user=user,
-        jobs=state.jobs,
-        matches=state.matches,
-    )
-    dashboard_path = HtmlDashboard(run_dir / "dashboards").write_dashboard(
-        user=user,
-        jobs=state.jobs,
-        matches=state.matches,
-        metrics=state.metrics,
-        search_queries=state.search_queries,
-        failed_url_errors=state.metadata.get("failed_url_errors", []),
-        artifact_links={
-            "Markdown 报告": state.report_path or "",
-            "行动计划": action_plan_path,
-        },
-        execution_trace=state.metadata.get("execution_trace", []),
-        orchestration_mode=str(state.metadata.get("orchestration_mode", "langgraph")),
-    )
-    json_path = run_dir / "result.json"
-    json_path.write_text(
-        json.dumps(state.model_dump(mode="json"), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    diagnostics = list(state.metadata.get("failed_url_errors", []))
-    diagnostics.extend(
-        {
-            "url": str(item.get("url", "")),
-            "error": "verification_filtered: " + ", ".join(item.get("reasons", [])),
+    try:
+        built_browser = await _build_browser(
+            request,
+            repository=repository,
+            page_loader=page_loader,
+        )
+        browser = built_browser.browser
+        seed_urls = built_browser.seed_urls
+        source_diagnostics = built_browser.source_diagnostics
+        page_diagnostics = built_browser.page_diagnostics
+        user = UserProfile(
+            keyword=request.keyword,
+            location=request.location,
+            target_count=request.target_count,
+            skills=request.skills,
+            resume_text=request.resume_text,
+            seed_urls=seed_urls,
+        )
+        workflow = WebTaskWorkflow(
+            browser=browser,
+            extractor=PageExtractor(
+                llm_field_extractor=(
+                    build_configured_llm_field_extractor(
+                        provider=request.llm_extractor_provider,
+                    )
+                    if request.llm_extractor_provider
+                    else None
+                )
+            ),
+            matcher=JobMatcher(
+                llm_matcher=(
+                    build_configured_llm_matcher(provider=request.llm_match_provider)
+                    if request.llm_match_provider
+                    else None
+                )
+            ),
+            verifier=JobVerifier(),
+            repository=repository,
+            reporter=MarkdownReporter(run_dir / "reports"),
+        )
+        state = await workflow.run_with_langgraph(user=user, run_id=run_id)
+        if state.metrics is None:
+            raise RuntimeError("Agent run completed without metrics")
+
+        classified_page_diagnostics = [
+            item for item in page_diagnostics if item.get("category")
+        ]
+        if source_diagnostics:
+            state.metadata["source_diagnostics"] = source_diagnostics
+        if classified_page_diagnostics:
+            state.metadata["page_diagnostics"] = classified_page_diagnostics
+        result_metadata: dict[str, Any] = {}
+        if source_diagnostics:
+            result_metadata["source_diagnostics"] = source_diagnostics
+        if classified_page_diagnostics:
+            result_metadata["page_diagnostics"] = classified_page_diagnostics
+
+        action_plan_path = ActionPlanWriter(run_dir / "action-plans").write_plan(
+            run_id=run_id,
+            user=user,
+            jobs=state.jobs,
+            matches=state.matches,
+        )
+        dashboard_path = HtmlDashboard(run_dir / "dashboards").write_dashboard(
+            user=user,
+            jobs=state.jobs,
+            matches=state.matches,
+            metrics=state.metrics,
+            search_queries=state.search_queries,
+            failed_url_errors=state.metadata.get("failed_url_errors", []),
+            artifact_links={
+                "Markdown 报告": state.report_path or "",
+                "行动计划": action_plan_path,
+            },
+            execution_trace=state.metadata.get("execution_trace", []),
+            orchestration_mode=str(state.metadata.get("orchestration_mode", "langgraph")),
+        )
+        diagnostics = _source_diagnostic_rows(source_diagnostics)
+        diagnostics.extend(_page_diagnostic_rows(classified_page_diagnostics))
+        removed_page_urls = {
+            str(item.get("url") or "")
+            for item in classified_page_diagnostics
+            if item.get("category") == "removed"
         }
-        for item in state.metadata.get("filtered_jobs", [])
-    )
-    return UiRunResult(
-        run_id=run_id,
-        data_mode=request.data_mode,
-        jobs=state.jobs,
-        matches=state.matches,
-        metrics=state.metrics,
-        failed_urls=state.failed_urls,
-        diagnostics=diagnostics,
-        execution_trace=state.metadata.get("execution_trace", []),
-        artifacts={
-            "json": json_path,
-            "report": Path(state.report_path or ""),
-            "dashboard": dashboard_path,
-            "action_plan": action_plan_path,
-        },
-    )
+        diagnostics.extend(
+            item
+            for item in state.metadata.get("failed_url_errors", [])
+            if str(item.get("url") or "") not in removed_page_urls
+        )
+        diagnostics.extend(
+            {
+                "url": str(item.get("url", "")),
+                "error": "verification_filtered: " + ", ".join(item.get("reasons", [])),
+            }
+            for item in state.metadata.get("filtered_jobs", [])
+        )
+        result = UiRunResult(
+            run_id=run_id,
+            data_mode=request.data_mode,
+            jobs=state.jobs,
+            matches=state.matches,
+            metrics=state.metrics,
+            failed_urls=state.failed_urls,
+            diagnostics=diagnostics,
+            execution_trace=state.metadata.get("execution_trace", []),
+            metadata=result_metadata,
+            artifacts={
+                "json": run_dir / "result.json",
+                "report": Path(state.report_path or ""),
+                "dashboard": dashboard_path,
+                "action_plan": action_plan_path,
+            },
+        )
+        json_path = result.artifacts["json"]
+        json_path.write_text(
+            json.dumps(
+                result.model_dump(
+                    mode="json",
+                    exclude={"artifacts", "artifact_records"},
+                ),
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        if artifact_store is not None:
+            result.artifact_records = _persist_artifacts(
+                artifact_store=artifact_store,
+                owner_id=persistence_owner,
+                run_id=run_id,
+                artifacts=result.artifacts,
+                retention_deadline=retention_deadline,
+            )
+        if run_store is not None:
+            run_status = _terminal_run_status(
+                failed_pages=state.metrics.failed_pages,
+                diagnostics=diagnostics,
+            )
+            run_store.update_run(
+                persistence_owner,
+                run_id,
+                status=run_status,
+                metrics=state.metrics.model_dump(mode="json"),
+                error_summary=_safe_terminal_summary(
+                    run_status,
+                    failed_pages=state.metrics.failed_pages,
+                    diagnostics=diagnostics,
+                ),
+                updated_at=datetime.now(UTC),
+                retention_deadline=retention_deadline,
+            )
+        return result
+    except Exception as exc:
+        if run_store is not None:
+            run_store.update_run(
+                persistence_owner,
+                run_id,
+                status="failed",
+                error_summary=f"运行失败：{type(exc).__name__}",
+                updated_at=datetime.now(UTC),
+            )
+        raise
+
+
+def _safe_request_summary(request: UiRunRequest) -> dict[str, Any]:
+    return {
+        "keyword": request.keyword,
+        "location": request.location,
+        "target_count": request.target_count,
+        "skills": list(request.skills),
+        "data_mode": request.data_mode,
+        "seed_url_count": len(request.seed_urls),
+        "official_spec_count": len(request.official_specs or []),
+        "uses_llm_extractor": bool(request.llm_extractor_provider),
+        "uses_llm_match": bool(request.llm_match_provider),
+    }
+
+
+def _persist_artifacts(
+    *,
+    artifact_store: ArtifactStore,
+    owner_id: str,
+    run_id: str,
+    artifacts: Mapping[str, Path],
+    retention_deadline: datetime,
+) -> dict[str, ArtifactRecord]:
+    records: dict[str, ArtifactRecord] = {}
+    for artifact_key, path in artifacts.items():
+        if not path.is_file():
+            continue
+        display_name, mime = _artifact_metadata(artifact_key, path)
+        records[artifact_key] = artifact_store.put_bytes(
+            owner_id,
+            run_id,
+            artifact_key,
+            path.read_bytes(),
+            display_name=display_name,
+            mime=mime,
+            retention_deadline=retention_deadline,
+        )
+    return records
+
+
+def _artifact_metadata(artifact_key: str, path: Path) -> tuple[str, str]:
+    mime_by_key = {
+        "json": "application/json",
+        "report": "text/markdown",
+        "dashboard": "text/html",
+        "action_plan": "text/markdown",
+    }
+    return path.name, mime_by_key.get(artifact_key, "application/octet-stream")
+
+
+def _terminal_run_status(
+    *,
+    failed_pages: int,
+    diagnostics: list[dict[str, Any]],
+) -> Literal["succeeded", "partial"]:
+    if failed_pages > 0 or diagnostic_failure_count(diagnostics) > 0:
+        return "partial"
+    return "succeeded"
+
+
+def _safe_terminal_summary(
+    status: Literal["succeeded", "partial"],
+    *,
+    failed_pages: int,
+    diagnostics: list[dict[str, Any]],
+) -> str:
+    if status == "succeeded":
+        return ""
+    failure_count = max(failed_pages, diagnostic_failure_count(diagnostics))
+    return f"运行完成，但有 {failure_count} 个页面或诊断项失败"
+
+
+def load_persisted_ui_result(
+    run_store: RunStore,
+    artifact_store: ArtifactStore,
+    owner_id: str,
+    run_id: str,
+) -> UiRunResult | None:
+    if run_store.get_run(owner_id, run_id) is None:
+        return None
+    try:
+        _, content = artifact_store.get_artifact(owner_id, run_id, "json")
+    except ArtifactNotFoundError:
+        return None
+    try:
+        result = UiRunResult.model_validate_json(content)
+    except ValueError:
+        return None
+    result.artifacts = {}
+    result.artifact_records = {
+        record.artifact_key: record
+        for record in artifact_store.list_artifacts(owner_id, run_id)
+    }
+    return result
 
 
 async def _build_browser(
@@ -284,11 +676,21 @@ async def _build_browser(
     *,
     repository: JobRepository,
     page_loader: Callable[[str], Awaitable[Any]] | None,
-) -> tuple[FakeBrowserClient | BrowserUseClient, list[str]]:
+) -> _BuiltBrowser:
     if request.data_mode == "demo":
-        return FakeBrowserClient(DEMO_JOB_PAGES), []
+        return _BuiltBrowser(
+            browser=FakeBrowserClient(DEMO_JOB_PAGES),
+            seed_urls=[],
+            source_diagnostics=[],
+            page_diagnostics=[],
+        )
     if request.data_mode == "seed_urls":
-        return BrowserUseClient(page_loader=page_loader or HttpPageLoader()), request.seed_urls
+        return _BuiltBrowser(
+            browser=BrowserUseClient(page_loader=page_loader or HttpPageLoader()),
+            seed_urls=request.seed_urls,
+            source_diagnostics=[],
+            page_diagnostics=[],
+        )
 
     # official(实时列表)与 aggregator(快照)共用同一内容解析链:
     # 缓存 → 官方 API 取正文 → HTTP → jd_text 兜底(#33 canonical 保证链接可打开)
@@ -296,17 +698,41 @@ async def _build_browser(
         source = OfficialListSource(specs=request.official_specs or None)
     else:
         source = AggregatorRepoSource(resolve_aggregator_location(request))
-    jobs = await source.discover(limit=request.target_count)
+    jobs = await source.discover(
+        limit=request.target_count,
+        keyword=request.keyword,
+    )
+    source_diagnostics = list(getattr(source, "diagnostics", []))
     loader = AggregatorPageLoader(
         jobs,
         official_api=OfficialApiContentFetcher(),
         http_loader=page_loader or HttpPageLoader(),
         repository=repository,
     )
-    return BrowserUseClient(page_loader=loader), [job.url for job in jobs]
+    return _BuiltBrowser(
+        browser=BrowserUseClient(page_loader=loader),
+        seed_urls=[job.url for job in jobs],
+        source_diagnostics=source_diagnostics,
+        # 来源诊断是发现阶段快照;页面诊断是 loader 的实时日志,工作流结束后读取。
+        page_diagnostics=loader.resolution_log,
+    )
 
 
-def read_download_artifact(result: UiRunResult, artifact_key: str) -> tuple[str, bytes]:
+def read_download_artifact(
+    result: UiRunResult,
+    artifact_key: str,
+    *,
+    artifact_store: ArtifactStore | None = None,
+    owner_id: str | None = None,
+) -> tuple[str, bytes]:
+    if artifact_store is not None and owner_id is not None:
+        if artifact_key in result.artifact_records:
+            record, content = artifact_store.get_artifact(
+                owner_id,
+                result.run_id,
+                artifact_key,
+            )
+            return record.display_name, content
     path = result.artifacts.get(artifact_key)
     if path is None or not path.is_file():
         raise UiRequestError("该产物不可下载。")

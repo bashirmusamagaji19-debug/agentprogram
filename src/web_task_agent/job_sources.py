@@ -15,6 +15,8 @@ HttpPageLoader 失败时用 jd_text 构造 BrowserPage，保证抽取链路有�
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -26,9 +28,116 @@ from web_task_agent.keywords import (
     INTERN_TITLE_KEYWORDS,
     classify_company_tier,
 )
+from web_task_agent.page_reliability import (
+    PageFailureCategory,
+    PageRemovedError,
+    classify_page_content,
+    classify_page_exception,
+)
+from web_task_agent.skill_aliases import SKILL_ALIAS_GROUPS, term_in_text
 
 # 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
 AI_TITLE_KEYWORDS = AI_JOB_KEYWORDS
+
+_KEYWORD_SEPARATORS = re.compile(r"[\s,，、;/；|+\-_—]+")
+_NON_DISCRIMINATIVE_KEYWORDS = {"岗位", "职位", "机会", "招聘", "job", "role"}
+_FILTER_ONLY_KEYWORDS = {"intern"}
+_EXTRA_KEYWORD_ALIAS_GROUPS = (
+    ("ai", ("ai", "人工智能", "artificial intelligence")),
+    ("intern", ("实习", "intern", "internship")),
+    ("development", ("开发", "研发", "developer", "development", "engineering")),
+    ("algorithm", ("算法", "algorithm")),
+    ("recommendation", ("推荐", "推荐算法", "recommendation", "recommender")),
+)
+
+
+def _normalize_keyword_text(value: str) -> str:
+    return unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+
+
+def _keyword_alias_groups() -> list[tuple[str, ...]]:
+    return [*_EXTRA_KEYWORD_ALIAS_GROUPS, *SKILL_ALIAS_GROUPS]
+
+
+_KEYWORD_ALIAS_TO_CANONICAL = {
+    _normalize_keyword_text(alias): group[0]
+    for group in _keyword_alias_groups()
+    for alias in group
+}
+_KEYWORD_VARIANTS = {
+    group[0]: tuple(_normalize_keyword_text(alias) for alias in group)
+    for group in _keyword_alias_groups()
+}
+for _known_keyword in (*AI_JOB_KEYWORDS, *INTERN_TITLE_KEYWORDS):
+    _normalized_known_keyword = _normalize_keyword_text(_known_keyword)
+    _KEYWORD_ALIAS_TO_CANONICAL.setdefault(
+        _normalized_known_keyword,
+        _normalized_known_keyword,
+    )
+    _KEYWORD_VARIANTS.setdefault(
+        _normalized_known_keyword,
+        (_normalized_known_keyword,),
+    )
+
+_KEYWORD_ALIASES_BY_LENGTH = sorted(
+    (alias for alias in _KEYWORD_ALIAS_TO_CANONICAL if len(alias) >= 2),
+    key=len,
+    reverse=True,
+)
+
+
+def _canonical_keyword_terms(value: str) -> list[str]:
+    terms: list[str] = []
+    for token in _KEYWORD_SEPARATORS.split(value):
+        if not token or token in _NON_DISCRIMINATIVE_KEYWORDS:
+            continue
+        direct_match = _KEYWORD_ALIAS_TO_CANONICAL.get(token)
+        if direct_match:
+            terms.append(direct_match)
+            continue
+
+        cursor = 0
+        while cursor < len(token):
+            alias = next(
+                (
+                    candidate
+                    for candidate in _KEYWORD_ALIASES_BY_LENGTH
+                    if token.startswith(candidate, cursor)
+                ),
+                None,
+            )
+            if alias is None:
+                cursor += 1
+                continue
+            terms.append(_KEYWORD_ALIAS_TO_CANONICAL[alias])
+            cursor += len(alias)
+    return list(dict.fromkeys(terms))
+
+
+def matches_keyword(keyword: str, *parts: str) -> bool:
+    """判断岗位文本是否命中用户关键词。
+
+    相关性优先匹配非通用词，避免仅凭“实习/Intern”让无关岗位通过。
+    中英文别名在 ``skill_aliases`` 基础上补充招聘语境词。
+    """
+    normalized_keyword = _normalize_keyword_text(keyword)
+    if not normalized_keyword:
+        return True
+    text = _normalize_keyword_text(" ".join(parts))
+    if normalized_keyword in text:
+        return True
+
+    canonical_terms = _canonical_keyword_terms(normalized_keyword)
+
+    discriminative_terms = [
+        term for term in canonical_terms if term not in _FILTER_ONLY_KEYWORDS
+    ]
+    target_terms = discriminative_terms or canonical_terms
+    return any(
+        term_in_text(variant, text)
+        for term in target_terms
+        for variant in _KEYWORD_VARIANTS.get(term, (term,))
+    )
 
 
 @dataclass(frozen=True)
@@ -47,8 +156,13 @@ class DiscoveredJob:
 
 
 class JobSource(Protocol):
-    async def discover(self, limit: int) -> list[DiscoveredJob]:
-        """发现岗位，返回至多 limit 条。"""
+    async def discover(
+        self,
+        limit: int,
+        *,
+        keyword: str = "",
+    ) -> list[DiscoveredJob]:
+        """发现岗位，返回至多 limit 条；关键词用于相关性过滤。"""
         ...
 
 
@@ -71,11 +185,23 @@ class AggregatorRepoSource:
         self.source_location = source_location
         self.source_name = source_name
 
-    async def discover(self, limit: int) -> list[DiscoveredJob]:
+    async def discover(
+        self,
+        limit: int,
+        *,
+        keyword: str = "",
+    ) -> list[DiscoveredJob]:
         if limit <= 0:
             return []
         payload = self._load_payload()
-        return self._parse_jobs(payload)[:limit]
+        jobs = self._parse_jobs(payload)
+        if keyword.strip():
+            jobs = [
+                job
+                for job in jobs
+                if matches_keyword(keyword, job.title, job.jd_text, " ".join(job.tags))
+            ]
+        return jobs[:limit]
 
     def _load_payload(self) -> dict:
         location = self.source_location.strip()
@@ -180,60 +306,113 @@ class AggregatorPageLoader:
         # 1. 缓存（命中也过内容门槛——旧壳页缓存不生效，#25）
         if self._repository is not None:
             cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
-            if cached is not None and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
-                self._record(url, "cache")
-                return cached  # origin 已在缓存 metadata 中(storage 列透传)
+            if cached is not None:
+                failure = classify_page_content(cached)
+                if failure is None:
+                    self._record(url, "cache")
+                    return cached  # origin 已在缓存 metadata 中(storage 列透传)
+                if failure.is_permanent:
+                    self._record(
+                        url,
+                        "cache",
+                        category=failure.category,
+                        detail=failure.detail,
+                    )
+                    raise PageRemovedError(
+                        f"job page removed: {url} ({failure.detail})"
+                    )
 
         # 2. 官方 API（支持域名的 SPA 页优先走结构化接口）
         if self._official_api is not None:
             try:
                 content = await self._official_api.fetch(url)
             except Exception as exc:  # noqa: BLE001
-                if type(exc).__name__ != "UnsupportedOfficialApiError":
-                    self._record(url, f"official-api-failed:{type(exc).__name__}")
-                else:
+                if type(exc).__name__ == "UnsupportedOfficialApiError":
                     self._record(url, "official-api:unsupported")
+                else:
+                    failure = classify_page_exception(exc)
+                    self._record(
+                        url,
+                        f"official-api-failed:{type(exc).__name__}",
+                        category=failure.category,
+                        detail=failure.detail,
+                    )
+                    if failure.is_permanent:
+                        raise PageRemovedError(
+                            f"job page removed: {url} ({failure.detail})"
+                        ) from exc
             else:
                 # 与 http/jd_text 路径同一门槛（#27）：短官方 API 正文既不能
                 # 进管线（100~119 字符区间绕过 extractor 的 LLM 幻觉护栏），
                 # 也不能写缓存——否则门槛检查会让该 URL 的缓存永远失效，
                 # 每次运行都重调官方 API
-                if len(content.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
-                    # canonical_url：内容实际来源的可浏览详情页（如腾讯校招岗
-                    # 内容来自 join.qq.com，careers 详情页对校招 postId 404）。
-                    # BrowserPage.url 保持"请求 URL"语义（缓存键/诊断一致），
-                    # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
-                    canonical = str(getattr(content, "canonical_url", "") or "").strip()
-                    page = self._to_page(url, content.content, content.title, "official-api")
-                    page = page.model_copy(
-                        update={
-                            "metadata": {
-                                **page.metadata,
-                                "content_origin": "official-api",
-                                **({"canonical_url": canonical} if canonical else {}),
-                            }
+                # canonical_url：内容实际来源的可浏览详情页（如腾讯校招岗
+                # 内容来自 join.qq.com，careers 详情页对校招 postId 404）。
+                # BrowserPage.url 保持"请求 URL"语义（缓存键/诊断一致），
+                # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
+                canonical = str(getattr(content, "canonical_url", "") or "").strip()
+                page = self._to_page(url, content.content, content.title, "official-api")
+                page = page.model_copy(
+                    update={
+                        "metadata": {
+                            **page.metadata,
+                            "content_origin": "official-api",
+                            **({"canonical_url": canonical} if canonical else {}),
                         }
-                    )
+                    }
+                )
+                failure = classify_page_content(page)
+                if failure is None:
                     self._cache(url, page)
                     self._record(url, "official-api")
                     return page
-                self._record(url, "official-api:too-short")
+                self._record(
+                    url,
+                    "official-api:too-short",
+                    category=failure.category,
+                    detail=failure.detail,
+                )
+                if failure.is_permanent:
+                    raise PageRemovedError(
+                        f"job page removed: {url} ({failure.detail})"
+                    )
 
         # 3. HttpPageLoader（服务端渲染站点可直达）
         if self._http_loader is not None:
             try:
                 page = await self._http_loader(url)
             except Exception as exc:  # noqa: BLE001
-                self._record(url, f"http-failed:{type(exc).__name__}")
+                failure = classify_page_exception(exc)
+                self._record(
+                    url,
+                    f"http-failed:{type(exc).__name__}",
+                    category=failure.category,
+                    detail=failure.detail,
+                )
+                if failure.is_permanent:
+                    raise PageRemovedError(
+                        f"job page removed: {url} ({failure.detail})"
+                    ) from exc
             else:
-                if len(page.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                failure = classify_page_content(page)
+                if failure is not None:
+                    self._record(
+                        url,
+                        "http:empty-page",
+                        category=failure.category,
+                        detail=failure.detail,
+                    )
+                    if failure.is_permanent:
+                        raise PageRemovedError(
+                            f"job page removed: {url} ({failure.detail})"
+                        )
+                else:
                     page = page.model_copy(
                         update={"metadata": {**page.metadata, "content_origin": "http"}}
                     )
                     self._cache(url, page)
                     self._record(url, "http")
                     return page
-                self._record(url, "http:empty-page")
 
         # 4. aggregator jd_text 兜底（同样要求达到有效内容门槛——
         #    job-radar 的 jd_text 多为"标题+部门+城市"标题行，无 JD 信息，
@@ -275,5 +454,17 @@ class AggregatorPageLoader:
         if self._repository is not None:
             self._repository.cache_page(page)  # type: ignore[arg-type]
 
-    def _record(self, url: str, strategy: str) -> None:
-        self.resolution_log.append({"url": url, "strategy": strategy})
+    def _record(
+        self,
+        url: str,
+        strategy: str,
+        *,
+        category: str | PageFailureCategory | None = None,
+        detail: str = "",
+    ) -> None:
+        item = {"url": url, "strategy": strategy}
+        if category:
+            item["category"] = str(category)
+        if detail:
+            item["detail"] = detail
+        self.resolution_log.append(item)
