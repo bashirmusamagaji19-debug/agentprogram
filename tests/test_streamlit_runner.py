@@ -363,6 +363,55 @@ def test_source_status_rows_fallback_when_last_error_is_missing() -> None:
     ]
 
 
+def test_source_failed_rows_fallback_to_last_error_or_unknown() -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    rows = runner_module._source_diagnostic_rows(
+        [
+            {
+                "source": "last-error-source",
+                "status": "failed",
+                "last_error_type": "TimeoutError",
+                "last_error_detail": "timed out",
+            },
+            {
+                "source": "missing-error-source",
+                "status": "failed",
+            },
+        ]
+    )
+
+    assert rows == [
+        {
+            "url": "last-error-source",
+            "error": "source_failed: TimeoutError: timed out",
+        },
+        {
+            "url": "missing-error-source",
+            "error": "source_failed: unknown: no safe detail",
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("²", 0),
+        ("9" * 5000, 0),
+        (-1, 0),
+        (RuntimeError("not a count"), 0),
+        ("7", 7),
+    ],
+)
+def test_safe_failed_attempts_handles_untrusted_values(
+    value: object,
+    expected: int,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    assert runner_module._safe_failed_attempts(value) == expected
+
+
 def test_diagnostic_failure_count_preserves_backward_compatible_failures() -> None:
     import web_task_agent.streamlit_runner as runner_module
 

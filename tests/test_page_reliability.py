@@ -133,6 +133,28 @@ def test_unmapped_raw_http_errors_still_check_business_markers(
     assert classify_page_exception(exc).category is expected
 
 
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("E1005", PageFailureCategory.REMOVED),
+        ("server error", PageFailureCategory.TRANSIENT),
+    ],
+)
+def test_raw_http_500_business_marker_takes_priority(
+    message: str,
+    expected: PageFailureCategory,
+) -> None:
+    exc = HTTPError(
+        "https://example.com/jobs/1",
+        500,
+        message,
+        None,
+        None,
+    )
+
+    assert classify_page_exception(exc).category is expected
+
+
 def test_empty_page_is_empty_shell() -> None:
     assert classify_page_exception(PageEmptyError("empty")).category is PageFailureCategory.EMPTY_SHELL
 
@@ -235,12 +257,29 @@ def test_safe_diagnostic_detail_redacts_signed_url_parameter() -> None:
     assert "X-Amz-Signature" in detail
 
 
+def test_safe_diagnostic_detail_redacts_sig_query_parameter() -> None:
+    detail = safe_diagnostic_detail(
+        "https://example.com/jobs?sig=signature-secret"
+    )
+
+    assert "signature-secret" not in detail
+    assert "sig" in detail
+
+
 def test_safe_diagnostic_detail_redacts_url_password_only() -> None:
     detail = safe_diagnostic_detail(
         "fetch https://user:url-secret@example.com/jobs"
     )
 
     assert detail == "fetch https://user:<redacted>@example.com/jobs"
+
+
+def test_safe_diagnostic_detail_redacts_token_only_url_userinfo() -> None:
+    detail = safe_diagnostic_detail(
+        "fetch https://token-secret@example.com/jobs"
+    )
+
+    assert detail == "fetch https://<redacted>@example.com/jobs"
 
 
 def test_safe_diagnostic_detail_redacts_cookie_header() -> None:
@@ -273,6 +312,9 @@ def test_safe_diagnostic_detail_does_not_redact_plain_cookie_text() -> None:
     [
         r"C:\Users\Alice Smith\resume.pdf",
         "C:/Users/Alice Smith/resume.pdf",
+        r"D:\data\resume.pdf",
+        r"C:\Program Files\Acme\config.json",
+        r"D:\data\Alice Smith\session",
         r"\\server\share\private\resume.pdf",
         "/home/alice/private/resume.pdf",
         "/Users/alice/private/resume.pdf",

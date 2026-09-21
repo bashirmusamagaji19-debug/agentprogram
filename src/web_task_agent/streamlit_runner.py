@@ -260,7 +260,11 @@ def _safe_failed_attempts(value: object) -> int:
         return value if value >= 0 else 0
     if isinstance(value, str):
         normalized = value.strip()
-        if normalized.isdigit():
+        if (
+            len(normalized) <= 9
+            and normalized.isascii()
+            and normalized.isdigit()
+        ):
             return int(normalized)
     return 0
 
@@ -293,9 +297,15 @@ def _source_diagnostic_rows(
             )
             continue
         if status == "failed":
-            error_type = str(item.get("error_type") or "unknown").strip() or "unknown"
-            detail = str(item.get("detail") or "").strip()
-            message = ": ".join(part for part in (error_type, detail) if part)
+            error_type = str(
+                item.get("error_type") or item.get("last_error_type") or ""
+            ).strip()
+            detail = str(
+                item.get("detail") or item.get("last_error_detail") or ""
+            ).strip()
+            error_type = error_type or "unknown"
+            detail = detail or "no safe detail"
+            message = f"{error_type}: {detail}"
             error_prefix = "source_failed"
         elif status == "empty":
             message = "no jobs returned"

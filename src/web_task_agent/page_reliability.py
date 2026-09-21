@@ -51,7 +51,7 @@ _SECRET_PATTERN = re.compile(
     r"\b(?P<key>"
     r"(?:id|auth|session|refresh|access)[-_ ]?token|"
     r"client[-_ ]?secret|secret|"
-    r"x[-_]amz[-_]signature|signature|"
+    r"x[-_]amz[-_]signature|signature|sig|"
     r"cookie|set[-_]cookie|"
     r"token|authorization|api[-_ ]?key|password"
     r")\b"
@@ -65,16 +65,26 @@ _URL_USERINFO_PATTERN = re.compile(
     r"(?P<password>[^@\s/]+)"
     r"(?P<suffix>@[^/\s]+)"
 )
+_SENSITIVE_URL_USERINFO_PATTERN = re.compile(
+    r"(?i)(?P<prefix>[a-z][a-z0-9+.-]*://)"
+    r"(?P<userinfo>[^/?#@\s]*(?:token|secret|credential|api[-_]?key)[^/?#@\s]*)"
+    r"@"
+)
 _COOKIE_PATTERN = re.compile(
     r"(?i)(?P<header>\b(?:set-cookie|cookie)\s*:\s*)[^,\r\n]+"
 )
 _WINDOWS_LOCAL_PATH_PATTERN = re.compile(
     r"(?i)(?<!\w)"
     r"(?:"
-    r"[A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/]"
+    r"[A-Za-z]:[\\/]"
     r"|\\\\[^\\/\s]+\\[^\\/\s]+\\"
     r")"
-    r"[^\r\n\"',;)}]*?\.[A-Za-z0-9]{1,8}"
+    r"(?:[^\\/\r\n\"',;)}]+[\\/])*"
+    r"(?:"
+    r"[^\\/\r\n\"',;)}]*?\.[A-Za-z0-9]{1,8}"
+    r"|"
+    r"[^\\/\s\r\n\"',;)}]+"
+    r")"
     r"(?=$|[\s,;)\]}\"'])"
 )
 _POSIX_LOCAL_PATH_PATTERN = re.compile(
@@ -100,6 +110,10 @@ def safe_diagnostic_detail(value: object, max_chars: int = 160) -> str:
         r"\g<prefix><redacted>\g<suffix>",
         redacted,
     )
+    redacted = _SENSITIVE_URL_USERINFO_PATTERN.sub(
+        r"\g<prefix><redacted>@",
+        redacted,
+    )
     redacted = _COOKIE_PATTERN.sub(r"\g<header><redacted>", redacted)
     redacted = _WINDOWS_LOCAL_PATH_PATTERN.sub("<local-path>", redacted)
     redacted = _POSIX_LOCAL_PATH_PATTERN.sub("<local-path>", redacted)
@@ -111,8 +125,6 @@ def _http_status_category(status_code: int | None) -> PageFailureCategory | None
         return PageFailureCategory.REMOVED
     if status_code in {401, 403, 429}:
         return PageFailureCategory.BLOCKED
-    if status_code is not None and status_code >= 500:
-        return PageFailureCategory.TRANSIENT
     return None
 
 
@@ -132,7 +144,12 @@ def classify_page_exception(exc: Exception) -> PageFailure:
         return PageFailure(PageFailureCategory.EMPTY_SHELL, detail)
     if "E1005" in str(exc) or "post unavailable" in str(exc).casefold():
         return PageFailure(PageFailureCategory.REMOVED, detail)
+    if isinstance(exc, PageHttpError):
+        if exc.status_code is not None and exc.status_code >= 500:
+            return PageFailure(PageFailureCategory.TRANSIENT, detail)
     if isinstance(exc, HTTPError):
+        if exc.code >= 500:
+            return PageFailure(PageFailureCategory.TRANSIENT, detail)
         return PageFailure(PageFailureCategory.UNKNOWN, detail)
     if isinstance(
         exc,
