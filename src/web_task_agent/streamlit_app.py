@@ -377,6 +377,10 @@ div[data-testid="stHorizontalBlock"]:has(.ui-workspace-config) > div:first-child
   position: sticky;
   top: 1rem;
   align-self: flex-start;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 div[data-testid="stHorizontalBlock"]:has(.ui-workspace-config) > div:first-child label,
 div[data-testid="stHorizontalBlock"]:has(.ui-workspace-config) > div:first-child h2,
@@ -469,6 +473,8 @@ div[data-testid="stHorizontalBlock"]:has(.ui-workspace-config) > div:first-child
   div[data-testid="stHorizontalBlock"]:has(.ui-workspace-config) > div:first-child {
     position: static;
     padding: .9rem;
+    max-height: none;
+    overflow: visible;
   }
   .ui-empty-state { min-height:300px; padding:1.35rem; }
 }
@@ -499,12 +505,12 @@ def workspace_empty_state_html() -> str:
 <div class="ui-empty-state">
   <div class="ui-empty-step">运行结果</div>
   <h3>等待一次岗位扫描</h3>
-  <p>在左侧配置数据来源、岗位条件和候选人信息。运行完成后，这里会优先展示岗位列表和匹配结果。</p>
+  <p>在左侧配置数据来源、岗位条件和候选人信息。运行完成后，这里会整理岗位列表、匹配解释、诊断轨迹和下载产物。</p>
   <div class="ui-empty-flow">
-    <span>发现岗位</span>
-    <span>验证页面</span>
-    <span>计算匹配</span>
-    <span>生成产物</span>
+    <span>岗位列表</span>
+    <span>匹配解释</span>
+    <span>诊断轨迹</span>
+    <span>下载产物</span>
   </div>
 </div>
 """
@@ -727,7 +733,6 @@ def main() -> None:
             '<p class="ui-config-copy">先确定数据来源，再设置岗位条件与候选人信息。</p>',
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="ui-panel-label">历史运行</div>', unsafe_allow_html=True)
         if history_labels:
             selected_history_label = st.selectbox(
                 "最近 10 次",

@@ -15,6 +15,7 @@ from web_task_agent.streamlit_app import (
     metric_grid_html,
     mode_hint,
     run_status,
+    workspace_empty_state_html,
 )
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
@@ -167,6 +168,17 @@ def test_app_styles_avoid_global_sidebar_color_override() -> None:
     assert '[data-testid="stSidebar"] *' not in styles
     assert "--ui-sidebar-text: #EAF4EE" in styles
     assert "--ui-sidebar-muted: #AEC3B7" in styles
+    assert "max-height: calc(100vh - 2rem)" in styles
+    assert "overflow-y: auto" in styles
+
+
+def test_workspace_empty_state_explains_deliverables() -> None:
+    html = workspace_empty_state_html()
+
+    assert "岗位列表" in html
+    assert "匹配解释" in html
+    assert "诊断轨迹" in html
+    assert "下载产物" in html
 
 
 def test_metric_grid_contains_status_classes_and_accessible_labels() -> None:
