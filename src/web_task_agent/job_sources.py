@@ -28,6 +28,12 @@ from web_task_agent.keywords import (
     INTERN_TITLE_KEYWORDS,
     classify_company_tier,
 )
+from web_task_agent.page_reliability import (
+    PageFailureCategory,
+    PageRemovedError,
+    classify_page_content,
+    classify_page_exception,
+)
 from web_task_agent.skill_aliases import SKILL_ALIAS_GROUPS, term_in_text
 
 # 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
@@ -309,51 +315,92 @@ class AggregatorPageLoader:
             try:
                 content = await self._official_api.fetch(url)
             except Exception as exc:  # noqa: BLE001
-                if type(exc).__name__ != "UnsupportedOfficialApiError":
-                    self._record(url, f"official-api-failed:{type(exc).__name__}")
-                else:
+                if type(exc).__name__ == "UnsupportedOfficialApiError":
                     self._record(url, "official-api:unsupported")
+                else:
+                    failure = classify_page_exception(exc)
+                    self._record(
+                        url,
+                        f"official-api-failed:{type(exc).__name__}",
+                        category=failure.category,
+                        detail=failure.detail,
+                    )
+                    if failure.is_permanent:
+                        raise PageRemovedError(
+                            f"job page removed: {url} ({failure.detail})"
+                        ) from exc
             else:
                 # 与 http/jd_text 路径同一门槛（#27）：短官方 API 正文既不能
                 # 进管线（100~119 字符区间绕过 extractor 的 LLM 幻觉护栏），
                 # 也不能写缓存——否则门槛检查会让该 URL 的缓存永远失效，
                 # 每次运行都重调官方 API
-                if len(content.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
-                    # canonical_url：内容实际来源的可浏览详情页（如腾讯校招岗
-                    # 内容来自 join.qq.com，careers 详情页对校招 postId 404）。
-                    # BrowserPage.url 保持"请求 URL"语义（缓存键/诊断一致），
-                    # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
-                    canonical = str(getattr(content, "canonical_url", "") or "").strip()
-                    page = self._to_page(url, content.content, content.title, "official-api")
-                    page = page.model_copy(
-                        update={
-                            "metadata": {
-                                **page.metadata,
-                                "content_origin": "official-api",
-                                **({"canonical_url": canonical} if canonical else {}),
-                            }
+                # canonical_url：内容实际来源的可浏览详情页（如腾讯校招岗
+                # 内容来自 join.qq.com，careers 详情页对校招 postId 404）。
+                # BrowserPage.url 保持"请求 URL"语义（缓存键/诊断一致），
+                # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
+                canonical = str(getattr(content, "canonical_url", "") or "").strip()
+                page = self._to_page(url, content.content, content.title, "official-api")
+                page = page.model_copy(
+                    update={
+                        "metadata": {
+                            **page.metadata,
+                            "content_origin": "official-api",
+                            **({"canonical_url": canonical} if canonical else {}),
                         }
-                    )
+                    }
+                )
+                failure = classify_page_content(page)
+                if failure is None:
                     self._cache(url, page)
                     self._record(url, "official-api")
                     return page
-                self._record(url, "official-api:too-short")
+                self._record(
+                    url,
+                    "official-api:too-short",
+                    category=failure.category,
+                    detail=failure.detail,
+                )
+                if failure.is_permanent:
+                    raise PageRemovedError(
+                        f"job page removed: {url} ({failure.detail})"
+                    )
 
         # 3. HttpPageLoader（服务端渲染站点可直达）
         if self._http_loader is not None:
             try:
                 page = await self._http_loader(url)
             except Exception as exc:  # noqa: BLE001
-                self._record(url, f"http-failed:{type(exc).__name__}")
+                failure = classify_page_exception(exc)
+                self._record(
+                    url,
+                    f"http-failed:{type(exc).__name__}",
+                    category=failure.category,
+                    detail=failure.detail,
+                )
+                if failure.is_permanent:
+                    raise PageRemovedError(
+                        f"job page removed: {url} ({failure.detail})"
+                    ) from exc
             else:
-                if len(page.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                failure = classify_page_content(page)
+                if failure is not None:
+                    self._record(
+                        url,
+                        "http:empty-page",
+                        category=failure.category,
+                        detail=failure.detail,
+                    )
+                    if failure.is_permanent:
+                        raise PageRemovedError(
+                            f"job page removed: {url} ({failure.detail})"
+                        )
+                else:
                     page = page.model_copy(
                         update={"metadata": {**page.metadata, "content_origin": "http"}}
                     )
                     self._cache(url, page)
                     self._record(url, "http")
                     return page
-                self._record(url, "http:empty-page")
 
         # 4. aggregator jd_text 兜底（同样要求达到有效内容门槛——
         #    job-radar 的 jd_text 多为"标题+部门+城市"标题行，无 JD 信息，
@@ -395,5 +442,17 @@ class AggregatorPageLoader:
         if self._repository is not None:
             self._repository.cache_page(page)  # type: ignore[arg-type]
 
-    def _record(self, url: str, strategy: str) -> None:
-        self.resolution_log.append({"url": url, "strategy": strategy})
+    def _record(
+        self,
+        url: str,
+        strategy: str,
+        *,
+        category: str | PageFailureCategory | None = None,
+        detail: str = "",
+    ) -> None:
+        item = {"url": url, "strategy": strategy}
+        if category:
+            item["category"] = str(category)
+        if detail:
+            item["detail"] = detail
+        self.resolution_log.append(item)
