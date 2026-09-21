@@ -252,8 +252,27 @@ async def test_official_source_diagnostics_and_page_diagnostics_are_in_result_an
     )
 
     payload = json.loads(result.artifacts["json"].read_text(encoding="utf-8"))
+    assert set(payload["metadata"]) == {"source_diagnostics", "page_diagnostics"}
     assert payload["metadata"]["source_diagnostics"][0]["source"] == "broken"
     assert payload["metadata"]["page_diagnostics"][0]["category"] == "blocked"
+
+
+def test_non_failed_source_statuses_are_reported_as_empty() -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    rows = runner_module._source_diagnostic_rows(
+        [
+            {"source": "empty-source", "status": "empty"},
+            {"source": "unknown-source", "status": "unknown"},
+            {"source": "missing-status-source"},
+        ]
+    )
+
+    assert [row["error"] for row in rows] == [
+        "source_empty: no jobs returned",
+        "source_empty: no jobs returned",
+        "source_empty: no jobs returned",
+    ]
 
 
 @pytest.mark.asyncio
@@ -266,8 +285,82 @@ async def test_demo_mode_has_no_official_source_diagnostics(tmp_path) -> None:
 
     payload = json.loads(result.artifacts["json"].read_text(encoding="utf-8"))
 
+    assert payload["metadata"] == {}
     assert "source_diagnostics" not in payload["metadata"]
     assert all(not item["error"].startswith("source_") for item in result.diagnostics)
+
+
+@pytest.mark.asyncio
+async def test_page_diagnostic_deduplicates_failed_url_and_filtered_row_stays_last(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+    from web_task_agent.browser import BrowserPage, PageHttpError
+    from web_task_agent.job_sources import DiscoveredJob
+
+    removed_url = "https://example.com/jobs/removed"
+    filtered_url = "https://example.com/jobs/other-location"
+
+    class FakeOfficialSource:
+        def __init__(self, specs=None):  # noqa: ANN001
+            self.diagnostics: list[dict[str, object]] = []
+
+        async def discover(self, limit: int, *, keyword: str = ""):
+            return [
+                DiscoveredJob(
+                    url=removed_url,
+                    title="大模型算法实习生",
+                    company="示例公司",
+                    location="北京",
+                    jd_text="岗位职责：模型训练。" * 20,
+                    source="official-test",
+                ),
+                DiscoveredJob(
+                    url=filtered_url,
+                    title="大模型算法实习生",
+                    company="示例公司",
+                    location="上海",
+                    jd_text="岗位职责：模型训练。" * 20,
+                    source="official-test",
+                ),
+            ]
+
+    async def mixed_page_loader(url: str):
+        if url == removed_url:
+            raise PageHttpError("HTTP 404 gone", status_code=404)
+        return BrowserPage(
+            url=url,
+            title="大模型算法实习生",
+            content=(
+                "岗位名称：大模型算法实习生\n"
+                "公司：示例公司\n"
+                "工作地点：上海\n"
+                "岗位职责：负责大模型训练、评测和推理优化，提升线上系统效果。\n"
+                "任职要求：熟悉 Python、PyTorch 和 Transformer，具备扎实的工程能力。"
+                "能够持续实习并协作完成复杂项目。"
+            ),
+        )
+
+    monkeypatch.setattr(runner_module, "OfficialListSource", FakeOfficialSource)
+
+    result = await run_ui_request(
+        UiRunRequest(
+            data_mode="official",
+            official_specs=["test"],
+            location="北京",
+            target_count=2,
+        ),
+        output_root=tmp_path,
+        environ={},
+        page_loader=mixed_page_loader,
+    )
+
+    assert result.failed_urls == [removed_url]
+    assert len(result.diagnostics) == 2
+    assert result.diagnostics[0]["url"] == removed_url
+    assert result.diagnostics[0]["error"].startswith("page_removed:")
+    assert result.diagnostics[-1]["error"].startswith("verification_filtered:")
 
 
 @pytest.mark.asyncio

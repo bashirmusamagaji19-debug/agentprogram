@@ -258,9 +258,11 @@ def _source_diagnostic_rows(
             error_type = str(item.get("error_type") or "unknown").strip() or "unknown"
             detail = str(item.get("detail") or "").strip()
             message = ": ".join(part for part in (error_type, detail) if part)
+            error_prefix = "source_failed"
         else:
             message = "no jobs returned"
-        rows.append({"url": source, "error": f"source_{status}: {message}"})
+            error_prefix = "source_empty"
+        rows.append({"url": source, "error": f"{error_prefix}: {message}"})
     return rows
 
 
@@ -382,6 +384,11 @@ async def run_ui_request(
             state.metadata["source_diagnostics"] = source_diagnostics
         if classified_page_diagnostics:
             state.metadata["page_diagnostics"] = classified_page_diagnostics
+        result_metadata: dict[str, Any] = {}
+        if source_diagnostics:
+            result_metadata["source_diagnostics"] = source_diagnostics
+        if classified_page_diagnostics:
+            result_metadata["page_diagnostics"] = classified_page_diagnostics
 
         action_plan_path = ActionPlanWriter(run_dir / "action-plans").write_plan(
             run_id=run_id,
@@ -429,7 +436,7 @@ async def run_ui_request(
             failed_urls=state.failed_urls,
             diagnostics=diagnostics,
             execution_trace=state.metadata.get("execution_trace", []),
-            metadata=state.model_dump(mode="json")["metadata"],
+            metadata=result_metadata,
             artifacts={
                 "json": run_dir / "result.json",
                 "report": Path(state.report_path or ""),
