@@ -1296,3 +1296,62 @@ async def test_discover_isolates_failing_source(monkeypatch):
 
     assert len(jobs) == 1
     assert jobs[0].source == "ok"
+    assert source.diagnostics == [
+        {
+            "source": "boom",
+            "status": "failed",
+            "attempts": 3,
+            "jobs_discovered": 0,
+            "error_type": "RuntimeError",
+            "detail": "simulated SSL EOF",
+        },
+        {
+            "source": "ok",
+            "status": "healthy",
+            "attempts": 3,
+            "jobs_discovered": 1,
+            "error_type": "",
+            "detail": "",
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_discover_distinguishes_empty_source_and_resets_diagnostics(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def changing_lister(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls <= 3:
+            return []
+        return [DiscoveredJob(url="https://ok.example.com/1", title="OK", source="changing")]
+
+    monkeypatch.setattr(ols, "_SPECS", {"changing": changing_lister})
+    source = ols.OfficialListSource(specs=["changing"], transport=object())
+
+    assert await source.discover(limit=1) == []
+    assert source.diagnostics[0]["status"] == "empty"
+    jobs = await source.discover(limit=1)
+    assert len(jobs) == 1
+    assert source.diagnostics[0]["status"] == "healthy"
+    assert source.diagnostics[0]["attempts"] == 1
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_redacts_and_truncates_error(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    async def secret_failure(transport, limit):  # noqa: ARG001
+        raise RuntimeError("api_key=secret-value " + "x" * 300)
+
+    monkeypatch.setattr(ols, "_SPECS", {"secret": secret_failure})
+    source = ols.OfficialListSource(specs=["secret"], transport=object())
+
+    await source.discover(limit=1)
+
+    assert source.diagnostics[0]["error_type"] == "RuntimeError"
+    assert "secret-value" not in source.diagnostics[0]["detail"]
+    assert len(source.diagnostics[0]["detail"]) <= 160

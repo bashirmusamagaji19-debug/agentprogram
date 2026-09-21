@@ -31,6 +31,7 @@ from web_task_agent.official_list_families import (
     make_moka_lister,
     make_zhiye_lister,
 )
+from web_task_agent.page_reliability import safe_diagnostic_detail
 
 # 具身智能/机器人是目标求职域(用户新增车企与具身智能厂商),与 AI 词并列为命中口径
 _DOMAIN_TITLE_KEYWORDS = (*AI_TITLE_KEYWORDS, "具身", "机器人", "自动驾驶", "智驾")
@@ -1676,6 +1677,7 @@ class OfficialListSource:
             if spec not in _SPECS:
                 raise ValueError(f"unknown spec: {spec} (available: {sorted(_SPECS)})")
         self.transport = transport if transport is not None else DefaultTransport()
+        self.diagnostics: list[dict[str, object]] = []
 
     async def discover(
         self,
@@ -1689,22 +1691,51 @@ class OfficialListSource:
         全局搜索模式需要跨梯队/跨公司的广度,故按源预算 + 轮转交错。
         每源内部仍由各 lister 自行分页,预算用尽即停。
         """
+        self.diagnostics = []
+        diagnostic_by_source: dict[str, dict[str, object]] = {
+            spec: {
+                "source": spec,
+                "status": "empty",
+                "attempts": 0,
+                "jobs_discovered": 0,
+                "error_type": "",
+                "detail": "",
+            }
+            for spec in self.specs
+        }
+        self.diagnostics = [dict(diagnostic_by_source[spec]) for spec in self.specs]
         if limit <= 0:
             return []
 
         async def _collect(budget: int) -> list[list[DiscoveredJob]]:
             batches: list[list[DiscoveredJob]] = []
             for spec in self.specs:
+                diagnostic = diagnostic_by_source[spec]
+                diagnostic["attempts"] = int(diagnostic["attempts"]) + 1
                 try:
                     per_source = await _SPECS[spec](self.transport, budget)
-                except Exception:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
+                except Exception as exc:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
                     per_source = []
+                    diagnostic.update(
+                        status="failed",
+                        jobs_discovered=0,
+                        error_type=type(exc).__name__,
+                        detail=safe_diagnostic_detail(exc),
+                    )
+                else:
+                    diagnostic.update(
+                        status="healthy" if per_source else "empty",
+                        jobs_discovered=len(per_source),
+                        error_type="",
+                        detail="",
+                    )
                 batches.append(
                     [
                         job if job.tier else dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
                         for job in per_source
                     ]
                 )
+            self.diagnostics = [dict(diagnostic_by_source[spec]) for spec in self.specs]
             return batches
 
         sample_limit = (
