@@ -45,14 +45,19 @@ _TOMBSTONE_MARKERS = (
     "position is no longer available",
 )
 _SECRET_PATTERN = re.compile(
-    r"(?i)(\bauthorization\b|\bapi[-_ ]?key\b|\baccess[-_ ]?token\b|\btoken\b)"
-    r"(\s*[:=]\s*)(?:(?:bearer|basic)\s+)?(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+    r"(?i)(?P<quote>[\"']?)"
+    r"\b(?P<key>authorization|api[-_ ]?key|access[-_ ]?token|token)\b"
+    r"(?P=quote)(?P<separator>\s*[:=]\s*)"
+    r"(?:(?:bearer|basic)\s+)?(?:\"[^\"]*\"|'[^']*'|[^\s,;}]+)"
 )
 
 
 def safe_diagnostic_detail(value: object, max_chars: int = 160) -> str:
     normalized = " ".join(str(value).split())
-    redacted = _SECRET_PATTERN.sub(r"\1=<redacted>", normalized)
+    redacted = _SECRET_PATTERN.sub(
+        r"\g<quote>\g<key>\g<quote>\g<separator><redacted>",
+        normalized,
+    )
     return redacted[: max(0, max_chars)]
 
 
@@ -76,11 +81,14 @@ def classify_page_exception(exc: Exception) -> PageFailure:
 
 def classify_page_content(page: BrowserPage) -> PageFailure | None:
     content = page.content.strip()
+    title_text = page.title.casefold()
+    if any(marker in title_text for marker in _TOMBSTONE_MARKERS):
+        return PageFailure(PageFailureCategory.REMOVED, "explicit removal page")
+
     if len(content) >= MIN_USEFUL_CONTENT_CHARS:
         return None
 
-    short_text = f"{page.title}\n{content}".casefold()
-    if any(marker in short_text for marker in _TOMBSTONE_MARKERS):
+    if any(marker in content.casefold() for marker in _TOMBSTONE_MARKERS):
         return PageFailure(PageFailureCategory.REMOVED, "explicit removal page")
     return PageFailure(
         PageFailureCategory.EMPTY_SHELL,

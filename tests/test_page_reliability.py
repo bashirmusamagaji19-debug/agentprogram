@@ -103,6 +103,23 @@ def test_safe_diagnostic_detail_collapses_redacts_and_truncates() -> None:
 
 
 @pytest.mark.parametrize(
+    ("raw", "secret"),
+    [
+        ("{'Authorization': 'Bearer top-secret'}", "top-secret"),
+        ('{"Authorization": "Bearer top-secret"}', "top-secret"),
+        ("{'api_key': 'api-secret'}", "api-secret"),
+        ('{"access_token": "access-secret"}', "access-secret"),
+        ("{'token': 'token-secret'}", "token-secret"),
+    ],
+)
+def test_safe_diagnostic_detail_redacts_quoted_credential_keys(
+    raw: str,
+    secret: str,
+) -> None:
+    assert secret not in safe_diagnostic_detail(raw)
+
+
+@pytest.mark.parametrize(
     "marker",
     [
         "职位已下线",
@@ -121,6 +138,21 @@ def test_short_page_with_explicit_tombstone_is_removed(marker: str) -> None:
         content="该岗位无法继续申请。",
     )
 
+    failure = classify_page_content(page)
+
+    assert failure is not None
+    assert failure.category is PageFailureCategory.REMOVED
+
+
+def test_long_page_with_tombstone_in_title_is_removed() -> None:
+    content = "导航栏目无关内容。" * 20
+    page = BrowserPage(
+        url="https://example.com/jobs/removed",
+        title="职位已下线",
+        content=content,
+    )
+
+    assert len(content) >= MIN_USEFUL_CONTENT_CHARS
     failure = classify_page_content(page)
 
     assert failure is not None
