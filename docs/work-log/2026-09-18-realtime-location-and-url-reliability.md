@@ -186,9 +186,11 @@ Moka 部分岗位使用 `locations[].provinceName/cityName`，而不是 `locatio
 
 验证边界保持不变：`list-attested` 只证明岗位来自当次列表响应，不代表详情页已由真实浏览器完成渲染验证；临时网络故障也不等于岗位已经下线。
 
+合并前审查进一步补强了空来源的非失败语义、诊断脱敏边界、补足轮失败证据和原始网络异常分类；对应回归已计入下方聚焦测试。
+
 ### 本轮自动验证
 
-- 聚焦可靠性测试：退出码 0，`148 passed`、`0 skipped`。
-- 完整 `pytest -q`：退出码 0，`636 passed`、`1 skipped`；本次收集到的测试无失败。
+- 聚焦可靠性测试：退出码 0，`234 passed`、`0 skipped`。
+- 完整 `pytest -q`：退出码 0，`722 passed`、`1 skipped`；本次收集到的测试无失败。
 - `ruff check .` 与 `git diff --check`：退出码均为 0。
 - 离线 Streamlit runner smoke：退出码 0，实际输出 `run-b0212b33 2 ['action_plan', 'dashboard', 'json', 'report']`，生成 2 个岗位和 JSON、Markdown、HTML Dashboard、行动计划四类产物。默认 `UiRunRequest(data_mode="demo", target_count=2)` 会有一个候选页面被 verifier 过滤，原因包括 `confidence below 0.5`、`missing requirements and responsibilities`、`not relevant to AI job direction`；因此 smoke 使用与现有 runner test 相同的确定性参数：`data_mode="demo"`、`keyword="AI intern"`、`location="全国"`、`target_count=2`、`skills=["Python","LangGraph"]`、`resume_text="Built a LangGraph job agent with Python."`。
