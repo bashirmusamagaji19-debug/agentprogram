@@ -306,9 +306,21 @@ class AggregatorPageLoader:
         # 1. 缓存（命中也过内容门槛——旧壳页缓存不生效，#25）
         if self._repository is not None:
             cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
-            if cached is not None and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
-                self._record(url, "cache")
-                return cached  # origin 已在缓存 metadata 中(storage 列透传)
+            if cached is not None:
+                failure = classify_page_content(cached)
+                if failure is None:
+                    self._record(url, "cache")
+                    return cached  # origin 已在缓存 metadata 中(storage 列透传)
+                if failure.is_permanent:
+                    self._record(
+                        url,
+                        "cache",
+                        category=failure.category,
+                        detail=failure.detail,
+                    )
+                    raise PageRemovedError(
+                        f"job page removed: {url} ({failure.detail})"
+                    )
 
         # 2. 官方 API（支持域名的 SPA 页优先走结构化接口）
         if self._official_api is not None:

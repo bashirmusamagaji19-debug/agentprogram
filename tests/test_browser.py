@@ -161,6 +161,21 @@ async def test_browser_use_client_wraps_loader_failures_with_url():
 
 
 @pytest.mark.asyncio
+async def test_browser_use_client_preserves_page_removed_error():
+    from web_task_agent.page_reliability import PageRemovedError
+
+    removed_url = "https://example.com/jobs/removed"
+
+    async def loader(url: str) -> BrowserPage:
+        raise PageRemovedError(f"job page removed: {url}")
+
+    browser = BrowserUseClient(page_loader=loader)
+
+    with pytest.raises(PageRemovedError, match="removed"):
+        await browser.open_url(removed_url)
+
+
+@pytest.mark.asyncio
 async def test_browser_use_client_loads_page_with_browser_session_factory():
     events: list[str] = []
 
