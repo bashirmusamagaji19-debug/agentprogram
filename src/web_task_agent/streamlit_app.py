@@ -20,7 +20,7 @@ from web_task_agent.streamlit_runner import (
     UiRequestError,
     UiRunRequest,
     UiRunResult,
-    decode_resume_upload,
+    extract_resume_upload,
     load_persisted_ui_result,
     parse_seed_urls,
     parse_skills,
@@ -805,7 +805,7 @@ def main() -> None:
                 height=150,
                 placeholder="粘贴简历摘要，Agent 会用它解释匹配技能和缺口。",
             )
-            resume_upload = st.file_uploader("简历文件", type=["md", "txt"])
+            resume_upload = st.file_uploader("简历文件", type=["md", "txt", "pdf", "docx"])
             aggregator_upload = None
             aggregator_url_text = ""
             seed_url_text = ""
@@ -834,7 +834,10 @@ def main() -> None:
         try:
             combined_resume = resume_text.strip()
             if resume_upload is not None:
-                uploaded_resume = decode_resume_upload(resume_upload.getvalue())
+                uploaded_resume = extract_resume_upload(
+                    resume_upload.getvalue(),
+                    filename=resume_upload.name,
+                )
                 combined_resume = "\n\n".join(
                     chunk for chunk in (combined_resume, uploaded_resume) if chunk
                 )

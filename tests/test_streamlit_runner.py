@@ -1,16 +1,52 @@
 from __future__ import annotations
 
+import base64
+from io import BytesIO
+
 import pytest
+from docx import Document
+from pypdf import PdfWriter
 
 from web_task_agent.streamlit_runner import (
     UiRequestError,
     UiRunRequest,
     decode_resume_upload,
+    extract_resume_upload,
     parse_seed_urls,
     parse_skills,
     read_download_artifact,
     run_ui_request,
     validate_ui_request,
+)
+
+_PDF_RESUME = base64.b64decode(
+    """
+    JVBERi0xLjMKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3Vy
+    Y2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9CYXNlRm9udCAv
+    SGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nIC9OYW1lIC9GMSAvU3VidHlwZSAv
+    VHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0NvbnRlbnRzIDcgMCBSIC9N
+    ZWRpYUJveCBbIDAgMCA1OTUuMjc1NiA4NDEuODg5OCBdIC9QYXJlbnQgNiAwIFIgL1Jlc291cmNl
+    cyA8PAovRm9udCAxIDAgUiAvUHJvY1NldCBbIC9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9J
+    bWFnZUkgXQo+PiAvUm90YXRlIDAgL1RyYW5zIDw8Cgo+PiAKICAvVHlwZSAvUGFnZQo+PgplbmRv
+    YmoKNCAwIG9iago8PAovUGFnZU1vZGUgL1VzZU5vbmUgL1BhZ2VzIDYgMCBSIC9UeXBlIC9DYXRh
+    bG9nCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9BdXRob3IgKGFub255bW91cykgL0NyZWF0aW9uRGF0
+    ZSAoRDoyMDI2MDkyMTEzMTE0MSswOCcwMCcpIC9DcmVhdG9yIChhbm9ueW1vdXMpIC9LZXl3b3Jk
+    cyAoKSAvTW9kRGF0ZSAoRDoyMDI2MDkyMTEzMTE0MSswOCcwMCcpIC9Qcm9kdWNlciAoUmVwb3J0
+    TGFiIFBERiBMaWJyYXJ5IC0gXChvcGVuc291cmNlXCkpIAogIC9TdWJqZWN0ICh1bnNwZWNpZmll
+    ZCkgL1RpdGxlICh1bnRpdGxlZCkgL1RyYXBwZWQgL0ZhbHNlCj4+CmVuZG9iago2IDAgb2JqCjw8
+    Ci9Db3VudCAxIC9LaWRzIFsgMyAwIFIgXSAvVHlwZSAvUGFnZXMKPj4KZW5kb2JqCjcgMCBvYmoK
+    PDwKL0ZpbHRlciBbIC9BU0NJSTg1RGVjb2RlIC9GbGF0ZURlY29kZSBdIC9MZW5ndGggMTYyCj4+
+    CnN0cmVhbQpHYXBRaDBFPUYsMFVcSDNUXHBOWVReUUtrP3RjPklQLDtXI1UxXjIzaWhQRU1fP0NX
+    NEtJU2k8IVs3YCNPQl9zS2k5XFtYUzc0IiZKQkYlNnImYnUnVD5cQmFwUyxUWCRsdCRFN3NAW11P
+    PVoocy9NLFRiK1BIcFRvITs1WDk8OGdJNFZcc2M7dEVUcTRTKTBDTXQycmQuVz5DZydwMG1nfj5l
+    bmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA4CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDA2MSAw
+    MDAwMCBuIAowMDAwMDAwMDkyIDAwMDAwIG4gCjAwMDAwMDAxOTkgMDAwMDAgbiAKMDAwMDAwMDQw
+    MiAwMDAwMCBuIAowMDAwMDAwNDcwIDAwMDAwIG4gCjAwMDAwMDA3MzEgMDAwMDAgbiAKMDAwMDAw
+    MDc5MCAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9JRCAKWzw3MDY2OTBkNWYxYTA5MmEzYjczMWM2NjA4
+    ODQ5NTcxYj48NzA2NjkwZDVmMWEwOTJhM2I3MzFjNjYwODg0OTU3MWI+XQolIFJlcG9ydExhYiBn
+    ZW5lcmF0ZWQgUERGIGRvY3VtZW50IC0tIGRpZ2VzdCAob3BlbnNvdXJjZSkKCi9JbmZvIDUgMCBS
+    Ci9Sb290IDQgMCBSCi9TaXplIDgKPj4Kc3RhcnR4cmVmCjEwNDIKJSVFT0YK
+    """
 )
 
 
@@ -35,6 +71,40 @@ def test_decode_resume_upload_accepts_utf8_text() -> None:
 def test_decode_resume_upload_rejects_invalid_utf8() -> None:
     with pytest.raises(UiRequestError, match="UTF-8"):
         decode_resume_upload(b"\xff\xfe")
+
+
+def test_extract_resume_upload_reads_pdf_text() -> None:
+    resume = extract_resume_upload(_PDF_RESUME, filename="resume.pdf")
+
+    assert "Python" in resume
+    assert "LangGraph" in resume
+    assert "RAG" in resume
+
+
+def test_extract_resume_upload_reads_docx_paragraphs_and_tables() -> None:
+    document = Document()
+    document.add_paragraph("项目经历")
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "技术栈"
+    table.cell(0, 1).text = "Python / LangGraph"
+    buffer = BytesIO()
+    document.save(buffer)
+
+    resume = extract_resume_upload(buffer.getvalue(), filename="resume.docx")
+
+    assert "项目经历" in resume
+    assert "技术栈" in resume
+    assert "Python / LangGraph" in resume
+
+
+def test_extract_resume_upload_rejects_pdf_without_text() -> None:
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    buffer = BytesIO()
+    writer.write(buffer)
+
+    with pytest.raises(UiRequestError, match="文本|扫描"):
+        extract_resume_upload(buffer.getvalue(), filename="scan.pdf")
 
 
 def test_seed_url_mode_requires_http_urls() -> None:

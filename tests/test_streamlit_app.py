@@ -209,7 +209,14 @@ def test_cloud_requirements_cover_runtime_deps_without_browser_use() -> None:
         for part in [line.split(";")[0].split(">=")[0].split("<")[0].split("==")[0]]
     }
 
-    assert {"streamlit", "langgraph", "pydantic", "python-dotenv"} <= names
+    assert {
+        "streamlit",
+        "langgraph",
+        "pydantic",
+        "python-dotenv",
+        "pypdf",
+        "python-docx",
+    } <= names
     assert not any("browser-use" in name or "browser_use" in name for name in names)
 
 

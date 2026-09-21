@@ -369,6 +369,19 @@ def test_streamlit_app_renders_dual_column_workspace(monkeypatch, tmp_path) -> N
     assert "ui-result-shell" in rendered_markdown
 
 
+def test_streamlit_resume_upload_accepts_pdf_and_docx(monkeypatch, tmp_path) -> None:
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.delenv("APP_PASSCODE", raising=False)
+    monkeypatch.setenv("PERSISTENCE_ROOT", str(tmp_path / "persistence"))
+
+    app = AppTest.from_file(REPO_ROOT / "streamlit_app.py").run(timeout=20)
+    resume_uploader = next(item for item in app.file_uploader if item.label == "简历文件")
+
+    assert not app.exception
+    assert set(resume_uploader.allowed_type) == {".md", ".txt", ".pdf", ".docx"}
+
+
 def test_streamlit_app_omits_history_section_title(monkeypatch, tmp_path) -> None:
     from streamlit.testing.v1 import AppTest
 

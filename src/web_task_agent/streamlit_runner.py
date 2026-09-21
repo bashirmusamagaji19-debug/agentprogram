@@ -5,12 +5,15 @@ import os
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from docx import Document
 from pydantic import BaseModel, Field
+from pypdf import PdfReader
 
 from web_task_agent.action_plan import ActionPlanWriter
 from web_task_agent.artifact_store import (
@@ -124,11 +127,70 @@ def parse_seed_urls(value: str) -> list[str]:
     return _unique(re.split(r"[\s,，]+", value))
 
 
+def _clean_extracted_text(parts: list[str]) -> str:
+    lines = [
+        line.strip()
+        for part in parts
+        for line in str(part).splitlines()
+        if line.strip()
+    ]
+    return "\n".join(lines).strip()
+
+
 def decode_resume_upload(content: bytes) -> str:
     try:
         return content.decode("utf-8-sig").strip()
     except UnicodeDecodeError as exc:
         raise UiRequestError("简历文件必须使用 UTF-8 编码。") from exc
+
+
+def _extract_pdf_resume(content: bytes) -> str:
+    try:
+        reader = PdfReader(BytesIO(content))
+        if reader.is_encrypted:
+            raise UiRequestError("PDF 简历已加密，请解除密码后重新上传。")
+        text = _clean_extracted_text(
+            [page.extract_text() or "" for page in reader.pages]
+        )
+    except UiRequestError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - normalize parser errors for the UI
+        raise UiRequestError("无法解析 PDF 简历，请确认文件未损坏。") from exc
+    if not text:
+        raise UiRequestError(
+            "PDF 未提取到文本，可能是扫描版；请上传可复制文本的 PDF。"
+        )
+    return text
+
+
+def _extract_docx_resume(content: bytes) -> str:
+    try:
+        document = Document(BytesIO(content))
+        parts = [paragraph.text for paragraph in document.paragraphs]
+        for table in document.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells]
+                if any(cells):
+                    parts.append(" | ".join(cells))
+        text = _clean_extracted_text(parts)
+    except Exception as exc:  # noqa: BLE001 - normalize parser errors for the UI
+        raise UiRequestError("无法解析 Word 简历，请确认文件为有效的 .docx。") from exc
+    if not text:
+        raise UiRequestError("Word 简历中未提取到可读文本。")
+    return text
+
+
+def extract_resume_upload(content: bytes, *, filename: str) -> str:
+    suffix = Path(filename).suffix.casefold()
+    if suffix in {".md", ".markdown", ".txt"}:
+        return decode_resume_upload(content)
+    if suffix == ".pdf":
+        return _extract_pdf_resume(content)
+    if suffix == ".docx":
+        return _extract_docx_resume(content)
+    if suffix == ".doc":
+        raise UiRequestError("旧版 .doc 暂不支持，请将 Word 简历另存为 .docx。")
+    raise UiRequestError("简历文件仅支持 PDF、Word (.docx)、Markdown 和 TXT。")
 
 
 def validate_ui_request(
