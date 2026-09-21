@@ -165,6 +165,13 @@ def test_matches_keyword_supports_bilingual_aliases():
     assert not matches_keyword("AI Agent 实习", "Frontend Developer Intern")
 
 
+def test_matches_keyword_splits_compound_chinese_directions():
+    assert matches_keyword("大模型算法", "LLM算法实习生")
+    assert matches_keyword("多模态算法", "多模态数据挖掘实习生")
+    assert matches_keyword("推荐系统", "推荐算法实习生")
+    assert not matches_keyword("多模态算法", "前端开发实习生")
+
+
 def test_build_discovered_page_uses_jd_text_as_content():
     job = DiscoveredJob(
         url="https://example.com/job/1",

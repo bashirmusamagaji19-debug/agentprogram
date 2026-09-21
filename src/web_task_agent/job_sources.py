@@ -40,6 +40,8 @@ _EXTRA_KEYWORD_ALIAS_GROUPS = (
     ("ai", ("ai", "人工智能", "artificial intelligence")),
     ("intern", ("实习", "intern", "internship")),
     ("development", ("开发", "研发", "developer", "development", "engineering")),
+    ("algorithm", ("算法", "algorithm")),
+    ("recommendation", ("推荐", "推荐算法", "recommendation", "recommender")),
 )
 
 
@@ -60,6 +62,50 @@ _KEYWORD_VARIANTS = {
     group[0]: tuple(_normalize_keyword_text(alias) for alias in group)
     for group in _keyword_alias_groups()
 }
+for _known_keyword in (*AI_JOB_KEYWORDS, *INTERN_TITLE_KEYWORDS):
+    _normalized_known_keyword = _normalize_keyword_text(_known_keyword)
+    _KEYWORD_ALIAS_TO_CANONICAL.setdefault(
+        _normalized_known_keyword,
+        _normalized_known_keyword,
+    )
+    _KEYWORD_VARIANTS.setdefault(
+        _normalized_known_keyword,
+        (_normalized_known_keyword,),
+    )
+
+_KEYWORD_ALIASES_BY_LENGTH = sorted(
+    (alias for alias in _KEYWORD_ALIAS_TO_CANONICAL if len(alias) >= 2),
+    key=len,
+    reverse=True,
+)
+
+
+def _canonical_keyword_terms(value: str) -> list[str]:
+    terms: list[str] = []
+    for token in _KEYWORD_SEPARATORS.split(value):
+        if not token or token in _NON_DISCRIMINATIVE_KEYWORDS:
+            continue
+        direct_match = _KEYWORD_ALIAS_TO_CANONICAL.get(token)
+        if direct_match:
+            terms.append(direct_match)
+            continue
+
+        cursor = 0
+        while cursor < len(token):
+            alias = next(
+                (
+                    candidate
+                    for candidate in _KEYWORD_ALIASES_BY_LENGTH
+                    if token.startswith(candidate, cursor)
+                ),
+                None,
+            )
+            if alias is None:
+                cursor += 1
+                continue
+            terms.append(_KEYWORD_ALIAS_TO_CANONICAL[alias])
+            cursor += len(alias)
+    return list(dict.fromkeys(terms))
 
 
 def matches_keyword(keyword: str, *parts: str) -> bool:
@@ -75,11 +121,7 @@ def matches_keyword(keyword: str, *parts: str) -> bool:
     if normalized_keyword in text:
         return True
 
-    canonical_terms = []
-    for token in _KEYWORD_SEPARATORS.split(normalized_keyword):
-        if not token or token in _NON_DISCRIMINATIVE_KEYWORDS:
-            continue
-        canonical_terms.append(_KEYWORD_ALIAS_TO_CANONICAL.get(token, token))
+    canonical_terms = _canonical_keyword_terms(normalized_keyword)
 
     discriminative_terms = [
         term for term in canonical_terms if term not in _FILTER_ONLY_KEYWORDS
