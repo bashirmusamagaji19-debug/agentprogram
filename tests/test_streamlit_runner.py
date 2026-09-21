@@ -266,7 +266,7 @@ def test_source_status_rows_distinguish_empty_and_unknown() -> None:
             {
                 "source": "failed-empty-source",
                 "status": "empty",
-                "failed_attempts": 2,
+                "failed_attempts": "2",
                 "last_error_type": "RuntimeError",
                 "last_error_detail": "backfill failed",
             },
@@ -316,6 +316,53 @@ def test_source_status_rows_distinguish_empty_and_unknown() -> None:
     assert runner_module.diagnostic_failure_count(rows) == 2
 
 
+def test_source_status_rows_ignore_invalid_failed_attempts() -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    rows = runner_module._source_diagnostic_rows(
+        [
+            {
+                "source": "invalid-count",
+                "status": "empty",
+                "failed_attempts": "two",
+            }
+        ]
+    )
+
+    assert rows == [
+        {
+            "url": "invalid-count",
+            "error": "source_empty: no jobs returned",
+            "is_failure": False,
+        }
+    ]
+
+
+def test_source_status_rows_fallback_when_last_error_is_missing() -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    rows = runner_module._source_diagnostic_rows(
+        [
+            {
+                "source": "degraded-source",
+                "status": "healthy",
+                "failed_attempts": 1,
+            }
+        ]
+    )
+
+    assert rows == [
+        {
+            "url": "degraded-source",
+            "error": (
+                "source_degraded: unknown: no safe detail "
+                "(failed_attempts=1)"
+            ),
+            "is_failure": False,
+        }
+    ]
+
+
 def test_diagnostic_failure_count_preserves_backward_compatible_failures() -> None:
     import web_task_agent.streamlit_runner as runner_module
 
@@ -327,6 +374,36 @@ def test_diagnostic_failure_count_preserves_backward_compatible_failures() -> No
     ]
 
     assert runner_module.diagnostic_failure_count(diagnostics) == 2
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [False, 0, "false", "False", "0"],
+)
+def test_diagnostic_failure_count_accepts_explicit_non_failure_values(
+    marker: object,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    assert (
+        runner_module.diagnostic_failure_count([{"is_failure": marker}])
+        == 0
+    )
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [True, 1, "true", "no", None],
+)
+def test_diagnostic_failure_count_rejects_other_failure_marker_values(
+    marker: object,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    assert (
+        runner_module.diagnostic_failure_count([{"is_failure": marker}])
+        == 1
+    )
 
 
 def test_terminal_status_ignores_explicit_non_failure_diagnostics() -> None:

@@ -50,20 +50,41 @@ _SECRET_PATTERN = re.compile(
     r"(?i)(?P<quote>[\"']?)"
     r"\b(?P<key>"
     r"(?:id|auth|session|refresh|access)[-_ ]?token|"
+    r"client[-_ ]?secret|secret|"
+    r"x[-_]amz[-_]signature|signature|"
+    r"cookie|set[-_]cookie|"
     r"token|authorization|api[-_ ]?key|password"
     r")\b"
     r"(?P=quote)(?P<separator>\s*[:=]\s*)"
-    r"(?:(?:bearer|basic)\s+)?(?:\"[^\"]*\"|'[^']*'|[^\s,;}]+)"
+    r"(?:(?:bearer|basic)\s+)?(?:\"[^\"]*\"|'[^']*'|[^\s,;}&#]+)"
 )
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+_BASIC_PATTERN = re.compile(r"(?i)\bBasic\s+[A-Za-z0-9+/=._~-]+")
+_URL_USERINFO_PATTERN = re.compile(
+    r"(?i)(?P<prefix>[a-z][a-z0-9+.-]*://[^/\s:@]+:)"
+    r"(?P<password>[^@\s/]+)"
+    r"(?P<suffix>@[^/\s]+)"
+)
 _COOKIE_PATTERN = re.compile(
     r"(?i)(?P<header>\b(?:set-cookie|cookie)\s*:\s*)[^,\r\n]+"
 )
-_WINDOWS_PATH_PATTERN = re.compile(
-    r"(?i)(?<!\w)[A-Za-z]:[\\/][^\s,;)}\]]+"
+_WINDOWS_LOCAL_PATH_PATTERN = re.compile(
+    r"(?i)(?<!\w)"
+    r"(?:"
+    r"[A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/]"
+    r"|\\\\[^\\/\s]+\\[^\\/\s]+\\"
+    r")"
+    r"[^\r\n\"',;)}]*?\.[A-Za-z0-9]{1,8}"
+    r"(?=$|[\s,;)\]}\"'])"
 )
-_POSIX_HOME_PATH_PATTERN = re.compile(
-    r"(?<!\w)/(?:Users|home|root)/[^\s,;)}\]]+"
+_POSIX_LOCAL_PATH_PATTERN = re.compile(
+    r"(?<!\w)/(?:Users|home|var|tmp|root)/"
+    r"(?:"
+    r"[^\r\n\"',;)}]*?\.[A-Za-z0-9]{1,8}"
+    r"|"
+    r"(?:[^/\r\n\"',;)}]+/)*[^/\s\r\n\"',;)}]+"
+    r")"
+    r"(?=$|[\s,;)\]}\"'])"
 )
 
 
@@ -74,40 +95,50 @@ def safe_diagnostic_detail(value: object, max_chars: int = 160) -> str:
         normalized,
     )
     redacted = _BEARER_PATTERN.sub("Bearer <redacted>", redacted)
+    redacted = _BASIC_PATTERN.sub("Basic <redacted>", redacted)
+    redacted = _URL_USERINFO_PATTERN.sub(
+        r"\g<prefix><redacted>\g<suffix>",
+        redacted,
+    )
     redacted = _COOKIE_PATTERN.sub(r"\g<header><redacted>", redacted)
-    redacted = _WINDOWS_PATH_PATTERN.sub("<local-path>", redacted)
-    redacted = _POSIX_HOME_PATH_PATTERN.sub("<local-path>", redacted)
+    redacted = _WINDOWS_LOCAL_PATH_PATTERN.sub("<local-path>", redacted)
+    redacted = _POSIX_LOCAL_PATH_PATTERN.sub("<local-path>", redacted)
     return redacted[: max(0, max_chars)]
+
+
+def _http_status_category(status_code: int | None) -> PageFailureCategory | None:
+    if status_code in {404, 410}:
+        return PageFailureCategory.REMOVED
+    if status_code in {401, 403, 429}:
+        return PageFailureCategory.BLOCKED
+    if status_code is not None and status_code >= 500:
+        return PageFailureCategory.TRANSIENT
+    return None
 
 
 def classify_page_exception(exc: Exception) -> PageFailure:
     detail = safe_diagnostic_detail(exc)
     if isinstance(exc, PageHttpError):
-        if exc.status_code in {404, 410}:
-            return PageFailure(PageFailureCategory.REMOVED, detail)
-        if exc.status_code in {401, 403, 429}:
-            return PageFailure(PageFailureCategory.BLOCKED, detail)
-        if exc.status_code is not None and exc.status_code >= 500:
-            return PageFailure(PageFailureCategory.TRANSIENT, detail)
+        category = _http_status_category(exc.status_code)
+        if category is not None:
+            return PageFailure(category, detail)
     if isinstance(exc, HTTPError):
-        if exc.code in {404, 410}:
-            return PageFailure(PageFailureCategory.REMOVED, detail)
-        if exc.code in {401, 403, 429}:
-            return PageFailure(PageFailureCategory.BLOCKED, detail)
-        if exc.code >= 500:
-            return PageFailure(PageFailureCategory.TRANSIENT, detail)
-        return PageFailure(PageFailureCategory.UNKNOWN, detail)
+        category = _http_status_category(exc.code)
+        if category is not None:
+            return PageFailure(category, detail)
     if isinstance(exc, PageTimeoutError):
         return PageFailure(PageFailureCategory.TRANSIENT, detail)
     if isinstance(exc, PageEmptyError):
         return PageFailure(PageFailureCategory.EMPTY_SHELL, detail)
+    if "E1005" in str(exc) or "post unavailable" in str(exc).casefold():
+        return PageFailure(PageFailureCategory.REMOVED, detail)
+    if isinstance(exc, HTTPError):
+        return PageFailure(PageFailureCategory.UNKNOWN, detail)
     if isinstance(
         exc,
         (TimeoutError, ConnectionError, socket.gaierror, URLError),
     ):
         return PageFailure(PageFailureCategory.TRANSIENT, detail)
-    if "E1005" in str(exc) or "post unavailable" in str(exc).casefold():
-        return PageFailure(PageFailureCategory.REMOVED, detail)
     return PageFailure(PageFailureCategory.UNKNOWN, detail)
 
 

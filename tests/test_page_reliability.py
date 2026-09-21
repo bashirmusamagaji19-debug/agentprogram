@@ -110,6 +110,29 @@ def test_raw_http_errors_are_classified_by_status(
     assert classify_page_exception(exc).category is expected
 
 
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("E1005", PageFailureCategory.REMOVED),
+        ("post unavailable", PageFailureCategory.REMOVED),
+        ("bad request", PageFailureCategory.UNKNOWN),
+    ],
+)
+def test_unmapped_raw_http_errors_still_check_business_markers(
+    message: str,
+    expected: PageFailureCategory,
+) -> None:
+    exc = HTTPError(
+        "https://example.com/jobs/1",
+        400,
+        message,
+        None,
+        None,
+    )
+
+    assert classify_page_exception(exc).category is expected
+
+
 def test_empty_page_is_empty_shell() -> None:
     assert classify_page_exception(PageEmptyError("empty")).category is PageFailureCategory.EMPTY_SHELL
 
@@ -157,6 +180,8 @@ def test_safe_diagnostic_detail_collapses_redacts_and_truncates() -> None:
         "api_key",
         "authorization",
         "password",
+        "client_secret",
+        "secret",
     ],
 )
 def test_safe_diagnostic_detail_redacts_credential_key_values(
@@ -177,6 +202,8 @@ def test_safe_diagnostic_detail_redacts_credential_key_values(
         "api_key",
         "authorization",
         "password",
+        "client_secret",
+        "secret",
     ],
 )
 def test_safe_diagnostic_detail_redacts_quoted_credential_keys(
@@ -192,6 +219,30 @@ def test_safe_diagnostic_detail_redacts_bare_bearer_token() -> None:
     assert "Bearer" in detail
 
 
+def test_safe_diagnostic_detail_redacts_bare_basic_credential() -> None:
+    detail = safe_diagnostic_detail("request failed with Basic dXNlcjpwYXNz")
+
+    assert "dXNlcjpwYXNz" not in detail
+    assert "Basic" in detail
+
+
+def test_safe_diagnostic_detail_redacts_signed_url_parameter() -> None:
+    detail = safe_diagnostic_detail(
+        "https://example.com/jobs?X-Amz-Signature=signature-secret"
+    )
+
+    assert "signature-secret" not in detail
+    assert "X-Amz-Signature" in detail
+
+
+def test_safe_diagnostic_detail_redacts_url_password_only() -> None:
+    detail = safe_diagnostic_detail(
+        "fetch https://user:url-secret@example.com/jobs"
+    )
+
+    assert detail == "fetch https://user:<redacted>@example.com/jobs"
+
+
 def test_safe_diagnostic_detail_redacts_cookie_header() -> None:
     detail = safe_diagnostic_detail("Cookie: session=cookie-secret; Path=/")
 
@@ -200,19 +251,51 @@ def test_safe_diagnostic_detail_redacts_cookie_header() -> None:
 
 
 @pytest.mark.parametrize(
+    "key",
+    ["Cookie", "Set-Cookie"],
+)
+def test_safe_diagnostic_detail_redacts_quoted_cookie_keys(key: str) -> None:
+    detail = safe_diagnostic_detail(
+        f'{{"{key}": "session=cookie-secret; Path=/"}}'
+    )
+
+    assert "cookie-secret" not in detail
+
+
+def test_safe_diagnostic_detail_does_not_redact_plain_cookie_text() -> None:
+    raw = "cookie handling failed"
+
+    assert safe_diagnostic_detail(raw) == raw
+
+
+@pytest.mark.parametrize(
     "path",
     [
-        r"C:\Users\alice\private\resume.pdf",
-        "C:/Users/alice/private/resume.pdf",
+        r"C:\Users\Alice Smith\resume.pdf",
+        "C:/Users/Alice Smith/resume.pdf",
+        r"\\server\share\private\resume.pdf",
         "/home/alice/private/resume.pdf",
+        "/Users/alice/private/resume.pdf",
+        "/var/private/resume.pdf",
+        "/var/private/session",
+        "/tmp/private/resume.pdf",
+        "/root/private/resume.pdf",
     ],
 )
 def test_safe_diagnostic_detail_replaces_local_paths(path: str) -> None:
     detail = safe_diagnostic_detail(f"failed to read {path}")
 
     assert path not in detail
-    assert "alice" not in detail
+    assert "alice" not in detail.casefold()
+    assert "resume.pdf" not in detail.casefold()
+    assert "private" not in detail.casefold()
     assert "<local-path>" in detail
+
+
+def test_safe_diagnostic_detail_does_not_redact_regular_https_path() -> None:
+    raw = "see https://example.com/home/user for details"
+
+    assert safe_diagnostic_detail(raw) == raw
 
 
 @pytest.mark.parametrize(

@@ -253,15 +253,30 @@ def resolve_aggregator_location(request: UiRunRequest) -> str:
     return (request.aggregator_url or "").strip()
 
 
+def _safe_failed_attempts(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value if value >= 0 else 0
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.isdigit():
+            return int(normalized)
+    return 0
+
+
 def _source_diagnostic_rows(
     diagnostics: list[dict[str, object]],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item in diagnostics:
         status = str(item.get("status") or "unknown").strip().casefold() or "unknown"
-        failed_attempts = int(item.get("failed_attempts") or 0)
+        failed_attempts = _safe_failed_attempts(item.get("failed_attempts"))
         last_error_type = str(item.get("last_error_type") or "").strip()
         last_error_detail = str(item.get("last_error_detail") or "").strip()
+        if failed_attempts > 0:
+            last_error_type = last_error_type or "unknown"
+            last_error_detail = last_error_detail or "no safe detail"
         if status == "healthy" and failed_attempts <= 0:
             continue
         source = str(item.get("source") or "unknown").strip() or "unknown"
@@ -303,11 +318,21 @@ def _source_diagnostic_rows(
     return rows
 
 
+def _is_explicit_non_failure(value: object) -> bool:
+    if value is False:
+        return True
+    if isinstance(value, int) and not isinstance(value, bool) and value == 0:
+        return True
+    if isinstance(value, str):
+        return value.strip().casefold() in {"false", "0"}
+    return False
+
+
 def diagnostic_failure_count(diagnostics: list[dict[str, Any]]) -> int:
     return sum(
         1
         for diagnostic in diagnostics
-        if diagnostic.get("is_failure") is not False
+        if not _is_explicit_non_failure(diagnostic.get("is_failure"))
     )
 
 
