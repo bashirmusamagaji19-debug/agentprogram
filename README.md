@@ -256,6 +256,12 @@ API key。批准后使用 `approval_id` 作为业务数据库幂等键；即使 
 
 **已知边界**（诚实记录，不夸大泛化）：wecruit.hotjob.cn 类第三方站为 JS 壳无官方 API，失败分类兜底；网易 hr.163.com 页面可达但抽取字段质量不稳定；join.qq.com 校招接口依赖其前端未公开承诺的稳定性；标注集 16 条与合成简历结论不代表全量中文招聘站分布。
 
+实时官方列表运行会在 JSON metadata 中记录每个配置来源的健康状态，并在
+Streamlit“失败与诊断”页区分来源失败、空来源和页面失败。HTTP 404/410 或明确的
+岗位下线页不会再用列表 JD 兜底为可点击结果；403、429、超时与 5xx 仍按临时或
+受限故障处理，不会被误报为岗位下线。`list-attested` 仍只表示列表自证，不等于
+逐页浏览器验证。
+
 ## Real Job Benchmark V1
 
 `evaluations/real-job-benchmark-v1/` 固定了 2026-09-09 showcase 的 40 条样本：
