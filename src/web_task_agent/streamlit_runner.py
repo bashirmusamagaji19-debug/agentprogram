@@ -103,6 +103,7 @@ class UiRunResult(BaseModel):
     failed_urls: list[str] = Field(default_factory=list)
     diagnostics: list[dict[str, Any]] = Field(default_factory=list)
     execution_trace: list[dict[str, str]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     artifacts: dict[str, Path] = Field(default_factory=dict)
     artifact_records: dict[str, ArtifactRecord] = Field(default_factory=dict)
 
@@ -244,6 +245,45 @@ def resolve_aggregator_location(request: UiRunRequest) -> str:
     return (request.aggregator_url or "").strip()
 
 
+def _source_diagnostic_rows(
+    diagnostics: list[dict[str, object]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in diagnostics:
+        status = str(item.get("status") or "unknown").strip().casefold() or "unknown"
+        if status == "healthy":
+            continue
+        source = str(item.get("source") or "unknown").strip() or "unknown"
+        if status == "failed":
+            error_type = str(item.get("error_type") or "unknown").strip() or "unknown"
+            detail = str(item.get("detail") or "").strip()
+            message = ": ".join(part for part in (error_type, detail) if part)
+        else:
+            message = "no jobs returned"
+        rows.append({"url": source, "error": f"source_{status}: {message}"})
+    return rows
+
+
+def _page_diagnostic_rows(
+    diagnostics: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in diagnostics:
+        category = str(item.get("category") or "").strip()
+        if not category:
+            continue
+        strategy = str(item.get("strategy") or "unknown").strip() or "unknown"
+        detail = str(item.get("detail") or "").strip()
+        message = ": ".join(part for part in (strategy, detail) if part)
+        rows.append(
+            {
+                "url": str(item.get("url") or ""),
+                "error": f"page_{category}: {message}",
+            }
+        )
+    return rows
+
+
 async def run_ui_request(
     request: UiRunRequest,
     *,
@@ -291,7 +331,12 @@ async def run_ui_request(
         )
 
     try:
-        browser, seed_urls = await _build_browser(
+        (
+            browser,
+            seed_urls,
+            source_diagnostics,
+            page_diagnostics,
+        ) = await _build_browser(
             request,
             repository=repository,
             page_loader=page_loader,
@@ -330,6 +375,14 @@ async def run_ui_request(
         if state.metrics is None:
             raise RuntimeError("Agent run completed without metrics")
 
+        classified_page_diagnostics = [
+            item for item in page_diagnostics if item.get("category")
+        ]
+        if source_diagnostics:
+            state.metadata["source_diagnostics"] = source_diagnostics
+        if classified_page_diagnostics:
+            state.metadata["page_diagnostics"] = classified_page_diagnostics
+
         action_plan_path = ActionPlanWriter(run_dir / "action-plans").write_plan(
             run_id=run_id,
             user=user,
@@ -350,7 +403,16 @@ async def run_ui_request(
             execution_trace=state.metadata.get("execution_trace", []),
             orchestration_mode=str(state.metadata.get("orchestration_mode", "langgraph")),
         )
-        diagnostics = list(state.metadata.get("failed_url_errors", []))
+        diagnostics = _source_diagnostic_rows(source_diagnostics)
+        diagnostics.extend(_page_diagnostic_rows(classified_page_diagnostics))
+        classified_page_urls = {
+            str(item.get("url") or "") for item in classified_page_diagnostics
+        }
+        diagnostics.extend(
+            item
+            for item in state.metadata.get("failed_url_errors", [])
+            if str(item.get("url") or "") not in classified_page_urls
+        )
         diagnostics.extend(
             {
                 "url": str(item.get("url", "")),
@@ -367,6 +429,7 @@ async def run_ui_request(
             failed_urls=state.failed_urls,
             diagnostics=diagnostics,
             execution_trace=state.metadata.get("execution_trace", []),
+            metadata=state.model_dump(mode="json")["metadata"],
             artifacts={
                 "json": run_dir / "result.json",
                 "report": Path(state.report_path or ""),
@@ -523,11 +586,21 @@ async def _build_browser(
     *,
     repository: JobRepository,
     page_loader: Callable[[str], Awaitable[Any]] | None,
-) -> tuple[FakeBrowserClient | BrowserUseClient, list[str]]:
+) -> tuple[
+    FakeBrowserClient | BrowserUseClient,
+    list[str],
+    list[dict[str, object]],
+    list[dict[str, str]],
+]:
     if request.data_mode == "demo":
-        return FakeBrowserClient(DEMO_JOB_PAGES), []
+        return FakeBrowserClient(DEMO_JOB_PAGES), [], [], []
     if request.data_mode == "seed_urls":
-        return BrowserUseClient(page_loader=page_loader or HttpPageLoader()), request.seed_urls
+        return (
+            BrowserUseClient(page_loader=page_loader or HttpPageLoader()),
+            request.seed_urls,
+            [],
+            [],
+        )
 
     # official(实时列表)与 aggregator(快照)共用同一内容解析链:
     # 缓存 → 官方 API 取正文 → HTTP → jd_text 兜底(#33 canonical 保证链接可打开)
@@ -539,13 +612,19 @@ async def _build_browser(
         limit=request.target_count,
         keyword=request.keyword,
     )
+    source_diagnostics = list(getattr(source, "diagnostics", []))
     loader = AggregatorPageLoader(
         jobs,
         official_api=OfficialApiContentFetcher(),
         http_loader=page_loader or HttpPageLoader(),
         repository=repository,
     )
-    return BrowserUseClient(page_loader=loader), [job.url for job in jobs]
+    return (
+        BrowserUseClient(page_loader=loader),
+        [job.url for job in jobs],
+        source_diagnostics,
+        loader.resolution_log,
+    )
 
 
 def read_download_artifact(

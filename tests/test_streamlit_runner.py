@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from io import BytesIO
 
 import pytest
@@ -150,6 +151,7 @@ def test_request_rejects_target_count_above_ui_limit() -> None:
 @pytest.mark.asyncio
 async def test_aggregator_request_passes_keyword_to_source(monkeypatch, tmp_path) -> None:
     import web_task_agent.streamlit_runner as runner_module
+    from web_task_agent.models import BrowserPage
 
     captured: dict[str, str | int] = {}
 
@@ -160,6 +162,9 @@ async def test_aggregator_request_passes_keyword_to_source(monkeypatch, tmp_path
 
     monkeypatch.setattr(runner_module.AggregatorRepoSource, "discover", fake_discover)
 
+    async def empty_page_loader(url: str):
+        return BrowserPage(url=url, title="", content="")
+
     await run_ui_request(
         UiRunRequest(
             data_mode="aggregator",
@@ -169,9 +174,100 @@ async def test_aggregator_request_passes_keyword_to_source(monkeypatch, tmp_path
         ),
         output_root=tmp_path,
         environ={},
+        page_loader=empty_page_loader,
     )
 
     assert captured == {"limit": 7, "keyword": "AI Agent 实习"}
+
+
+@pytest.mark.asyncio
+async def test_official_source_diagnostics_and_page_diagnostics_are_in_result_and_json(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+    from web_task_agent.browser import PageHttpError
+    from web_task_agent.job_sources import DiscoveredJob
+
+    captured: dict[str, str | int] = {}
+
+    class FakeOfficialSource:
+        def __init__(self, specs=None):  # noqa: ANN001
+            self.diagnostics: list[dict[str, object]] = []
+
+        async def discover(self, limit: int, *, keyword: str = ""):
+            captured["limit"] = limit
+            captured["keyword"] = keyword
+            self.diagnostics = [
+                {
+                    "source": "broken",
+                    "status": "failed",
+                    "attempts": 1,
+                    "jobs_discovered": 0,
+                    "error_type": "RuntimeError",
+                    "detail": "simulated failure",
+                }
+            ]
+            return [
+                DiscoveredJob(
+                    url="https://example.com/jobs/1",
+                    title="大模型算法实习生",
+                    company="示例公司",
+                    location="北京",
+                    jd_text=(
+                        "岗位职责：负责大模型训练、评测和推理优化。"
+                        "任职要求：熟悉 Python、PyTorch 和 Transformer。"
+                    )
+                    * 4,
+                    source="healthy",
+                )
+            ]
+
+    async def blocked_page_loader(url: str):
+        raise PageHttpError(f"HTTP 403: {url}", status_code=403)
+
+    monkeypatch.setattr(runner_module, "OfficialListSource", FakeOfficialSource)
+
+    result = await run_ui_request(
+        UiRunRequest(
+            data_mode="official",
+            official_specs=["broken"],
+            keyword="大模型实习",
+            target_count=3,
+        ),
+        output_root=tmp_path,
+        environ={},
+        page_loader=blocked_page_loader,
+    )
+
+    assert captured == {"limit": 3, "keyword": "大模型实习"}
+    assert result.jobs[0].url_verification == "list-attested"
+    assert result.diagnostics[0] == {
+        "url": "broken",
+        "error": "source_failed: RuntimeError: simulated failure",
+    }
+    assert result.diagnostics[1]["url"] == "https://example.com/jobs/1"
+    assert result.diagnostics[1]["error"].startswith(
+        "page_blocked: http-failed:PageHttpError: HTTP 403"
+    )
+
+    payload = json.loads(result.artifacts["json"].read_text(encoding="utf-8"))
+    assert payload["metadata"]["source_diagnostics"][0]["source"] == "broken"
+    assert payload["metadata"]["page_diagnostics"][0]["category"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_demo_mode_has_no_official_source_diagnostics(tmp_path) -> None:
+    result = await run_ui_request(
+        UiRunRequest(data_mode="demo"),
+        output_root=tmp_path,
+        environ={},
+    )
+
+    payload = json.loads(result.artifacts["json"].read_text(encoding="utf-8"))
+
+    assert "source_diagnostics" not in payload["metadata"]
+    assert all(not item["error"].startswith("source_") for item in result.diagnostics)
 
 
 @pytest.mark.asyncio
