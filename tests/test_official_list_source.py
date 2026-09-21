@@ -1304,6 +1304,9 @@ async def test_discover_isolates_failing_source(monkeypatch):
             "jobs_discovered": 0,
             "error_type": "RuntimeError",
             "detail": "simulated SSL EOF",
+            "failed_attempts": 3,
+            "last_error_type": "RuntimeError",
+            "last_error_detail": "simulated SSL EOF",
         },
         {
             "source": "ok",
@@ -1312,6 +1315,9 @@ async def test_discover_isolates_failing_source(monkeypatch):
             "jobs_discovered": 1,
             "error_type": "",
             "detail": "",
+            "failed_attempts": 0,
+            "last_error_type": "",
+            "last_error_detail": "",
         },
     ]
 
@@ -1355,6 +1361,8 @@ async def test_source_diagnostic_redacts_and_truncates_error(monkeypatch):
     assert source.diagnostics[0]["error_type"] == "RuntimeError"
     assert "secret-value" not in source.diagnostics[0]["detail"]
     assert len(source.diagnostics[0]["detail"]) <= 160
+    assert "secret-value" not in source.diagnostics[0]["last_error_detail"]
+    assert len(source.diagnostics[0]["last_error_detail"]) <= 160
 
 
 @pytest.mark.asyncio
@@ -1385,6 +1393,9 @@ async def test_source_diagnostic_stays_healthy_after_later_failure(monkeypatch):
             "jobs_discovered": 1,
             "error_type": "",
             "detail": "",
+            "failed_attempts": 1,
+            "last_error_type": "RuntimeError",
+            "last_error_detail": "backfill failed",
         }
     ]
 
@@ -1415,5 +1426,40 @@ async def test_source_diagnostic_stays_healthy_after_later_empty_attempts(monkey
             "jobs_discovered": 1,
             "error_type": "",
             "detail": "",
+            "failed_attempts": 0,
+            "last_error_type": "",
+            "last_error_detail": "",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_source_diagnostic_keeps_failure_evidence_when_empty(monkeypatch):
+    import web_task_agent.official_list_source as ols
+
+    calls = 0
+
+    async def empty_with_failure(transport, limit):  # noqa: ARG001
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("empty backfill failed")
+        return []
+
+    monkeypatch.setattr(ols, "_SPECS", {"empty": empty_with_failure})
+    source = ols.OfficialListSource(specs=["empty"], transport=object())
+
+    assert await source.discover(limit=2) == []
+    assert source.diagnostics == [
+        {
+            "source": "empty",
+            "status": "empty",
+            "attempts": 3,
+            "jobs_discovered": 0,
+            "error_type": "",
+            "detail": "",
+            "failed_attempts": 1,
+            "last_error_type": "RuntimeError",
+            "last_error_detail": "empty backfill failed",
         }
     ]

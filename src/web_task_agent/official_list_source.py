@@ -1698,8 +1698,8 @@ class OfficialListSource:
                 "successful_attempts": 0,
                 "failed_attempts": 0,
                 "max_jobs": 0,
-                "error_type": "",
-                "detail": "",
+                "last_error_type": "",
+                "last_error_detail": "",
             }
             for spec in self.specs
         }
@@ -1719,8 +1719,8 @@ class OfficialListSource:
                     detail = ""
                 elif int(state["failed_attempts"]):
                     status = "failed"
-                    error_type = str(state["error_type"])
-                    detail = str(state["detail"])
+                    error_type = str(state["last_error_type"])
+                    detail = str(state["last_error_detail"])
                 else:
                     status = "empty"
                     error_type = ""
@@ -1733,6 +1733,9 @@ class OfficialListSource:
                         "jobs_discovered": max_jobs,
                         "error_type": error_type,
                         "detail": detail,
+                        "failed_attempts": int(state["failed_attempts"]),
+                        "last_error_type": str(state["last_error_type"]),
+                        "last_error_detail": str(state["last_error_detail"]),
                     }
                 )
             self.diagnostics = diagnostics
@@ -1751,8 +1754,10 @@ class OfficialListSource:
                 except Exception as exc:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
                     per_source = []
                     state["failed_attempts"] = int(state["failed_attempts"]) + 1
-                    state["error_type"] = type(exc).__name__
-                    state["detail"] = safe_diagnostic_detail(exc)
+                    state["last_error_type"] = safe_diagnostic_detail(
+                        type(exc).__name__
+                    )
+                    state["last_error_detail"] = safe_diagnostic_detail(exc)
                 else:
                     state["successful_attempts"] = int(state["successful_attempts"]) + 1
                     # Backfill rounds can re-return overlapping jobs. Keep the largest

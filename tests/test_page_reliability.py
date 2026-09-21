@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import socket
 from dataclasses import FrozenInstanceError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -67,6 +69,47 @@ def test_timeout_is_transient() -> None:
     assert classify_page_exception(PageTimeoutError("timeout")).category is PageFailureCategory.TRANSIENT
 
 
+@pytest.mark.parametrize(
+    "exc",
+    [
+        TimeoutError("timeout"),
+        ConnectionError("connection failed"),
+        ConnectionResetError("connection reset"),
+        socket.gaierror("name resolution failed"),
+        URLError("network unavailable"),
+    ],
+)
+def test_raw_network_errors_are_transient(exc: Exception) -> None:
+    assert classify_page_exception(exc).category is PageFailureCategory.TRANSIENT
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [
+        (404, PageFailureCategory.REMOVED),
+        (410, PageFailureCategory.REMOVED),
+        (401, PageFailureCategory.BLOCKED),
+        (403, PageFailureCategory.BLOCKED),
+        (429, PageFailureCategory.BLOCKED),
+        (500, PageFailureCategory.TRANSIENT),
+        (503, PageFailureCategory.TRANSIENT),
+    ],
+)
+def test_raw_http_errors_are_classified_by_status(
+    status_code: int,
+    expected: PageFailureCategory,
+) -> None:
+    exc = HTTPError(
+        "https://example.com/jobs/1",
+        status_code,
+        "request failed",
+        None,
+        None,
+    )
+
+    assert classify_page_exception(exc).category is expected
+
+
 def test_empty_page_is_empty_shell() -> None:
     assert classify_page_exception(PageEmptyError("empty")).category is PageFailureCategory.EMPTY_SHELL
 
@@ -103,20 +146,73 @@ def test_safe_diagnostic_detail_collapses_redacts_and_truncates() -> None:
 
 
 @pytest.mark.parametrize(
-    ("raw", "secret"),
+    "key",
     [
-        ("{'Authorization': 'Bearer top-secret'}", "top-secret"),
-        ('{"Authorization": "Bearer top-secret"}', "top-secret"),
-        ("{'api_key': 'api-secret'}", "api-secret"),
-        ('{"access_token": "access-secret"}', "access-secret"),
-        ("{'token': 'token-secret'}", "token-secret"),
+        "id_token",
+        "auth_token",
+        "session_token",
+        "refresh_token",
+        "access_token",
+        "token",
+        "api_key",
+        "authorization",
+        "password",
+    ],
+)
+def test_safe_diagnostic_detail_redacts_credential_key_values(
+    key: str,
+) -> None:
+    assert "top-secret" not in safe_diagnostic_detail(f"{key}=top-secret")
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "id_token",
+        "auth_token",
+        "session_token",
+        "refresh_token",
+        "access_token",
+        "token",
+        "api_key",
+        "authorization",
+        "password",
     ],
 )
 def test_safe_diagnostic_detail_redacts_quoted_credential_keys(
-    raw: str,
-    secret: str,
+    key: str,
 ) -> None:
-    assert secret not in safe_diagnostic_detail(raw)
+    assert "top-secret" not in safe_diagnostic_detail(f'{{"{key}": "top-secret"}}')
+
+
+def test_safe_diagnostic_detail_redacts_bare_bearer_token() -> None:
+    detail = safe_diagnostic_detail("request failed with Bearer sk-live-secret")
+
+    assert "sk-live-secret" not in detail
+    assert "Bearer" in detail
+
+
+def test_safe_diagnostic_detail_redacts_cookie_header() -> None:
+    detail = safe_diagnostic_detail("Cookie: session=cookie-secret; Path=/")
+
+    assert "cookie-secret" not in detail
+    assert "Cookie:" in detail
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        r"C:\Users\alice\private\resume.pdf",
+        "C:/Users/alice/private/resume.pdf",
+        "/home/alice/private/resume.pdf",
+    ],
+)
+def test_safe_diagnostic_detail_replaces_local_paths(path: str) -> None:
+    detail = safe_diagnostic_detail(f"failed to read {path}")
+
+    assert path not in detail
+    assert "alice" not in detail
+    assert "<local-path>" in detail
 
 
 @pytest.mark.parametrize(

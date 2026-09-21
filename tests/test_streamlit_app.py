@@ -166,6 +166,27 @@ def test_run_status_distinguishes_ready_success_and_partial_failure(tmp_path: Pa
     assert run_status(make_result(tmp_path)) == ("已完成", "1 个有效岗位 · 1 个页面失败", "warning")
 
 
+def test_run_status_marks_non_blocking_diagnostics_without_page_failure(
+    tmp_path: Path,
+) -> None:
+    result = make_result(tmp_path)
+    result.metrics.failed_pages = 0
+    result.diagnostics = [
+        {
+            "url": "empty-source",
+            "error": "source_empty: no jobs returned",
+            "is_failure": False,
+        }
+    ]
+
+    status, detail, tone = run_status(result)
+
+    assert status == "已完成"
+    assert "页面失败" not in detail
+    assert "非阻断诊断" in detail
+    assert tone == "warning"
+
+
 def test_mode_hint_explains_each_data_mode() -> None:
     assert "内置夹具" in mode_hint("demo")
     assert "官方招聘 API" in mode_hint("official")

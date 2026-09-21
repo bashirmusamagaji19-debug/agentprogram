@@ -20,6 +20,7 @@ from web_task_agent.streamlit_runner import (
     UiRequestError,
     UiRunRequest,
     UiRunResult,
+    diagnostic_failure_count,
     extract_resume_upload,
     load_persisted_ui_result,
     parse_seed_urls,
@@ -225,11 +226,19 @@ def mode_hint(data_mode: str) -> str:
 def run_status(result: UiRunResult | None) -> tuple[str, str, str]:
     if result is None:
         return "待运行", "配置任务后开始一次岗位扫描", "ready"
-    failure_count = max(result.metrics.failed_pages, len(result.diagnostics))
+    diagnostic_failures = diagnostic_failure_count(result.diagnostics)
+    failure_count = max(result.metrics.failed_pages, diagnostic_failures)
     if failure_count:
         return (
             "已完成",
             f"{result.metrics.valid_jobs} 个有效岗位 · {failure_count} 个页面失败",
+            "warning",
+        )
+    non_blocking_count = len(result.diagnostics) - diagnostic_failures
+    if non_blocking_count:
+        return (
+            "已完成",
+            f"{result.metrics.valid_jobs} 个有效岗位 · {non_blocking_count} 个非阻断诊断",
             "warning",
         )
     return "已完成", f"{result.metrics.valid_jobs} 个有效岗位 · 页面访问正常", "success"

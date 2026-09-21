@@ -255,13 +255,28 @@ def resolve_aggregator_location(request: UiRunRequest) -> str:
 
 def _source_diagnostic_rows(
     diagnostics: list[dict[str, object]],
-) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     for item in diagnostics:
         status = str(item.get("status") or "unknown").strip().casefold() or "unknown"
-        if status == "healthy":
+        failed_attempts = int(item.get("failed_attempts") or 0)
+        last_error_type = str(item.get("last_error_type") or "").strip()
+        last_error_detail = str(item.get("last_error_detail") or "").strip()
+        if status == "healthy" and failed_attempts <= 0:
             continue
         source = str(item.get("source") or "unknown").strip() or "unknown"
+        if status == "healthy":
+            rows.append(
+                {
+                    "url": source,
+                    "error": (
+                        f"source_degraded: {last_error_type}: "
+                        f"{last_error_detail} (failed_attempts={failed_attempts})"
+                    ),
+                    "is_failure": False,
+                }
+            )
+            continue
         if status == "failed":
             error_type = str(item.get("error_type") or "unknown").strip() or "unknown"
             detail = str(item.get("detail") or "").strip()
@@ -269,12 +284,31 @@ def _source_diagnostic_rows(
             error_prefix = "source_failed"
         elif status == "empty":
             message = "no jobs returned"
+            if failed_attempts > 0:
+                message = (
+                    f"{message}; failed_attempts={failed_attempts}: "
+                    f"{last_error_type}: {last_error_detail}"
+                )
             error_prefix = "source_empty"
         else:
             message = "no jobs returned"
             error_prefix = "source_unknown"
-        rows.append({"url": source, "error": f"{error_prefix}: {message}"})
+        row: dict[str, Any] = {
+            "url": source,
+            "error": f"{error_prefix}: {message}",
+        }
+        if status == "empty":
+            row["is_failure"] = False
+        rows.append(row)
     return rows
+
+
+def diagnostic_failure_count(diagnostics: list[dict[str, Any]]) -> int:
+    return sum(
+        1
+        for diagnostic in diagnostics
+        if diagnostic.get("is_failure") is not False
+    )
 
 
 def _page_diagnostic_rows(
@@ -561,7 +595,9 @@ def _terminal_run_status(
     failed_pages: int,
     diagnostics: list[dict[str, Any]],
 ) -> Literal["succeeded", "partial"]:
-    return "partial" if failed_pages or diagnostics else "succeeded"
+    if failed_pages > 0 or diagnostic_failure_count(diagnostics) > 0:
+        return "partial"
+    return "succeeded"
 
 
 def _safe_terminal_summary(
@@ -572,7 +608,7 @@ def _safe_terminal_summary(
 ) -> str:
     if status == "succeeded":
         return ""
-    failure_count = max(failed_pages, len(diagnostics))
+    failure_count = max(failed_pages, diagnostic_failure_count(diagnostics))
     return f"运行完成，但有 {failure_count} 个页面或诊断项失败"
 
 

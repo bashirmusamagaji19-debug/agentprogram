@@ -263,16 +263,155 @@ def test_source_status_rows_distinguish_empty_and_unknown() -> None:
     rows = runner_module._source_diagnostic_rows(
         [
             {"source": "empty-source", "status": "empty"},
+            {
+                "source": "failed-empty-source",
+                "status": "empty",
+                "failed_attempts": 2,
+                "last_error_type": "RuntimeError",
+                "last_error_detail": "backfill failed",
+            },
+            {
+                "source": "degraded-source",
+                "status": "healthy",
+                "failed_attempts": 1,
+                "last_error_type": "TimeoutError",
+                "last_error_detail": "backfill timeout",
+            },
             {"source": "unknown-source", "status": "unknown"},
             {"source": "missing-status-source"},
         ]
     )
 
-    assert [row["error"] for row in rows] == [
-        "source_empty: no jobs returned",
-        "source_unknown: no jobs returned",
-        "source_unknown: no jobs returned",
+    assert rows == [
+        {
+            "url": "empty-source",
+            "error": "source_empty: no jobs returned",
+            "is_failure": False,
+        },
+        {
+            "url": "failed-empty-source",
+            "error": (
+                "source_empty: no jobs returned; failed_attempts=2: "
+                "RuntimeError: backfill failed"
+            ),
+            "is_failure": False,
+        },
+        {
+            "url": "degraded-source",
+            "error": (
+                "source_degraded: TimeoutError: backfill timeout "
+                "(failed_attempts=1)"
+            ),
+            "is_failure": False,
+        },
+        {
+            "url": "unknown-source",
+            "error": "source_unknown: no jobs returned",
+        },
+        {
+            "url": "missing-status-source",
+            "error": "source_unknown: no jobs returned",
+        },
     ]
+    assert runner_module.diagnostic_failure_count(rows) == 2
+
+
+def test_diagnostic_failure_count_preserves_backward_compatible_failures() -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    diagnostics = [
+        {"error": "legacy page failure"},
+        {"error": "explicit page failure", "is_failure": True},
+        {"error": "source_empty: no jobs returned", "is_failure": False},
+        {"error": "source_degraded: timeout", "is_failure": False},
+    ]
+
+    assert runner_module.diagnostic_failure_count(diagnostics) == 2
+
+
+def test_terminal_status_ignores_explicit_non_failure_diagnostics() -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    empty_diagnostic = {
+        "url": "empty-source",
+        "error": "source_empty: no jobs returned",
+        "is_failure": False,
+    }
+    failed_diagnostic = {
+        "url": "failed-source",
+        "error": "source_failed: RuntimeError: boom",
+    }
+
+    assert (
+        runner_module._terminal_run_status(
+            failed_pages=0,
+            diagnostics=[empty_diagnostic],
+        )
+        == "succeeded"
+    )
+    assert (
+        runner_module._terminal_run_status(
+            failed_pages=0,
+            diagnostics=[failed_diagnostic],
+        )
+        == "partial"
+    )
+
+
+@pytest.mark.asyncio
+async def test_empty_official_source_is_reported_as_non_failure(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import web_task_agent.streamlit_runner as runner_module
+
+    class EmptyOfficialSource:
+        def __init__(self, specs=None):  # noqa: ANN001
+            self.diagnostics: list[dict[str, object]] = []
+
+        async def discover(self, limit: int, *, keyword: str = ""):
+            self.diagnostics = [
+                {
+                    "source": "empty-source",
+                    "status": "empty",
+                    "attempts": 1,
+                    "jobs_discovered": 0,
+                    "error_type": "",
+                    "detail": "",
+                    "failed_attempts": 0,
+                    "last_error_type": "",
+                    "last_error_detail": "",
+                }
+            ]
+            return []
+
+    monkeypatch.setattr(runner_module, "OfficialListSource", EmptyOfficialSource)
+
+    result = await run_ui_request(
+        UiRunRequest(
+            data_mode="official",
+            official_specs=["empty-source"],
+            target_count=1,
+        ),
+        output_root=tmp_path,
+        environ={},
+    )
+
+    empty_row = next(
+        row for row in result.diagnostics if row["url"] == "empty-source"
+    )
+    assert empty_row == {
+        "url": "empty-source",
+        "error": "source_empty: no jobs returned",
+        "is_failure": False,
+    }
+    assert (
+        runner_module._terminal_run_status(
+            failed_pages=0,
+            diagnostics=[empty_row],
+        )
+        == "succeeded"
+    )
 
 
 @pytest.mark.asyncio
