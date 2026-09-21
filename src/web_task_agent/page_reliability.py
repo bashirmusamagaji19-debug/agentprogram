@@ -65,10 +65,9 @@ _URL_USERINFO_PATTERN = re.compile(
     r"(?P<password>[^@\s/]+)"
     r"(?P<suffix>@[^/\s]+)"
 )
-_SENSITIVE_URL_USERINFO_PATTERN = re.compile(
+_OPAQUE_URL_USERINFO_PATTERN = re.compile(
     r"(?i)(?P<prefix>[a-z][a-z0-9+.-]*://)"
-    r"(?P<userinfo>[^/?#@\s]*(?:token|secret|credential|api[-_]?key)[^/?#@\s]*)"
-    r"@"
+    r"(?P<userinfo>[^:/?#@\s]+)@"
 )
 _COOKIE_PATTERN = re.compile(
     r"(?i)(?P<header>\b(?:set-cookie|cookie)\s*:\s*)[^,\r\n]+"
@@ -77,24 +76,14 @@ _WINDOWS_LOCAL_PATH_PATTERN = re.compile(
     r"(?i)(?<!\w)"
     r"(?:"
     r"[A-Za-z]:[\\/]"
+    r"|[A-Za-z]:(?=[^\\/\r\n\"',;)}\]]*[\\/])"
     r"|\\\\[^\\/\s]+\\[^\\/\s]+\\"
     r")"
-    r"(?:[^\\/\r\n\"',;)}]+[\\/])*"
-    r"(?:"
-    r"[^\\/\r\n\"',;)}]*?\.[A-Za-z0-9]{1,8}"
-    r"|"
-    r"[^\\/\s\r\n\"',;)}]+"
-    r")"
-    r"(?=$|[\s,;)\]}\"'])"
+    r"[^\r\n\"',;)}\]]*"
 )
 _POSIX_LOCAL_PATH_PATTERN = re.compile(
-    r"(?<!\w)/(?:Users|home|var|tmp|root)/"
-    r"(?:"
-    r"[^\r\n\"',;)}]*?\.[A-Za-z0-9]{1,8}"
-    r"|"
-    r"(?:[^/\r\n\"',;)}]+/)*[^/\s\r\n\"',;)}]+"
-    r")"
-    r"(?=$|[\s,;)\]}\"'])"
+    r"(?<!\w)/(?:Users|home|var|tmp|root|etc|opt|srv|mnt)/"
+    r"[^\r\n\"',;)}\]]*"
 )
 
 
@@ -110,7 +99,7 @@ def safe_diagnostic_detail(value: object, max_chars: int = 160) -> str:
         r"\g<prefix><redacted>\g<suffix>",
         redacted,
     )
-    redacted = _SENSITIVE_URL_USERINFO_PATTERN.sub(
+    redacted = _OPAQUE_URL_USERINFO_PATTERN.sub(
         r"\g<prefix><redacted>@",
         redacted,
     )

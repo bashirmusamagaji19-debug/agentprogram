@@ -282,6 +282,14 @@ def test_safe_diagnostic_detail_redacts_token_only_url_userinfo() -> None:
     assert detail == "fetch https://<redacted>@example.com/jobs"
 
 
+def test_safe_diagnostic_detail_redacts_opaque_url_userinfo() -> None:
+    detail = safe_diagnostic_detail(
+        "fetch https://Ab9xZ7Q2KpLmNoPq4Rt6@example.com/jobs"
+    )
+
+    assert detail == "fetch https://<redacted>@example.com/jobs"
+
+
 def test_safe_diagnostic_detail_redacts_cookie_header() -> None:
     detail = safe_diagnostic_detail("Cookie: session=cookie-secret; Path=/")
 
@@ -312,10 +320,15 @@ def test_safe_diagnostic_detail_does_not_redact_plain_cookie_text() -> None:
     [
         r"C:\Users\Alice Smith\resume.pdf",
         "C:/Users/Alice Smith/resume.pdf",
+        "C:\\Program Files\\Acme\\",
         r"D:\data\resume.pdf",
         r"C:\Program Files\Acme\config.json",
         r"D:\data\Alice Smith\session",
+        "D:\\data\\Alice Smith\\session\\",
         r"\\server\share\private\resume.pdf",
+        "\\\\server\\share\\private\\",
+        "C:\\",
+        "\\\\server\\share\\",
         "/home/alice/private/resume.pdf",
         "/Users/alice/private/resume.pdf",
         "/var/private/resume.pdf",
@@ -331,6 +344,11 @@ def test_safe_diagnostic_detail_replaces_local_paths(path: str) -> None:
     assert "alice" not in detail.casefold()
     assert "resume.pdf" not in detail.casefold()
     assert "private" not in detail.casefold()
+    assert "acme" not in detail.casefold()
+    assert "server" not in detail.casefold()
+    assert "session" not in detail.casefold()
+    assert "\\" not in detail
+    assert "/" not in detail
     assert "<local-path>" in detail
 
 
