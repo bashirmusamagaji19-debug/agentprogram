@@ -180,7 +180,7 @@ Moka 部分岗位使用 `locations[].provinceName/cityName`，而不是 `locatio
 
 ## 四次复盘：来源健康度与永久失效链接门禁
 
-官方列表模式现在会记录每个配置来源的最终状态、尝试次数、发现数量和脱敏后的失败摘要。单来源失败仍不会中断其他来源，但不会再与“正常返回空列表”混为一谈。
+官方列表模式记录的是本轮最终汇总状态，而不是逐次尝试的完整历史：每个配置来源记录最终 status、attempts、jobs_discovered，失败时才带脱敏摘要；同一来源如果后续补足轮成功，最终会归为 healthy/empty，不保留此前失败摘要。单来源失败仍不会中断其他来源，且 empty 与 failed 不混淆。
 
 详情加载链新增稳定失败分类：404/410、E1005 或明确短下线页属于 `removed`，禁止用列表 JD 兜底；401/403/429 属于 `blocked`，5xx/超时属于 `transient`，短空壳属于 `empty_shell`，这些非永久信号仍允许诚实降级为 `list-attested`。分类结果会进入 JSON metadata 和 Streamlit“失败与诊断”页。
 
@@ -191,4 +191,4 @@ Moka 部分岗位使用 `locations[].provinceName/cityName`，而不是 `locatio
 - 聚焦可靠性测试：退出码 0，`148 passed`、`0 skipped`。
 - 完整 `pytest -q`：退出码 0，`636 passed`、`1 skipped`；本次收集到的测试无失败。
 - `ruff check .` 与 `git diff --check`：退出码均为 0。
-- 离线 Streamlit runner smoke：退出码 0，实际输出 `run-b0212b33 2 ['action_plan', 'dashboard', 'json', 'report']`。默认关键词会过滤掉一个非法 demo 岗位，因此 smoke 使用与现有 runner test 相同的确定性参数（`keyword="AI intern"`、`location="全国"`、skills/resume、`target_count=2`）。
+- 离线 Streamlit runner smoke：退出码 0，实际输出 `run-b0212b33 2 ['action_plan', 'dashboard', 'json', 'report']`，生成 2 个岗位和 JSON、Markdown、HTML Dashboard、行动计划四类产物。默认 `UiRunRequest(data_mode="demo", target_count=2)` 会有一个候选页面被 verifier 过滤，原因包括 `confidence below 0.5`、`missing requirements and responsibilities`、`not relevant to AI job direction`；因此 smoke 使用与现有 runner test 相同的确定性参数：`data_mode="demo"`、`keyword="AI intern"`、`location="全国"`、`target_count=2`、`skills=["Python","LangGraph"]`、`resume_text="Built a LangGraph job agent with Python."`。
