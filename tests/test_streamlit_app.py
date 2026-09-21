@@ -6,6 +6,8 @@ from pathlib import Path
 
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics
 from web_task_agent.streamlit_app import (
+    THEME_COLORS,
+    app_styles,
     artifact_cards_html,
     artifact_download_spec,
     diagnostic_rows,
@@ -26,6 +28,23 @@ from web_task_agent.streamlit_runner import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def contrast_ratio(foreground: str, background: str) -> float:
+    def luminance(color: str) -> float:
+        value = color.lstrip("#")
+        channels = [int(value[index : index + 2], 16) / 255 for index in (0, 2, 4)]
+        linear = [
+            channel / 12.92
+            if channel <= 0.04045
+            else ((channel + 0.055) / 1.055) ** 2.4
+            for channel in channels
+        ]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    first = luminance(foreground)
+    second = luminance(background)
+    return (max(first, second) + 0.05) / (min(first, second) + 0.05)
 
 
 def make_result(tmp_path: Path, data_mode: str = "demo") -> UiRunResult:
@@ -122,6 +141,32 @@ def test_mode_hint_explains_each_data_mode() -> None:
     assert "官方招聘 API" in mode_hint("official")
     assert "聚合岗位" in mode_hint("aggregator")
     assert "指定岗位 URL" in mode_hint("seed_urls")
+
+
+def test_theme_colors_keep_core_text_above_wcag_aa() -> None:
+    core_pairs = [
+        ("ink", "canvas"),
+        ("muted", "surface"),
+        ("brand", "surface"),
+        ("sidebar_text", "sidebar"),
+        ("sidebar_muted", "sidebar"),
+        ("warning", "surface"),
+        ("error", "surface"),
+    ]
+
+    for foreground, background in core_pairs:
+        assert contrast_ratio(
+            THEME_COLORS[foreground],
+            THEME_COLORS[background],
+        ) >= 4.5, f"{foreground} on {background} is too low contrast"
+
+
+def test_app_styles_avoid_global_sidebar_color_override() -> None:
+    styles = app_styles()
+
+    assert '[data-testid="stSidebar"] *' not in styles
+    assert "--ui-sidebar-text: #EAF4EE" in styles
+    assert "--ui-sidebar-muted: #AEC3B7" in styles
 
 
 def test_metric_grid_contains_status_classes_and_accessible_labels() -> None:

@@ -52,6 +52,19 @@ ARTIFACT_DESCRIPTIONS = {
 }
 
 DEFAULT_PERSISTENCE_ROOT = "streamlit-persistence"
+THEME_COLORS = {
+    "canvas": "#F4F7F5",
+    "surface": "#FFFFFF",
+    "ink": "#16211D",
+    "muted": "#53645C",
+    "border": "#CEDAD3",
+    "brand": "#117A52",
+    "sidebar": "#10271E",
+    "sidebar_text": "#EAF4EE",
+    "sidebar_muted": "#AEC3B7",
+    "warning": "#9A5A0A",
+    "error": "#B42318",
+}
 RUN_STATUS_LABELS = {
     "queued": "排队中",
     "running": "运行中",
@@ -182,24 +195,33 @@ def app_styles() -> str:
 <style>
 :root {
   --ui-ink: #16211d;
-  --ui-muted: #66736d;
-  --ui-border: #dce5df;
+  --ui-muted: #53645c;
+  --ui-border: #cedad3;
   --ui-surface: #ffffff;
   --ui-canvas: #f4f7f5;
-  --ui-green: #18794e;
-  --ui-green-soft: #e6f4eb;
-  --ui-warning: #a46114;
+  --ui-green: #117a52;
+  --ui-green-soft: #e7f3ec;
+  --ui-sidebar: #10271e;
+  --ui-sidebar-text: #EAF4EE;
+  --ui-sidebar-muted: #AEC3B7;
+  --ui-warning: #9a5a0a;
   --ui-warning-soft: #fff5e5;
+  --ui-error: #b42318;
   --ui-shadow: 0 10px 30px rgba(20, 47, 34, .06);
 }
 .stApp { background: var(--ui-canvas); color: var(--ui-ink); }
 [data-testid="stHeader"] { background: transparent; }
 .block-container { max-width: 1440px; padding-top: 2.4rem; padding-bottom: 4rem; }
-[data-testid="stSidebar"] { background: #14231d; border-right: 1px solid #243b30; }
+[data-testid="stSidebar"] { background: var(--ui-sidebar); border-right: 1px solid #243b30; }
 [data-testid="stSidebar"] > div:first-child { padding: 1.4rem 1rem 2rem; }
-[data-testid="stSidebar"] * { color: #e9f2ec; }
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] strong,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color: var(--ui-sidebar-text); }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-[data-testid="stSidebar"] .ui-sidebar-caption { color: #a9bbb0 !important; }
+[data-testid="stSidebar"] .ui-sidebar-caption { color: var(--ui-sidebar-muted) !important; }
 [data-testid="stSidebar"] [data-baseweb="select"],
 [data-testid="stSidebar"] [data-baseweb="input"],
 [data-testid="stSidebar"] [data-testid="stTextInputRootElement"],
