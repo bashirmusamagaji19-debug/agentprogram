@@ -215,4 +215,3 @@ async def test_feishu_detail_missing_online_status_is_not_treated_as_online(
 
     with pytest.raises(OfficialApiUnavailableError, match="online status"):
         await OfficialApiContentFetcher().fetch(url)
-

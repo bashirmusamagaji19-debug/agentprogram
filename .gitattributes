@@ -1,4 +1,4 @@
-# Preserve byte hashes in frozen datasets and captured public evidence.
-evaluations/** -text
-docs/results/** -text
-tests/fixtures/** -text
+# Preserve original bytes and Markdown spacing in immutable evidence.
+evaluations/** -text -whitespace
+docs/results/** -text -whitespace
+tests/fixtures/** -text -whitespace
