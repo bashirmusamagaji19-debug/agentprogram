@@ -1,0 +1,15 @@
+Title: 产品运营实习生
+Company: 松塔软件
+Location: 上海
+Job type: 实习
+Requirements:
+- 具备 活动运营 相关项目或课程基础
+- 具备 内容编辑 相关项目或课程基础
+- 具备 Excel 相关项目或课程基础
+- 具备 用户调研 相关项目或课程基础
+Responsibilities:
+- 整理活动素材
+- 汇总用户访谈记录
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-02

@@ -11,12 +11,14 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-RunStatus = Literal["queued", "running", "succeeded", "partial", "failed"]
+RunStatus = Literal["queued", "running", "awaiting_approval", "succeeded", "partial", "failed", "rejected"]
 
 _SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _ALLOWED_TRANSITIONS: dict[RunStatus, set[RunStatus]] = {
     "queued": {"queued", "running", "failed"},
-    "running": {"running", "succeeded", "partial", "failed"},
+    "running": {"running", "awaiting_approval", "succeeded", "partial", "failed", "rejected"},
+    "awaiting_approval": {"awaiting_approval", "running", "failed", "rejected"},
+    "rejected": {"rejected"},
     "succeeded": {"succeeded"},
     "partial": {"partial"},
     "failed": {"failed"},

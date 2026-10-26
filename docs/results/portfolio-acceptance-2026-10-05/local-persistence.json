@@ -1,0 +1,21 @@
+{
+  "adapter": "FileRunStore/FileArtifactStore",
+  "run_id": "run-0d7d0159",
+  "creator_pid": 3832,
+  "restorer_pid": 17216,
+  "status": "succeeded",
+  "valid_jobs": 2,
+  "artifact_hash_matches": {
+    "json": true,
+    "report": true,
+    "dashboard": true,
+    "action_plan": true
+  },
+  "other_owner_denied": true,
+  "sha256": {
+    "json": "4e3abce193963769df841ce03bd49601fa2dc1a2dcdacbfb439b463a9a3d9961",
+    "report": "50e5e2da099b1b8dbdb4ecac25ee3a70ec6b0ec4c11219d8b13651c1ab73e24d",
+    "dashboard": "3ff7c29a32308e974eb3949150141c0d4b9581f7ce0d58b16f4040680d00aa62",
+    "action_plan": "fd4d0630d37d0942a8413910be6d30b82d6a7dabd0ddb3c4e66a7debb4072c53"
+  }
+}

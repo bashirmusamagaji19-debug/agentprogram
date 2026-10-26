@@ -20,6 +20,17 @@ def make_job(**overrides):
     return JobPosting(**data)
 
 
+def test_related_frameworks_are_not_claimed_as_skills_missing_from_resume():
+    user = UserProfile(keyword='AI Agent 实习', resume_text='使用 Python 和 LangGraph 构建工具编排项目。')
+    result = JobMatcher().match(user=user, job=make_job(
+        requirements='熟悉 Python，了解 LangChain 框架，有长期项目实践经验。',
+        skills=['Python', 'LangChain'],
+    ))
+    assert result.matched_skills == ['Python']
+    assert result.missing_skills == ['LangChain']
+    assert result.score == 0.5
+
+
 def test_matcher_scores_job_from_user_skills():
     matcher = JobMatcher()
     user = UserProfile(

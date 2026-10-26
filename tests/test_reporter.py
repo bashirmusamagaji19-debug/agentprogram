@@ -215,3 +215,128 @@ def test_reporter_renders_interview_talking_points(tmp_path):
     assert "LangGraph" in content
     assert "Agent 执行轨迹" in content
     assert "评测" in content
+
+
+def test_reporter_renders_source_quality_and_per_job_evidence(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", location="Remote", target_count=1)
+    metrics = RunMetrics(run_id="run-source", valid_jobs=1)
+    content = reporter.render(
+        user=user,
+        jobs=[make_job()],
+        metrics=metrics,
+        run_details={
+            "source_manifest": "source-archive/run-source/manifest.json",
+            "source_mode": "demo",
+            "source_captured_at": "2026-10-23T10:00:00+00:00",
+            "source_metrics": {
+                "source_callable": {"numerator": 1, "denominator": 1, "value": 1.0},
+                "detail_body_fetch": {"numerator": 1, "denominator": 1, "value": 1.0},
+            },
+            "source_evidence": {
+                "https://example.com/jobs/1": {
+                    "evidence_level": "detail",
+                    "content_origin": "http",
+                    "availability": "observed",
+                    "observed_at": "2026-10-23T10:00:00+00:00",
+                }
+            },
+        },
+    )
+
+    assert "来源质量" in content
+    assert "来源可调用率: 1/1 (100.0%)" in content
+    assert "详情正文获取率: 1/1 (100.0%)" in content
+    assert "证据层级: detail" in content
+    assert "内容来源: http" in content
+
+
+def test_reporter_renders_link_receipt_without_upgrading_missing_receipts(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern", location="Remote", target_count=2)
+    metrics = RunMetrics(run_id="run-link", valid_jobs=2)
+    verified = make_job(
+        url="https://example.com/jobs/verified",
+        url_verification="api-verified",
+    ).model_copy(
+        update={
+            "link_verification": {
+                "status": "verified",
+                "checked_at": "2026-10-26T08:30:00+00:00",
+                "run_id": "run-link",
+                "requested_url": "https://example.com/jobs/verified",
+                "final_url": "https://example.com/jobs/verified-final",
+                "method": "GET",
+                "reason": "title and JD matched",
+                "evidence_sha256": "a" * 64,
+                "title_matched": True,
+                "jd_matched": True,
+                "active": True,
+            }
+        }
+    )
+    legacy = make_job(url="https://example.com/jobs/legacy")
+    pending = make_job(url="https://example.com/jobs/pending").model_copy(
+        update={
+            "link_verification": {
+                "status": "pending",
+                "checked_at": "2026-10-26T08:31:00+00:00",
+                "run_id": "run-link",
+                "requested_url": "https://example.com/jobs/pending",
+                "final_url": "",
+                "method": "GET",
+                "reason": "active status unknown",
+                "evidence_sha256": "b" * 64,
+                "title_matched": True,
+                "jd_matched": False,
+                "active": None,
+            }
+        }
+    )
+
+    content = reporter.render(
+        user=user,
+        jobs=[verified, legacy],
+        metrics=metrics,
+        run_details={"pending_jobs": [pending.model_dump(mode="json")]},
+    )
+
+    assert "链接核验: ✓ 已核验" in content
+    assert "核验时间: 2026-10-26T08:30:00+00:00" in content
+    assert "核验方式: GET" in content
+    assert "最终URL: https://example.com/jobs/verified-final" in content
+    assert "链接核验: 未核验（无核验记录）" in content
+    assert "网页已验证" not in content
+    assert "## 未交付候选" in content
+    assert "pending_jobs" in content
+    assert '"status": "pending"' in content
+    assert "active status unknown" in content
+
+
+def test_reporter_keeps_pending_json_when_no_delivered_jobs(tmp_path):
+    reporter = MarkdownReporter(output_dir=tmp_path)
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-pending-only", valid_jobs=0)
+
+    content = reporter.render(
+        user=user,
+        jobs=[],
+        metrics=metrics,
+        run_details={
+            "pending_jobs": [
+                {
+                    "title": "Pending Intern",
+                    "url": "https://example.com/jobs/pending-only",
+                    "link_verification": {
+                        "status": "pending",
+                        "reason": "active status unknown",
+                    },
+                }
+            ]
+        },
+    )
+
+    assert "## 未交付候选" in content
+    assert "未找到有效岗位" in content
+    assert "pending-only" in content
+    assert "active status unknown" in content

@@ -1,5 +1,7 @@
 # Web 自动任务 Agent
 
+最新验收（2026-10-25）：完整 release-check 六项通过，全量 pytest/coverage 阶段通过，覆盖率 **87.99%**。Windows 日志编码的小修复另经 17 项定向测试验证。已完成14条人工复核及 v4 的720个正式配对单元，维持 rules 默认；真实来源10条任务均无交付。报告见 [正式对照结果](docs/results/formal-model-value-v4-20261025/DECISION.md)。后续说明见 [人工任务说明](docs/HUMAN_REVIEW.md)。
+
 这是一个面向 AI 工程 / AI 应用实习的 Agent 项目。当前版本在 `browser-use` 与 `LangGraph` 工作流之上增加了 Hybrid Decision Agent：可选 DeepSeek/Qwen 结构化规划器负责语义选择，确定性策略负责安全、预算、重试和降级；Agent 根据观察结果动态选择工具，并输出可审计的决策与恢复轨迹。
 
 ## 简历项目入口
@@ -8,7 +10,7 @@
 
 最能体现 Agent 应用开发的能力是两条边界：`execution_trace` 让每次决策可复盘；Human-in-the-loop 在 `save_results` 前用 LangGraph `interrupt` 暂停，凭稳定 `thread_id` 跨进程恢复，并用 `approval_id` receipt 防止 replay 重复写入。拒绝路径以 `human_denied` 结束且不保存。
 
-当前可复核证据：`568 passed`、`1 skipped`、总覆盖率 `84.92%`、Hybrid deterministic fixture `10/10` 循环终止、HITL `3/3` 暂停、拒绝副作用 `0`、重复副作用 `0`。skip 是未配置 `TEST_DATABASE_URL` 的 PostgreSQL 集成测试；这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。
+历史修复前核查（2026-10-25）：`956 passed`、`1 failed`、`1 skipped`、总覆盖率 `87.75%`、HITL 拒绝副作用 `0`、重复副作用 `0`。skip 是未配置 `TEST_DATABASE_URL` 的 PostgreSQL 集成测试；这些数字分别来自测试输出和版本化 artifact，不代表真实招聘网站泛化准确率。真实 DeepSeek pilot 只覆盖 6 条开发任务，结论是保留 `rules` 默认；该历史 pilot 之后已完成 v4 正式配对（见本页最新验收链接），详见 [模型按需介入决策](docs/results/model-value-v2-20261023/DECISION.md)。
 
 ```powershell
 # 无 API key、无 GPU、无云服务器：生成一套可面试展示的离线证据
@@ -20,6 +22,8 @@
 ```
 
 Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/replay JSON/Markdown 和阶段汇总。项目故事、简历三条、60 秒讲法见 `docs/interview-benchmark-story.md`；完整实现日志见 `docs/work-log/2026-07-30-resume-portfolio-finish.md`。
+
+当前验收与三分钟演示入口：[2026-10-05 收尾证据](docs/results/portfolio-acceptance-2026-10-05/README.md)，本轮实现和失败证据见 [2026-10-23 执行记录](docs/work-log/2026-10-23-agent-improvements.md)。Streamlit 默认使用 Hybrid + policy，并支持保存前批准/拒绝与独立进程恢复；固定 LangGraph 工作流保留为回归入口。离线目标 3、目标不足、批准、拒绝、去重和断网回放均有独立产物。历史三轮真实来源观察各成功打开 7 次、失败 6 次，最终预算耗尽、交付 0 条；不能概括为详情全部下线。视觉恢复的本轮验收使用确定性 adapter，云端 PostgreSQL/S3 部署仍未验收。
 
 ## MVP 能力
 
@@ -41,7 +45,7 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 
 ## Showcase — 一次完整运行的演示
 
-**[docs/showcase/README.md](docs/showcase/README.md)**:42 源实时发现 → 39 有效岗位(大厂/车企/具身智能/AI 中厂四梯队)→ qwen 可解释匹配,含[HTML Dashboard](docs/showcase/dashboard-run-843296ac.html)、[Markdown 报告](docs/showcase/report-run-843296ac.md)与面试 30 秒讲解词。
+**历史运行（2026-09-09）[docs/showcase/README.md](docs/showcase/README.md)**:42 源发现 → 39 有效岗位(大厂/车企/具身智能/AI 中厂四梯队)→ qwen 可解释匹配,含[HTML Dashboard](docs/showcase/dashboard-run-843296ac.html)、[Markdown 报告](docs/showcase/report-run-843296ac.md)与面试 30 秒讲解词。该结果保留历史日期和旧搜索口径，不代表本次严格关键词/工作地验收。
 
 ## 本地运行
 
@@ -54,6 +58,12 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 ```
 
 浏览器访问 `http://localhost:8501`。默认的“内置 Demo”不访问公网、不需要 API key；页面还支持上传 UTF-8 编码的 Markdown/TXT 简历、上传聚合岗位 JSON，或逐行填写岗位 URL。每次运行都在 `streamlit-runs/<run-id>/` 下独立生成 JSON、Markdown 报告、HTML Dashboard、行动计划和 SQLite 数据库，同时把安全产物副本写入 `streamlit-persistence/`。
+
+运行台搜索条件：关键词按空格、逗号或顿号分隔，每项都必须在岗位标题或正文中命中（AND），支持 AI/人工智能、Agent/智能体、实习/intern 等明确中英文别名。地点按岗位工作地严格过滤，多个城市用逗号或顿号分隔，命中任一城市即可（OR）；异地或地点未知岗位不会出现在指定城市结果中，`全国` / `不限` 不限制地点。URL 可以只有岗位 ID，不要求字符串中出现城市。技能标签和简历用于评分和解释，不作为必需技能过滤。
+
+官方/聚合模式在候选发现阶段接收本次关键词和地点，先筛选已知字段再截取数量；列表未提供正文/地点时保留候选并在详情抽取后严格校验。飞书/Moka page 模式复用已有 keyword 字段，不猜测其他平台的城市 ID；平台原生查询无结果时可在原有分页上限内宽取候选，最终条件不放宽。每次扫描候选上限为 `min(100, max(20, target_count * 3))`，官方来源最多三轮扩大采样，指定 URL 最多处理 100 条；预算内找到多少合格岗位就返回多少，不用无关岗位凑数。JSON 的 `search_conditions` 记录实际条件，来源诊断含原始数和筛选后候选数；条件排除记为 `search_filter`，不等同页面访问失败。历史 CLI/benchmark 默认保留旧行为，运行台通过 `enforce_search_conditions=True` 启用联合验证。
+
+来源与链接可靠性：JSON 的 `source_diagnostics` 记录各来源最后一次采样的 `healthy/empty/failed`、返回数和尝试次数；失败与空结果在网页诊断页单独展示。异常只保留类型，不保存请求正文或凭据。官方/聚合来源没有候选时返回零结果，不切换到无关的公网搜索。详情解析中收到 HTTP 404/410 或受约束的短下线提示，会阻止列表 JD 兜底；403/429、超时和 5xx 仍可降级，诊断保留失败类别。`list-attested` 只证明列表内容来源，API 业务码 E1005 不单独证明岗位下线；缓存仍有 24 小时有效期，本功能不保证每条链接都经过当次浏览器验证。
 
 运行记录默认保留 7 天；侧栏按 `owner_id` 展示最近 10 次运行。无 `APP_PASSCODE` 时本地开发使用固定 `demo` owner；配置 `APP_PASSCODE` 后，访问者必须先输入口令才能查看或创建共享历史运行。
 
@@ -200,6 +210,8 @@ Qwen 在 `open-recovery` 中直接选择有效候选 URL，将该场景从 deter
 
 公开证据位于 [`docs/results/planner-benchmark/planner-benchmark.md`](docs/results/planner-benchmark/planner-benchmark.md) 和对应 JSON。该结果使用真实 DeepSeek/Qwen API，但网页与故障均为受控 fixture，因此衡量 Planner 决策与安全 fallback，不代表真实招聘网站抽取泛化能力；延迟与 Token 也是本次单次运行快照。
 
+2026-10-23 的 v2 开发 pilot 将 Planner 与 Reader 分开比较，并保留失败、Token、调用次数和人工审批证据。结果是规则、adaptive、always 在 Planner 上均为 6/6；Reader 中规则与 adaptive 为 6/6，always 为 4/6。当前决策是保留规则默认，正式 test 因缺少人工复核回执仍未运行。完整边界与产物见 [`DECISION.md`](docs/results/model-value-v2-20261023/DECISION.md)。
+
 项目叙述和 benchmark 归纳见 `docs/interview-benchmark-story.md`。
 
 使用 `--history` 可以从 SQLite 读取最近运行记录，快速展示 run_id、有效岗位数、访问页面数和失败页面数。
@@ -279,6 +291,11 @@ API key。批准后使用 `approval_id` 作为业务数据库幂等键；即使 
 Relevance 的缺失标签不进入分母，也不填 0。该结果不是全网覆盖率、在线字段准确率或
 真实简历推荐准确率。完整数字、失败分类和每次 run 见 `summary.json`、`summary.md`、
 `summary.html`。
+
+2026-09-18 实时体验中发现的地点丢失、Moka/飞书详情路由失效、
+智元实习门户上下文缺失等问题，已记录在
+[`docs/work-log/2026-09-18-realtime-location-and-url-reliability.md`](docs/work-log/2026-09-18-realtime-location-and-url-reliability.md)。
+日志同时保留了 `list-attested` 不等于逐页浏览器验证的可靠性边界。
 
 ## 真实 browser-use adapter 状态
 

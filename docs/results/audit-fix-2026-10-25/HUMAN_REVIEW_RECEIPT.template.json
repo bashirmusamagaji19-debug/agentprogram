@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "dataset_id": "model-value-v3",
+  "manifest_sha256": "c8e7bb4641e3ab7d1db1494ba19a893cba8a583b0f290deabbfd38ea8b5e41ff",
+  "reviewed_case_ids": [],
+  "suggested_case_ids": [
+    "c3-g01-v1",
+    "c3-g02-v1",
+    "c3-g03-v1",
+    "c3-g05-v1",
+    "c3-g06-v1",
+    "c3-g09-v1",
+    "c3-g13-v1",
+    "c3-g14-v1",
+    "c3-g15-v1",
+    "c3-g16-v1",
+    "c3-g17-v1",
+    "c3-g19-v1",
+    "c3-g20-v1",
+    "c3-g21-v1"
+  ],
+  "reviewer": "",
+  "reviewed_at": "",
+  "review_source": "evaluations/model-value-v3/REVIEW.md",
+  "proposed_label_version_sha256": "d6a7baade568694906d56dc010be3376496268c5c72ffb718fcdcdc9afee146c",
+  "changed_labels": [],
+  "status": "pending",
+  "attestation": ""
+}

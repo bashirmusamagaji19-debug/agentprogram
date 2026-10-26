@@ -1,0 +1,43 @@
+﻿source,company,category,seconds,discovered,checked,raw_delivered,supported_interns,excluded_or_unconfirmed,saved,note
+tencent-campus,腾讯,no_matching_candidates,17.859,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+meituan,美团,integration_error,2.797,0,0,0,0,0,False,接口业务错误：请求参数格式不正确；不能视为空库存
+unitree,宇树科技,no_matching_candidates,4.64,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+xiaomi,小米,detail_delivery,3.703,20,3,3,3,0,True,3条均由既有官方详情路径验证并保存。
+netease,网易,limited_delivery,3.734,16,3,3,3,0,True,有明确实习依据；管线输出标记为list-attested，详情页面完整可用性未全部验证。
+xiaohongshu,小红书,limited_delivery,13.125,12,3,3,3,0,True,有明确实习依据；管线输出标记为list-attested，详情页面完整可用性未全部验证。
+mihoyo,米哈游,limited_delivery,18.782,6,6,1,1,0,True,有明确实习依据；管线输出标记为list-attested，详情页面完整可用性未全部验证。
+baidu,百度,access_denied,0.797,0,0,0,0,0,False,接口业务拒绝：no-auth / illegal-visit；不能视为空库存
+bing-serp,,candidate_failed,6.688,5,5,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。
+xpeng,小鹏汽车,candidate_failed,32.828,8,8,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 补查同ID官方详情：标题与ID一致、online=1、招聘类型实习且有完整JD，说明来源有库存，当前入口存在详情适配问题。
+agibot,智元机器人,candidate_failed,25.89,12,10,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 补查同ID官方详情：标题与ID一致、online=1、招聘类型实习且有完整JD，说明来源有库存，当前入口存在详情适配问题。
+galaxea,银河通用,no_matching_candidates,7.781,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+robotera,星动纪元,no_matching_candidates,49.828,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+fourier,傅利叶智能,limited_delivery,11.844,1,1,1,1,0,True,有明确实习依据；管线输出标记为list-attested，详情页面完整可用性未全部验证。
+jd,京东,unconfirmed_delivery,5.594,4,4,1,0,1,True,程序返回岗位，但本轮没有足够实习类型依据，不能算合格实习交付。
+pinduoduo,拼多多,no_matching_candidates,3.61,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+ctrip,携程,candidate_failed,26.0,2,2,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。
+huawei,华为,no_matching_candidates,6.0,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+nio,蔚来,candidate_failed,22.484,20,10,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 补查本轮前10条同ID官方详情，online均为0，不把历史列表当在招库存。
+liauto,理想汽车,mixed_delivery,58.187,18,3,3,2,1,True,原始3条中2条明确实习，1条明确全职误交付；不可直接启用为可信默认来源。
+byd,比亚迪,deadline,90.328,0,0,0,0,0,False,默认90秒内未完成发现
+geely,吉利,unconfirmed_delivery,74.766,5,5,1,0,1,True,程序返回岗位，但本轮没有足够实习类型依据，不能算合格实习交付。
+ubtech,优必选,unconfirmed_delivery,3.047,1,1,1,0,1,True,程序返回岗位，但本轮没有足够实习类型依据，不能算合格实习交付。
+zhongqi,众擎机器人,no_matching_candidates,31.765,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+xinghai,星海图,limited_delivery,2.563,1,1,1,1,0,True,有明确实习依据；管线输出标记为list-attested，详情页面完整可用性未全部验证。
+tarsrobot,它石智航,no_matching_candidates,40.579,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+x2robot,自变量机器人,no_matching_candidates,10.829,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+limx,逐际动力,no_matching_candidates,6.61,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+ai2robotics,智平方,no_matching_candidates,29.484,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+astribot,星尘智能,no_matching_candidates,8.859,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+dexmal,原力灵机,no_matching_candidates,32.672,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+booster,加速进化,no_matching_candidates,7.781,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+deeprobotics,云深处科技,no_matching_candidates,1.454,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+moonshot,月之暗面,no_matching_candidates,38.234,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。
+zhipu,智谱AI,candidate_failed,13.937,8,8,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 首个同ID详情补查返回site not exist，站点上下文仍未确认。
+minimax,MiniMax,candidate_failed,14.281,3,3,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 补查同ID官方详情：标题与ID一致、online=1、招聘类型实习且有完整JD，说明来源有库存，当前入口存在详情适配问题。
+stepfun,阶跃星辰,deadline,90.047,0,0,0,0,0,False,默认90秒内未完成发现
+deepseek,深度求索,candidate_failed,29.765,9,9,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。
+baichuan,百川智能,candidate_failed,9.031,1,1,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 首个同ID详情样本online=0，招聘类型全职。
+modelbest,面壁智能,candidate_failed,9.735,1,1,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 首个同ID详情样本虽online=1，但招聘类型全职且为内审内控岗。
+shengshu,生数科技,candidate_failed,34.578,2,2,0,0,0,False,发现候选，但当前详情读取或岗位验证未通过。 补查同ID官方详情：标题与ID一致、online=1、招聘类型实习且有完整JD，说明来源有库存，当前入口存在详情适配问题。
+enflame,燧原科技,no_matching_candidates,26.375,0,0,0,0,0,False,当前发现适配器在本次条件与预算内未返回合格候选；不能断言整个来源无岗位。

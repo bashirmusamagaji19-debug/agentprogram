@@ -1,0 +1,14 @@
+Title: 数据分析实习生
+Company: 栖云软件
+Location: 深圳
+Job type: 实习
+Requirements:
+- 具备 SQL 相关项目或课程基础
+- 具备 沟通 相关项目或课程基础
+- 具备 文档 相关项目或课程基础
+- 具备 协作 相关项目或课程基础
+Responsibilities:
+- 完成团队分配的基础任务
+- 整理交付记录
+Variant focus: 检索闭环与引用核验
+Source note: This is a controlled synthetic job page for offline evaluation.

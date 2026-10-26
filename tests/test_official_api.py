@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from urllib.error import HTTPError
 
 import pytest
@@ -27,6 +28,42 @@ class FakeResponse:
 
     def __exit__(self, *args: object) -> None:
         return None
+
+
+@pytest.mark.asyncio
+async def test_xiaomi_current_canonical_url_reads_live_detail_shape(monkeypatch):
+    record = json.loads((Path(__file__).parent / 'fixtures/xiaomi_live_20261025.json').read_text(encoding='utf-8'))
+    calls = []
+
+    def open_detail(req, timeout):
+        calls.append(req.full_url)
+        return FakeResponse(record['detail_response'])
+
+    monkeypatch.setattr('web_task_agent.official_api.url_request.urlopen', open_detail)
+    content = await OfficialApiContentFetcher().fetch(record['list_item']['url'])
+    assert content.title == record['list_item']['title']
+    assert 'MCP' in content.content
+    assert '武汉' in content.content
+    assert content.canonical_url == record['list_item']['url']
+    assert content.internship_evidence_source == 'xiaomi:detail:recruit_type.id'
+    assert content.internship_evidence_value == '202'
+    assert calls == [record['detail_request']]
+
+
+@pytest.mark.asyncio
+async def test_join_canonical_url_uses_campus_detail_directly(monkeypatch):
+    calls = []
+
+    def open_detail(req, timeout):
+        calls.append(req.full_url)
+        return FakeResponse({'data': {'title': 'AI 实习', 'workCityList': ['深圳'],
+                                      'desc': '开发 AI Agent', 'request': 'Python'}})
+
+    monkeypatch.setattr('web_task_agent.official_api.url_request.urlopen', open_detail)
+    result = await OfficialApiContentFetcher().fetch('https://join.qq.com/post_detail.html?postId=123')
+    assert result.title == 'AI 实习'
+    assert len(calls) == 1
+    assert 'getJobDetailsByPostId?postId=123' in calls[0]
 
 
 @pytest.mark.asyncio

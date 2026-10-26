@@ -1,0 +1,15 @@
+Title: 推荐算法实习生
+Company: 栖迟搜索
+Location: 北京
+Job type: 实习
+Requirements:
+- 具备 推荐系统 相关项目或课程基础
+- 具备 特征工程 相关项目或课程基础
+- 具备 Python 相关项目或课程基础
+- 具备 排序 相关项目或课程基础
+Responsibilities:
+- 优化推荐排序特征
+- 评估点击率实验
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-15

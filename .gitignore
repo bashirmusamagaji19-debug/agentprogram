@@ -10,6 +10,16 @@ reports/
 dashboards/
 action-plans/
 evaluations/*
+!evaluations/model-value-v1/
+!evaluations/model-value-v1/**
+!evaluations/model-value-v2/
+!evaluations/model-value-v2/**
+!evaluations/model-value-v3/
+!evaluations/model-value-v3/**
+!evaluations/model-value-v4/
+!evaluations/model-value-v4/**
+!evaluations/unified-agent-v1/
+!evaluations/unified-agent-v1/**
 !evaluations/ground-truth/
 !evaluations/ground-truth/**
 !evaluations/synthetic-resumes/
@@ -22,3 +32,6 @@ browser-artifacts/
 portfolio-artifacts/
 streamlit-runs/
 .env
+
+# Local run state is preserved outside source control.
+streamlit-persistence/

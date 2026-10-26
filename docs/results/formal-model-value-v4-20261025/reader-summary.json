@@ -1,0 +1,2525 @@
+{
+  "budget": {
+    "calls": 174,
+    "known_tokens": 238572,
+    "max_calls": 240,
+    "max_observed_tokens": 2000000,
+    "observed_tokens": null,
+    "remaining_calls": 66,
+    "reserved_tokens": 0,
+    "spent_token_estimate": 271824,
+    "usage_missing": 6
+  },
+  "duplicates": [],
+  "episode_evidence": {
+    "adaptive": {
+      "planner": {
+        "approval_wait_ms": 0.0,
+        "budget_skips": 0,
+        "fallback_decisions": 0,
+        "invalid_actions": 0,
+        "planner_calls": 0,
+        "planner_opportunities": 0,
+        "policy_skips": 0
+      },
+      "reader": {
+        "accepted": 72,
+        "error": 0,
+        "rejected": 90,
+        "review": 12
+      },
+      "reader_pages": {
+        "attempted": 174,
+        "counts": {
+          "accepted": 72,
+          "error": 0,
+          "rejected": 90,
+          "review": 12
+        },
+        "error_rate": {
+          "denominator": 174,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "review_rate": {
+          "denominator": 174,
+          "numerator": 12,
+          "rate": 0.06896551724137931
+        }
+      }
+    },
+    "always": {
+      "planner": {
+        "approval_wait_ms": 0.0,
+        "budget_skips": 0,
+        "fallback_decisions": 0,
+        "invalid_actions": 0,
+        "planner_calls": 0,
+        "planner_opportunities": 0,
+        "policy_skips": 0
+      },
+      "reader": {
+        "accepted": 10,
+        "error": 6,
+        "rejected": 18,
+        "review": 140
+      },
+      "reader_pages": {
+        "attempted": 174,
+        "counts": {
+          "accepted": 10,
+          "error": 6,
+          "rejected": 18,
+          "review": 140
+        },
+        "error_rate": {
+          "denominator": 174,
+          "numerator": 6,
+          "rate": 0.034482758620689655
+        },
+        "review_rate": {
+          "denominator": 174,
+          "numerator": 140,
+          "rate": 0.8045977011494253
+        }
+      }
+    },
+    "rules": {
+      "planner": {
+        "approval_wait_ms": 0.0,
+        "budget_skips": 0,
+        "fallback_decisions": 0,
+        "invalid_actions": 0,
+        "planner_calls": 0,
+        "planner_opportunities": 0,
+        "policy_skips": 0
+      },
+      "reader": {
+        "accepted": 72,
+        "error": 0,
+        "rejected": 90,
+        "review": 12
+      },
+      "reader_pages": {
+        "attempted": 174,
+        "counts": {
+          "accepted": 72,
+          "error": 0,
+          "rejected": 90,
+          "review": 12
+        },
+        "error_rate": {
+          "denominator": 174,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "review_rate": {
+          "denominator": 174,
+          "numerator": 12,
+          "rate": 0.06896551724137931
+        }
+      }
+    }
+  },
+  "failed_planned_episodes": [
+    {
+      "case_id": "c3-g13-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 3,
+      "strategy": "always"
+    }
+  ],
+  "incomplete_planned_episodes": [
+    {
+      "case_id": "c3-g13-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 3,
+      "strategy": "always"
+    }
+  ],
+  "independent_cases": 40,
+  "independent_groups": 20,
+  "integrity": {
+    "duplicate_count": 0,
+    "duplicates": [],
+    "missing_rounds": [],
+    "out_of_range_rounds": [],
+    "unknown_case_ids": []
+  },
+  "missing_planned_episodes": [],
+  "missing_rounds": [],
+  "out_of_range_rounds": [],
+  "paired_bootstrap": {
+    "always_minus_adaptive": {
+      "ci95": [
+        -0.6333333333333334,
+        -0.175
+      ],
+      "ci95_high": -0.175,
+      "ci95_low": -0.6333333333333334,
+      "duplicates": [],
+      "excluded_groups": [],
+      "groups": 20,
+      "integrity": {
+        "duplicate_count": 0,
+        "duplicates": [],
+        "missing_rounds": [],
+        "out_of_range_rounds": [],
+        "unknown_case_ids": []
+      },
+      "iterations": 2000,
+      "left": "always",
+      "left_mean": 0.2833333333333333,
+      "mean_difference": -0.4166666666666667,
+      "metric": "expected_outcome_satisfied",
+      "missing_rounds": [],
+      "out_of_range_rounds": [],
+      "paired_episodes": 120,
+      "planned_repeats": 3,
+      "resampling_unit": "group_id",
+      "right": "adaptive",
+      "right_mean": 0.7,
+      "seed": 20261023,
+      "unknown_case_ids": []
+    },
+    "rules_minus_adaptive": {
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "duplicates": [],
+      "excluded_groups": [],
+      "groups": 20,
+      "integrity": {
+        "duplicate_count": 0,
+        "duplicates": [],
+        "missing_rounds": [],
+        "out_of_range_rounds": [],
+        "unknown_case_ids": []
+      },
+      "iterations": 2000,
+      "left": "rules",
+      "left_mean": 0.7,
+      "mean_difference": 0.0,
+      "metric": "expected_outcome_satisfied",
+      "missing_rounds": [],
+      "out_of_range_rounds": [],
+      "paired_episodes": 120,
+      "planned_repeats": 3,
+      "resampling_unit": "group_id",
+      "right": "adaptive",
+      "right_mean": 0.7,
+      "seed": 20261023,
+      "unknown_case_ids": []
+    },
+    "rules_minus_always": {
+      "ci95": [
+        0.175,
+        0.6333333333333334
+      ],
+      "ci95_high": 0.6333333333333334,
+      "ci95_low": 0.175,
+      "duplicates": [],
+      "excluded_groups": [],
+      "groups": 20,
+      "integrity": {
+        "duplicate_count": 0,
+        "duplicates": [],
+        "missing_rounds": [],
+        "out_of_range_rounds": [],
+        "unknown_case_ids": []
+      },
+      "iterations": 2000,
+      "left": "rules",
+      "left_mean": 0.7,
+      "mean_difference": 0.4166666666666667,
+      "metric": "expected_outcome_satisfied",
+      "missing_rounds": [],
+      "out_of_range_rounds": [],
+      "paired_episodes": 120,
+      "planned_repeats": 3,
+      "resampling_unit": "group_id",
+      "right": "always",
+      "right_mean": 0.2833333333333333,
+      "seed": 20261023,
+      "unknown_case_ids": []
+    }
+  },
+  "planned_cohort": {
+    "cases": 40,
+    "episodes_per_strategy": 120,
+    "groups": 20,
+    "repeats": 3
+  },
+  "planned_episode_keys": [
+    {
+      "case_id": "c3-g01-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g01-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g01-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g02-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g03-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g03-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g04-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g04-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g05-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g06-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g07-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g07-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g08-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g08-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g09-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g09-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g10-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g10-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g11-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g11-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g12-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g12-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g13-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g14-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g14-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g25-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g26-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g27-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g27-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g28-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g28-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g29-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g29-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g30-v1",
+      "round": 3,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 1,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 1,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 1,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 2,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 2,
+      "strategy": "always"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 2,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 3,
+      "strategy": "adaptive"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 3,
+      "strategy": "rules"
+    },
+    {
+      "case_id": "c3-g30-v2",
+      "round": 3,
+      "strategy": "always"
+    }
+  ],
+  "planned_repeats": 3,
+  "selected_strategies": [
+    "rules",
+    "always",
+    "adaptive"
+  ],
+  "strategies": {
+    "adaptive": {
+      "correct_delivered": 66,
+      "coverage": 0.7333333333333333,
+      "delivered": {
+        "correct": 66,
+        "coverage": 0.7333333333333333,
+        "episodes_with_gold": 120,
+        "error_episodes_with_gold": 0,
+        "includes_error_episode_deliveries": true,
+        "incorrect": 0,
+        "missed": 60,
+        "precision": 1.0
+      },
+      "elapsed_ms": {
+        "count": 120,
+        "p50": 5.718099884688854,
+        "p95": 1639.1903000185266
+      },
+      "elapsed_p50": 5.718099884688854,
+      "elapsed_p95": 1639.1903000185266,
+      "error": 0,
+      "error_rate": {
+        "denominator": 120,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "executed": 120,
+      "expected_outcome": {
+        "by_outcome": {
+          "no_candidates": {
+            "known": 6,
+            "rate": 1.0,
+            "satisfied": 6
+          },
+          "partial": {
+            "known": 6,
+            "rate": 1.0,
+            "satisfied": 6
+          },
+          "refusal": {
+            "known": 24,
+            "rate": 0.5,
+            "satisfied": 12
+          },
+          "target_reached": {
+            "known": 84,
+            "rate": 0.7142857142857143,
+            "satisfied": 60
+          }
+        },
+        "known": 120,
+        "rate": 0.7,
+        "satisfied": 84
+      },
+      "incorrect_delivered": 0,
+      "independent_cases": 40,
+      "independent_groups": 20,
+      "missed": 60,
+      "missing": 0,
+      "model_calls": 12,
+      "not_run": 0,
+      "observed": 120,
+      "observed_tokens": 17421,
+      "page_error_rate": {
+        "denominator": 174,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "page_review_rate": {
+        "denominator": 174,
+        "numerator": 12,
+        "rate": 0.06896551724137931
+      },
+      "planned": 120,
+      "planned_cases": 40,
+      "planned_episodes": 120,
+      "planned_repeats": 3,
+      "planner_calls": 12,
+      "precision": 1.0,
+      "reader_pages": {
+        "attempted": 174,
+        "counts": {
+          "accepted": 72,
+          "error": 0,
+          "rejected": 90,
+          "review": 12
+        },
+        "error_rate": {
+          "denominator": 174,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "review_rate": {
+          "denominator": 174,
+          "numerator": 12,
+          "rate": 0.06896551724137931
+        }
+      },
+      "review_rate": {
+        "denominator": 120,
+        "numerator": 12,
+        "rate": 0.1
+      },
+      "status_counts": {
+        "executed": 120
+      },
+      "statuses": {
+        "executed": 120
+      },
+      "steps": {
+        "mean": 1.45,
+        "p50": 1.0,
+        "p95": 3.0,
+        "total": 174
+      },
+      "steps_mean": 1.45,
+      "steps_total": 174,
+      "target_completion": {
+        "denominator": 84,
+        "numerator": 60,
+        "rate": 0.7142857142857143
+      },
+      "task_review_rate": {
+        "denominator": 120,
+        "numerator": 12,
+        "rate": 0.1
+      },
+      "tokens": {
+        "completion": 3069,
+        "observed_total": 17421,
+        "prompt": 14352,
+        "total": 17421,
+        "usage_missing": 0
+      },
+      "usage_missing": 0
+    },
+    "always": {
+      "correct_delivered": 10,
+      "coverage": 0.1111111111111111,
+      "delivered": {
+        "correct": 10,
+        "coverage": 0.1111111111111111,
+        "episodes_with_gold": 120,
+        "error_episodes_with_gold": 6,
+        "includes_error_episode_deliveries": true,
+        "incorrect": 0,
+        "missed": 116,
+        "precision": 1.0
+      },
+      "elapsed_ms": {
+        "count": 120,
+        "p50": 1691.0504000261426,
+        "p95": 4464.822600013576
+      },
+      "elapsed_p50": 1691.0504000261426,
+      "elapsed_p95": 4464.822600013576,
+      "error": 6,
+      "error_rate": {
+        "denominator": 120,
+        "numerator": 6,
+        "rate": 0.05
+      },
+      "executed": 114,
+      "expected_outcome": {
+        "by_outcome": {
+          "no_candidates": {
+            "known": 6,
+            "rate": 1.0,
+            "satisfied": 6
+          },
+          "partial": {
+            "known": 6,
+            "rate": 0.0,
+            "satisfied": 0
+          },
+          "refusal": {
+            "known": 24,
+            "rate": 0.75,
+            "satisfied": 18
+          },
+          "target_reached": {
+            "known": 84,
+            "rate": 0.11904761904761904,
+            "satisfied": 10
+          }
+        },
+        "known": 120,
+        "rate": 0.2833333333333333,
+        "satisfied": 34
+      },
+      "incorrect_delivered": 0,
+      "independent_cases": 40,
+      "independent_groups": 20,
+      "missed": 116,
+      "missing": 0,
+      "model_calls": 162,
+      "not_run": 0,
+      "observed": 120,
+      "observed_tokens": 221151,
+      "page_error_rate": {
+        "denominator": 174,
+        "numerator": 6,
+        "rate": 0.034482758620689655
+      },
+      "page_review_rate": {
+        "denominator": 174,
+        "numerator": 140,
+        "rate": 0.8045977011494253
+      },
+      "planned": 120,
+      "planned_cases": 40,
+      "planned_episodes": 120,
+      "planned_repeats": 3,
+      "planner_calls": 162,
+      "precision": 1.0,
+      "reader_pages": {
+        "attempted": 174,
+        "counts": {
+          "accepted": 10,
+          "error": 6,
+          "rejected": 18,
+          "review": 140
+        },
+        "error_rate": {
+          "denominator": 174,
+          "numerator": 6,
+          "rate": 0.034482758620689655
+        },
+        "review_rate": {
+          "denominator": 174,
+          "numerator": 140,
+          "rate": 0.8045977011494253
+        }
+      },
+      "review_rate": {
+        "denominator": 114,
+        "numerator": 103,
+        "rate": 0.9035087719298246
+      },
+      "status_counts": {
+        "error": 6,
+        "executed": 114
+      },
+      "statuses": {
+        "error": 6,
+        "executed": 114
+      },
+      "steps": {
+        "mean": 1.45,
+        "p50": 1.0,
+        "p95": 3.0,
+        "total": 174
+      },
+      "steps_mean": 1.45,
+      "steps_total": 174,
+      "target_completion": {
+        "denominator": 84,
+        "numerator": 10,
+        "rate": 0.11904761904761904
+      },
+      "task_review_rate": {
+        "denominator": 114,
+        "numerator": 103,
+        "rate": 0.9035087719298246
+      },
+      "tokens": {
+        "completion": 37473,
+        "observed_total": 221151,
+        "prompt": 183678,
+        "total": 221151,
+        "usage_missing": 6
+      },
+      "usage_missing": 6
+    },
+    "rules": {
+      "correct_delivered": 66,
+      "coverage": 0.7333333333333333,
+      "delivered": {
+        "correct": 66,
+        "coverage": 0.7333333333333333,
+        "episodes_with_gold": 120,
+        "error_episodes_with_gold": 0,
+        "includes_error_episode_deliveries": true,
+        "incorrect": 0,
+        "missed": 60,
+        "precision": 1.0
+      },
+      "elapsed_ms": {
+        "count": 120,
+        "p50": 4.684499930590391,
+        "p95": 9.257899946533144
+      },
+      "elapsed_p50": 4.684499930590391,
+      "elapsed_p95": 9.257899946533144,
+      "error": 0,
+      "error_rate": {
+        "denominator": 120,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "executed": 120,
+      "expected_outcome": {
+        "by_outcome": {
+          "no_candidates": {
+            "known": 6,
+            "rate": 1.0,
+            "satisfied": 6
+          },
+          "partial": {
+            "known": 6,
+            "rate": 1.0,
+            "satisfied": 6
+          },
+          "refusal": {
+            "known": 24,
+            "rate": 0.5,
+            "satisfied": 12
+          },
+          "target_reached": {
+            "known": 84,
+            "rate": 0.7142857142857143,
+            "satisfied": 60
+          }
+        },
+        "known": 120,
+        "rate": 0.7,
+        "satisfied": 84
+      },
+      "incorrect_delivered": 0,
+      "independent_cases": 40,
+      "independent_groups": 20,
+      "missed": 60,
+      "missing": 0,
+      "model_calls": 0,
+      "not_run": 0,
+      "observed": 120,
+      "observed_tokens": 0,
+      "page_error_rate": {
+        "denominator": 174,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "page_review_rate": {
+        "denominator": 174,
+        "numerator": 12,
+        "rate": 0.06896551724137931
+      },
+      "planned": 120,
+      "planned_cases": 40,
+      "planned_episodes": 120,
+      "planned_repeats": 3,
+      "planner_calls": 0,
+      "precision": 1.0,
+      "reader_pages": {
+        "attempted": 174,
+        "counts": {
+          "accepted": 72,
+          "error": 0,
+          "rejected": 90,
+          "review": 12
+        },
+        "error_rate": {
+          "denominator": 174,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "review_rate": {
+          "denominator": 174,
+          "numerator": 12,
+          "rate": 0.06896551724137931
+        }
+      },
+      "review_rate": {
+        "denominator": 120,
+        "numerator": 12,
+        "rate": 0.1
+      },
+      "status_counts": {
+        "executed": 120
+      },
+      "statuses": {
+        "executed": 120
+      },
+      "steps": {
+        "mean": 1.45,
+        "p50": 1.0,
+        "p95": 3.0,
+        "total": 174
+      },
+      "steps_mean": 1.45,
+      "steps_total": 174,
+      "target_completion": {
+        "denominator": 84,
+        "numerator": 60,
+        "rate": 0.7142857142857143
+      },
+      "task_review_rate": {
+        "denominator": 120,
+        "numerator": 12,
+        "rate": 0.1
+      },
+      "tokens": {
+        "completion": 0,
+        "observed_total": 0,
+        "prompt": 0,
+        "total": 0,
+        "usage_missing": 0
+      },
+      "usage_missing": 0
+    }
+  },
+  "unknown_case_ids": []
+}

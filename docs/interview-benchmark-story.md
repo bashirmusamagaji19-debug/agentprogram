@@ -1,5 +1,9 @@
 # Hybrid Decision Agent 面试讲述
 
+最新验收（2026-10-25）：完整 release-check 六项通过，全量 pytest/coverage 阶段通过，覆盖率 **87.99%**。Windows 日志编码的小修复另经 17 项定向测试验证。已完成14条人工复核及 v4 的720个正式配对单元，维持 rules 默认；真实来源10条任务均无交付。报告见 [正式对照结果](results/formal-model-value-v4-20261025/DECISION.md)。后续说明见 [人工任务说明](HUMAN_REVIEW.md)。
+
+历史核查（2026-10-25 修复前）：`956 passed`、`87.75%` coverage，另有 1 failed、1 skipped；修复后的验收结果见本轮收尾记录，不能将此历史核查写成全绿。
+
 ## Portfolio 复现
 
 ```powershell
@@ -15,7 +19,7 @@
 
 ## 60 秒讲法
 
-我把固定 LangGraph 工作流升级成了 Hybrid Decision Agent：8 个类型化工具通过统一 `ToolObservation` 形成决策循环，LLM 只在白名单内做语义选择，确定性 policy 控制预算、恢复和终止。遇到 `save_results` 外部副作用时，我用 LangGraph `interrupt` 做人工审批：checkpoint 按 `thread_id` 跨进程恢复，业务 SQLite 用 `approval_id` receipt 防止 replay 重复保存，reject 以 `human_denied` 结束。最终用 deterministic fixture 验证 10/10 循环终止、HITL 3/3 暂停、拒绝副作用 0、重复副作用 0，并明确这些指标不代表真实网站抽取准确率。
+网页运行台与 CLI 调用共享 Hybrid 服务，完成岗位发现、关键词与工作地联合过滤、抽取和可解释匹配。能力封装成 8 个类型化工具，LLM 在白名单内做语义选择，确定性 policy 控制预算、恢复和终止。保存前用 LangGraph `interrupt` 做人工审批，checkpoint 按 `thread_id` 跨进程恢复，业务 SQLite 用 `approval_id` receipt 防止重复保存。网页已接入 Hybrid/HITL；拒绝路径不产生写入，失败恢复可以沿 trace 复盘。受控评测和跨进程验收证明控制边界，真实网站泛化仍需外部验证。
 
 ## 3 分钟讲法
 
@@ -49,11 +53,22 @@ Pipeline completion 不是 extraction accuracy。历史 2026-06-22 的 8 页真�
 
 - 基于 Python、LangGraph 与 Pydantic 构建 Hybrid Decision Agent，将岗位搜索、页面访问、文本/视觉抽取、验证、匹配和持久化封装为 8 个类型化工具，实现条件决策循环与可审计 execution trace。
 - 设计“LLM 语义规划 + 确定性安全策略”架构，并在 `save_results` 前实现 LangGraph Human-in-the-loop：稳定 `thread_id` 支持跨进程恢复，`approval_id` SQLite receipt 保证 replay 不重复写入，reject 以 `human_denied` 结束。
-- 构建版本化 deterministic fixture 评测与离线复现入口：10/10 Agent 循环终止、HITL 3/3 pause、reject/duplicate effects 0；项目当前 `520 passed`、`84.89%` coverage，并提供 Streamlit 运行台、`--portfolio-demo` 与 `--release-check`。
+- 构建版本化 deterministic fixture 评测与离线复现入口：10/10 Agent 循环终止、HITL 3/3 pause、reject/duplicate effects 0；项目当前（2026-10-05）`632 passed`、`87.35%` coverage，另有 1 项未配置 PostgreSQL 的集成测试跳过，并提供 Streamlit 运行台、`--portfolio-demo` 与 `--release-check`。
+
+## 当前验收补充（2026-10-05）
+
+完整产物与演示步骤见 [收尾证据](results/portfolio-acceptance-2026-10-05/README.md)。北京、上海、北京/上海三轮小规模真实搜索各返回 2 条满足条件的岗位，部分失效候选保留 404 诊断。多工作地岗位可以同时满足不同城市输入；结果数量不等于覆盖率。
+
+三条受控页面上，规则完成任务 2/3，Qwen 增强路径 3/3，这是任务完成率而非字段准确率。16 条既有合成标注样本的规则匹配为 15/16，纯 Qwen 为 13/16，混合方案为 15/16。可以讲模型补对语义边界样本、同时有乐观打分问题；不能声称 LLM 整体优于规则。
+
+2026-10-23 的 v2 开发 pilot 在 6 条任务、3 个独立组上分离 Planner 与 Reader：Planner 三策略均为 6/6，但 adaptive 使用 4 次模型调用、always 使用 24 次；Reader 的规则与 adaptive 为 6/6，always 为 4/6 并产生 14 次调用。开发证据支持规则默认，不支持把全量模型设为生产默认。正式 test 尚未运行，因为标签仍待人工复核；详细结果见 `results/model-value-v2-20261023/DECISION.md`。
+
+本轮独立进程验收覆盖审批通过保存 1 条、拒绝保存 0 条、重复恢复不增加写入；本地 File adapter 的四项产物重启恢复哈希一致。云端 PostgreSQL/S3 仍无真实部署验收。
 
 ## 诚实边界
 
 - 确定性 benchmark 使用合成 fixture，证明控制流可靠性，不证明真实招聘网站泛化。
 - DeepSeek/Qwen planner 是可选增强；无 API key 时策略模式仍完整可用。
+- Streamlit、CLI 与验收脚本复用同一 Hybrid service；HITL 的批准、拒绝和重复恢复已由独立进程验收。视觉恢复仍使用确定性 adapter，不能描述为已验证真实 Qwen-VL 视觉准确率。
 - 当前 CI 配置 Python 3.11 focused Ruff、全量 pytest 和 70% 覆盖率门禁；本地 `--release-check` 复用相同范围并额外验证 wheel、doctor、strict HITL 和 Git whitespace。
 - 不需要云服务器、GPU、训练或微调。真实 provider 复跑只需要 API key；真实站点若出现 CAPTCHA 或地区限制才需要人工处理。

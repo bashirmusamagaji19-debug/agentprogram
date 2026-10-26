@@ -8,6 +8,14 @@
 
 **Tech Stack:** Python 3.11, dataclasses, Pydantic, pytest/pytest-asyncio, LangGraph workflow state, Streamlit.
 
+## Approved execution scope (2026-10-05)
+
+- Implement source diagnostics and removed-detail gates, plus explanatory search-condition copy.
+- Treat E1005 / an unavailable API business response as inconclusive: a different recruitment portal may still have the job. Do not classify it as removed based on message text or a chained API exception.
+- When official/aggregator discovery returns no URLs, finish with zero results and diagnostics; do not silently switch to Google search.
+- Keep unrelated existing working-tree changes intact. Work on `fix/source-reliability-finish`.
+- Verify classifier, loader, discovery merging/reset, UI/JSON propagation, then the full suite and Ruff.
+
 ---
 
 ## File structure

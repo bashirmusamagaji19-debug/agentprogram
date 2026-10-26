@@ -3,15 +3,76 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from web_task_agent.browser import PageHttpError
 from web_task_agent.job_sources import (
     AggregatorPageLoader,
     DiscoveredJob,
 )
 from web_task_agent.models import BrowserPage
 from web_task_agent.storage import JobRepository
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [404, 410])
+async def test_removed_http_page_cannot_fall_back_to_list_jd(jobs, status):
+    async def load(url):
+        raise PageHttpError("unavailable", status)
+
+    loader = AggregatorPageLoader(jobs, http_loader=load)
+    with pytest.raises(Exception, match="page_removed"):
+        await loader(jobs[0].url)
+    assert loader.resolution_log[-1]["category"] == "removed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,category", [(403, "blocked"), (429, "blocked"), (503, "transient")])
+async def test_temporary_http_failure_keeps_list_evidence(jobs, status, category):
+    async def load(url):
+        raise PageHttpError("unavailable", status)
+
+    loader = AggregatorPageLoader(jobs, http_loader=load)
+    page = await loader(jobs[0].url)
+    assert page.metadata["content_origin"] == "jd_text-fallback"
+    assert loader.resolution_log[0]["category"] == category
+
+
+@pytest.mark.asyncio
+async def test_tombstone_content_cannot_fall_back_to_list_jd(jobs):
+    loader = AggregatorPageLoader(jobs, http_loader=FakeHttpLoader({jobs[0].url: "该职位已下线"}))
+    with pytest.raises(Exception, match="page_removed"):
+        await loader(jobs[0].url)
+
+
+@pytest.mark.asyncio
+async def test_api_tombstone_stops_before_http_or_list_fallback(jobs):
+    class RemovedApi:
+        async def fetch(self, url):
+            return SimpleNamespace(content="该职位已下线", title="招聘")
+
+    http = FakeHttpLoader({jobs[0].url: "正常岗位正文" * 30})
+    loader = AggregatorPageLoader(jobs, official_api=RemovedApi(), http_loader=http)
+    with pytest.raises(Exception, match="page_removed"):
+        await loader(jobs[0].url)
+    assert http.calls == []
+
+
+@pytest.mark.asyncio
+async def test_unavailable_api_business_code_does_not_block_a_live_page(jobs):
+    from web_task_agent.official_api import OfficialApiUnavailableError
+
+    class WrongPortalApi:
+        async def fetch(self, url):
+            raise OfficialApiUnavailableError("post unavailable (E1005)")
+
+    http = FakeHttpLoader({jobs[0].url: "正常岗位正文" * 30})
+    loader = AggregatorPageLoader(jobs, official_api=WrongPortalApi(), http_loader=http)
+    page = await loader(jobs[0].url)
+    assert page.metadata["content_origin"] == "http"
+    assert loader.resolution_log[0]["category"] == "unknown"
 
 
 class FakeOfficialApi:

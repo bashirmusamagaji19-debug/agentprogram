@@ -19,10 +19,7 @@ jobs:
       - name: Ruff
         run: >-
           python -m ruff check
-          src/web_task_agent/agent_*.py
-          src/web_task_agent/search_discovery.py
-          tests/test_agent_*.py
-          tests/test_search_discovery.py
+          src tests
       - name: Deterministic test suite
         run: >-
           python -m pytest -p no:cacheprovider

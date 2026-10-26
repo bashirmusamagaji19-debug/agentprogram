@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from html import escape
 from os.path import relpath
 from pathlib import Path
@@ -25,6 +26,8 @@ class HtmlDashboard:
         artifact_links: dict[str, str | Path] | None = None,
         execution_trace: list[dict[str, str]] | None = None,
         orchestration_mode: str = "sequential",
+        source_metrics: dict[str, object] | None = None,
+        source_evidence: dict[str, dict[str, object]] | None = None,
     ) -> Path:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         path = self.output_dir / f"{metrics.run_id}.html"
@@ -40,6 +43,8 @@ class HtmlDashboard:
                 artifact_links=dashboard_links,
                 execution_trace=execution_trace,
                 orchestration_mode=orchestration_mode,
+                source_metrics=source_metrics,
+                source_evidence=source_evidence,
             ),
             encoding="utf-8",
         )
@@ -57,11 +62,17 @@ class HtmlDashboard:
         artifact_links: dict[str, str | Path] | None = None,
         execution_trace: list[dict[str, str]] | None = None,
         orchestration_mode: str = "sequential",
+        source_metrics: dict[str, object] | None = None,
+        source_evidence: dict[str, dict[str, object]] | None = None,
     ) -> str:
         match_by_job_id = {match.job_id: match for match in matches}
-        job_rows = "\n".join(self._job_row(job, match_by_job_id.get(job.url)) for job in jobs)
+        evidence_by_url = source_evidence or {}
+        job_rows = "\n".join(
+            self._job_row(job, match_by_job_id.get(job.url), evidence_by_url.get(job.url))
+            for job in jobs
+        )
         if not job_rows:
-            job_rows = '<tr><td colspan="7">未找到有效岗位</td></tr>'
+            job_rows = '<tr><td colspan="8">未找到有效岗位</td></tr>'
         input_trace = self._input_trace(
             user=user,
             search_queries=search_queries or [],
@@ -70,6 +81,7 @@ class HtmlDashboard:
         gap_summary = self._skill_gap_summary(matches)
         artifacts = self._artifact_links(artifact_links)
         agent_trace = self._agent_execution_trace(execution_trace)
+        source_quality = self._source_quality(source_metrics)
         subtitle = (
             f"关键词：{escape(user.keyword)} · 地点：{escape(user.location)} · "
             f"技能：{self._skills(user.skills)}"
@@ -245,6 +257,7 @@ class HtmlDashboard:
       {self._metric("失败页面数", metrics.failed_pages)}
       {self._metric("编排模式", escape(orchestration_mode))}
     </section>
+    {source_quality}
     {input_trace}
     {artifacts}
     {agent_trace}
@@ -282,6 +295,7 @@ class HtmlDashboard:
           <th>匹配分数</th>
           <th>优先级</th>
           <th>缺失技能</th>
+          <th>来源</th>
           <th>链接</th>
         </tr>
       </thead>
@@ -331,7 +345,12 @@ class HtmlDashboard:
 </html>
 """
 
-    def _job_row(self, job: JobPosting, match: MatchResult | None) -> str:
+    def _job_row(
+        self,
+        job: JobPosting,
+        match: MatchResult | None,
+        evidence: Mapping[str, object] | None,
+    ) -> str:
         score = f"{match.score:.2f}" if match else "暂无"
         score_value = f"{match.score:.2f}" if match else "0.00"
         priority = match.priority if match else "low"
@@ -358,6 +377,15 @@ class HtmlDashboard:
             f'data-title="{escape(job.title.casefold())}" '
             f'data-search="{escape(search_text)}"'
         )
+        evidence = evidence or {}
+        evidence_text = " / ".join(
+            str(evidence.get(key, "unknown"))
+            for key in ("evidence_level", "content_origin", "acquisition_origin", "availability")
+        )
+        evidence_html = (
+            f'<span title="{escape(str(evidence.get("observed_at", "")))}">'
+            f"{escape(evidence_text)}</span>"
+        )
         return f"""<tr {row_attributes}>
   <td>{escape(job.title)}</td>
   <td>{escape(job.company)}<br><span>{escape(job.location)}</span></td>
@@ -365,6 +393,7 @@ class HtmlDashboard:
   <td>{score}</td>
   <td class="priority-{escape(priority)}">{escape(priority)}</td>
   <td>{missing}</td>
+  <td>{evidence_html}</td>
   <td><a href="{escape(job.url)}">打开</a></td>
 </tr>"""
 
@@ -385,6 +414,38 @@ class HtmlDashboard:
       <h2>技能缺口汇总</h2>
       <ul>{items}</ul>
     </section>"""
+
+    def _source_quality(self, source_metrics: Mapping[str, object] | None) -> str:
+        if not source_metrics:
+            return ""
+        labels = (
+            ("source_callable", "来源可调用率"),
+            ("sources_with_candidates", "有候选来源率"),
+            ("detail_body_fetch", "详情正文获取率"),
+            ("conditions_passed", "条件通过率"),
+            ("snapshot_integrity", "快照完整率"),
+        )
+        items = "\n".join(
+            f"<li>{escape(label)}: {escape(self._ratio_text(source_metrics.get(key)))}</li>"
+            for key, label in labels
+        )
+        return f"""<section class="gap-summary" aria-label="来源质量">
+      <h2>来源质量</h2>
+      <ul>{items}</ul>
+    </section>"""
+
+    @staticmethod
+    def _ratio_text(value: object) -> str:
+        if not isinstance(value, Mapping):
+            return "未知"
+        numerator = value.get("numerator")
+        denominator = value.get("denominator")
+        ratio = value.get("value")
+        if not isinstance(numerator, int) or not isinstance(denominator, int) or denominator <= 0:
+            return "未知"
+        if not isinstance(ratio, (int, float)):
+            return f"{numerator}/{denominator}"
+        return f"{numerator}/{denominator} ({ratio:.1%})"
 
     def _input_trace(
         self,

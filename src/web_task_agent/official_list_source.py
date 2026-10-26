@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from datetime import UTC, datetime
 from urllib import parse as url_parse
 from urllib import request as url_request
 
+from web_task_agent.browser import PageHttpError
 from web_task_agent.job_sources import AI_TITLE_KEYWORDS, DiscoveredJob, is_intern_ai_job
 from web_task_agent.official_list_families import (
     _strip_html,
@@ -26,6 +28,8 @@ from web_task_agent.official_list_families import (
     make_moka_lister,
     make_zhiye_lister,
 )
+from web_task_agent.page_reliability import classify_page_exception
+from web_task_agent.search_conditions import candidate_matches
 
 # 具身智能/机器人是目标求职域(用户新增车企与具身智能厂商),与 AI 词并列为命中口径
 _DOMAIN_TITLE_KEYWORDS = (*AI_TITLE_KEYWORDS, "具身", "机器人", "自动驾驶", "智驾")
@@ -45,6 +49,34 @@ MEITUAN_LIST_KEYWORDS = ["大模型", "AI", "Agent", "LLM", "算法"]
 TransportOpenJson = callable  # (method, url, *, body) -> dict 的协议别名(鸭子类型)
 
 
+class _OfficialListResponseError(RuntimeError):
+    """A safe, classified error for a non-success JSON response.
+
+    Response bodies can contain diagnostic identifiers or other private data.
+    Callers only receive the fixed, classified detail stored here.
+    """
+
+    def __init__(
+        self,
+        safe_detail: str,
+        *,
+        category: str = "unknown",
+        status_code: int | None = None,
+    ) -> None:
+        super().__init__(safe_detail)
+        self.safe_detail = safe_detail
+        self.error_category = category
+        if status_code is not None:
+            self.status_code = status_code
+
+
+def _record_response_error(transport, error: _OfficialListResponseError) -> None:  # noqa: ANN001
+    """Let OfficialListSource retain a handled error without failing other sources."""
+    record = getattr(transport, "record_error", None)
+    if callable(record):
+        record(error)
+
+
 def _default_transport() -> DefaultTransport:
     return DefaultTransport()
 
@@ -58,12 +90,21 @@ class DefaultTransport:
     """
 
     def __init__(self) -> None:
+        self.deadline: float | None = None
         try:
             from curl_cffi import requests as _creq  # noqa: F401
 
             self._cffi = _creq
         except ImportError:
             self._cffi = None
+
+    def remaining_timeout(self) -> float:
+        from time import monotonic
+
+        remaining = 30.0 if self.deadline is None else min(30.0, self.deadline - monotonic())
+        if remaining <= 0:
+            raise TimeoutError("source discovery deadline exceeded")
+        return remaining
 
     def open_json(
         self,
@@ -72,21 +113,29 @@ class DefaultTransport:
         *,
         body: dict | None = None,
         form: bool = False,
+        headers: dict[str, str] | None = None,
     ) -> dict:
         last_error: Exception | None = None
         for _ in range(2):  # 网络抖动(瞬时 SSL EOF)重试一次,复核实录
             if self._cffi is not None:
                 try:
-                    return self._open_cffi(method, url, body, form)
+                    return self._open_cffi(method, url, body, form, headers)
                 except Exception as exc:  # noqa: BLE001 — cffi 失败回退 urllib
                     last_error = exc
             try:
-                return self._open_urllib(method, url, body, form)
+                return self._open_urllib(method, url, body, form, headers)
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
         raise last_error  # type: ignore[misc]
 
-    def _open_cffi(self, method: str, url: str, body: dict | None, form: bool) -> dict:
+    def _open_cffi(
+        self,
+        method: str,
+        url: str,
+        body: dict | None,
+        form: bool,
+        headers: dict[str, str] | None,
+    ) -> dict:
         # 指纹网关(飞书招聘系)按 JA3 过滤原生 TLS 栈,必须 impersonate;
         # 压缩显式限 gzip(br/zstd 解压在部分环境不可用,复核实录)
         if body is None:
@@ -98,34 +147,50 @@ class DefaultTransport:
         else:
             data = None
             json_payload = body
+        request_headers = {"Accept-Encoding": "gzip, deflate", **(headers or {})}
         response = self._cffi.request(
             method,
             url,
             data=data,
             json=json_payload,
-            headers={"Accept-Encoding": "gzip, deflate"},
+            headers=request_headers,
             impersonate="chrome124",
-            timeout=30,
+            timeout=self.remaining_timeout(),
         )
+        if response.status_code >= 400:
+            raise PageHttpError("official source HTTP failure", status_code=response.status_code)
         return _loads_maybe_compressed(response.content)
 
-    def _open_urllib(self, method: str, url: str, body: dict | None, form: bool) -> dict:
+    def _open_urllib(
+        self,
+        method: str,
+        url: str,
+        body: dict | None,
+        form: bool,
+        headers: dict[str, str] | None,
+    ) -> dict:
         if body is None:
             data = None
         elif form:
             data = url_parse.urlencode(body).encode("utf-8")
         else:
             data = json.dumps(body).encode("utf-8")
-        headers = {
+        request_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0",
             "Accept": "application/json",
+            **(headers or {}),
         }
         if body is not None:
-            headers["Content-Type"] = (
+            request_headers["Content-Type"] = (
                 "application/x-www-form-urlencoded" if form else "application/json"
             )
-        req = url_request.Request(url, data=data, headers=headers, method=method)  # noqa: S310
-        with url_request.urlopen(req, timeout=30) as response:  # noqa: S310
+        req = url_request.Request(
+            url,
+            data=data,
+            headers=request_headers,
+            method=method,
+        )  # noqa: S310
+        with url_request.urlopen(req, timeout=self.remaining_timeout()) as response:  # noqa: S310
             return _loads_maybe_compressed(response.read())
 
     def fetch_html(self, url: str) -> str:
@@ -139,8 +204,10 @@ class DefaultTransport:
                         url,
                         headers={"Accept-Encoding": "gzip, deflate"},
                         impersonate="chrome124",
-                        timeout=30,
+                        timeout=self.remaining_timeout(),
                     )
+                    if response.status_code >= 400:
+                        raise PageHttpError("official source HTTP failure", status_code=response.status_code)
                     return _text_maybe_compressed(response.content)
                 except Exception:  # noqa: BLE001 — 回退 urllib
                     pass
@@ -152,7 +219,7 @@ class DefaultTransport:
                     },
                     method="GET",
                 )
-                with url_request.urlopen(req, timeout=30) as response:
+                with url_request.urlopen(req, timeout=self.remaining_timeout()) as response:
                     return _text_maybe_compressed(response.read())
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
@@ -190,8 +257,7 @@ def _is_campus_intern_ai(item: dict) -> bool:
     title = str(item.get("positionTitle") or "").strip()
     label = str(item.get("recruitLabelName") or "")
     project = str(item.get("projectName") or "")
-    # 校招属性由项目/标签判定(校招标题不一定带"实习",如"AI全栈工程师")
-    if not any(keyword in label + project + title for keyword in ("实习", "校招", "应届", "青云")):
+    if "实习" not in label + project + title:
         return False
     return any(keyword in title for keyword in AI_TITLE_KEYWORDS)
 
@@ -226,6 +292,10 @@ async def _tencent_campus_lister(transport, limit: int) -> list[DiscoveredJob]: 
                     location=str(item.get("workCities") or "").strip(),
                     jd_text="",  # 列表不带 JD;正文由详情链官方 API 直取
                     source="tencent-campus",
+                    source_job_id=post_id,
+                    discovery_url=_TENCENT_SEARCH_POSITION_API,
+                    query_context={"page": page_no, "page_size": 50},
+                    discovered_at=datetime.now(UTC),
                     tags=[str(item.get("recruitLabelName") or "")],
                 )
             )
@@ -272,8 +342,23 @@ async def _baidu_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: 
                     },
                     form=True,
                 )
-                if str(payload.get("status")) != "ok":
-                    return jobs  # 限流/异常:诚实返回已获取部分
+                status = str(payload.get("status") or "")
+                if status != "ok":
+                    if status == "no-auth":
+                        detail = "upstream denied access (status=no-auth"
+                        if payload.get("message") == "illegal-visit":
+                            detail += ", message=illegal-visit"
+                        error = _OfficialListResponseError(
+                            detail + ")", category="blocked", status_code=403
+                        )
+                    else:
+                        error = _OfficialListResponseError(
+                            "unexpected upstream response", status_code=400
+                        )
+                    # Retain already discovered candidates while making the
+                    # handled rejection visible to OfficialListSource.
+                    _record_response_error(transport, error)
+                    return jobs
                 items = (payload.get("data") or {}).get("list") or []
                 if not items:
                     break
@@ -324,13 +409,34 @@ async def _meituan_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa
                 "POST",
                 _MEITUAN_LIST_API,
                 body={
-                    "keywords": [keyword],
-                    "jobTypeList": [3],  # 实习类型(与详情适配器一致)
-                    "page": {"pageNo": page_no, "pageSize": 50},
+                    # Keep the proven public schema used by _fetch_meituan.
+                    # The rejected list form used non-string keywords and a
+                    # separate jobTypeList enum; title filtering below remains
+                    # the authoritative internship/AI gate.
+                    "page": {"pageNo": page_no, "pageSize": 20},
+                    "jobShareType": "1",
+                    "keywords": keyword,
+                    "cityIdList": [],
+                    "jobTypeList": [],
                 },
             )
-            data = payload.get("data") or {}
-            items = data.get("jobList") or []
+            data = payload.get("data")
+            if not isinstance(data, dict):
+                if payload.get("message") == "请求参数格式不正确！":
+                    error = _OfficialListResponseError(
+                        "upstream rejected request parameters (status=0)",
+                        category="config",
+                        status_code=400,
+                    )
+                else:
+                    error = _OfficialListResponseError(
+                        "unexpected upstream response (missing data)", status_code=400
+                    )
+                _record_response_error(transport, error)
+                return jobs
+            # Public examples use data.list; keep jobList as a compatibility
+            # shape for existing replay fixtures.
+            items = data.get("list") or data.get("jobList") or []
             if not items:
                 break
             for item in items:
@@ -406,8 +512,15 @@ async def _xiaomi_lister(transport, limit: int) -> list[DiscoveredJob]:
     """小米(含汽车):GET searchJobPage keyword 循环,type=2 校招 / 3 实习,自带 JD 与 url。"""
     jobs: list[DiscoveredJob] = []
     seen: set[str] = set()
-    for job_type in (3, 2):  # 实习优先
-        for keyword in _XIAOMI_KEYWORDS:
+    from web_task_agent.search_conditions import parse_keywords
+
+    requested = str(getattr(transport, "search_keyword", ""))
+    terms = [term for term in parse_keywords(requested) if term not in
+             {"实习", "实习生", "intern", "internship", "ai", "人工智能"}]
+    query_terms = terms or _XIAOMI_KEYWORDS
+    intern_requested = any(term in parse_keywords(requested) for term in ("实习", "实习生", "intern", "internship"))
+    for job_type in ((3,) if intern_requested else (3, 2)):
+        for keyword in query_terms:
             if len(jobs) >= limit:
                 break
             page_num = 1
@@ -416,7 +529,12 @@ async def _xiaomi_lister(transport, limit: int) -> list[DiscoveredJob]:
                     "https://hr.xiaomi.com/website/api/agent/searchJobPage"
                     f"?keyword={url_parse.quote(keyword)}&pageSize=50&pageNum={page_num}&type={job_type}"
                 )
-                payload = transport.open_json("GET", url)
+                try:
+                    payload = transport.open_json("GET", url)
+                except Exception:
+                    if jobs:
+                        return jobs
+                    raise
                 items = (payload.get("data") or {}).get("list") or []
                 if not items:
                     break
@@ -426,13 +544,22 @@ async def _xiaomi_lister(transport, limit: int) -> list[DiscoveredJob]:
                     if not title or not job_url or job_url in seen:
                         continue
                     # 实习/校招属性由站内 type/recruitType 参数保证
-                    if not any(k in title for k in AI_TITLE_KEYWORDS):
+                    if not requested and not any(k.casefold() in title.casefold() for k in AI_TITLE_KEYWORDS):
                         continue
                     plain = (
                         f"岗位职责：\n{item.get('description', '')}\n"
                         f"任职要求：\n{item.get('requirement', '')}"
                     ).strip()
                     if len(plain) < 80:
+                        continue
+                    evidence_value = str(item.get("type") or "")
+                    if intern_requested and evidence_value != "3":
+                        continue
+                    if not candidate_matches(
+                        requested, str(getattr(transport, "search_location", "全国")),
+                        title=title, jd_text=plain, location="、".join(item.get("cityZhNames") or []),
+                        internship_evidence_source="xiaomi:list:type", internship_evidence_value=evidence_value,
+                    ):
                         continue
                     seen.add(job_url)
                     jobs.append(
@@ -443,6 +570,12 @@ async def _xiaomi_lister(transport, limit: int) -> list[DiscoveredJob]:
                             location="、".join(item.get("cityZhNames") or []),
                             jd_text=plain,
                             source="xiaomi",
+                            source_job_id=str(item["id"]) if item.get("id") is not None else None,
+                            discovery_url=url,
+                            query_context={"keyword": keyword, "page": page_num, "page_size": 50, "type": job_type},
+                            discovered_at=datetime.now(UTC),
+                            internship_evidence_source="xiaomi:list:type",
+                            internship_evidence_value=evidence_value,
                         )
                     )
                     if len(jobs) >= limit:
@@ -485,13 +618,22 @@ async def _netease_lister(transport, limit: int) -> list[DiscoveredJob]:
                 ).strip()
                 if len(plain) < 80:
                     continue
+                work_place_names = item.get("workPlaceNameList") or []
+                if not isinstance(work_place_names, list):
+                    work_place_names = [work_place_names]
+                location = "、".join(
+                    dict.fromkeys(
+                        str(name).strip() for name in work_place_names if str(name).strip()
+                    )
+                )
                 seen.add(url)
                 jobs.append(
                     DiscoveredJob(
                         url=url,
                         title=title,
                         company="网易",
-                        location=str(
+                        location=location
+                        or str(
                             item.get("workLocationName") or item.get("addressName") or ""
                         ).strip(),
                         jd_text=plain,
@@ -614,7 +756,7 @@ def _family_specs() -> dict[str, object]:
     return {
         "xpeng": make_feishu_hire_lister(
             api_url="https://xiaopeng.jobs.feishu.cn/api/v1/search/job/posts",
-            url_tmpl="https://xiaopeng.jobs.feishu.cn/campus/position/{id}",
+            url_tmpl="https://xiaopeng.jobs.feishu.cn/campus/position/{id}/detail",
             company="小鹏汽车",
             extra_body={"site_id": "7280103511501048076", "portal_entrance": 2},
         ),
@@ -623,6 +765,8 @@ def _family_specs() -> dict[str, object]:
             url_tmpl="https://agirobot.jobs.feishu.cn/internrecruitment/position/{id}/detail",
             company="智元机器人",
             extra_body={"portal_type": 6, "portal_entrance": 1},
+            require_intern_type=True,
+            website_path="internrecruitment",
         ),
         "galaxea": make_moka_lister(
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
@@ -637,7 +781,7 @@ def _family_specs() -> dict[str, object]:
             api_url="https://app.mokahr.com/api/outer/ats-apply/website/jobs/v2",
             org_id="robotera",
             site_id=163878,
-            url_tmpl="https://app.mokahr.com/campus-recruitment/robotera/163878/{id}",
+            url_tmpl="https://app.mokahr.com/campus-recruitment/robotera/163878#/job/{id}",
             company="星动纪元",
             paging="page",
             probe_detail=True,
@@ -767,7 +911,7 @@ def _family_specs() -> dict[str, object]:
         ),
         "minimax": make_feishu_hire_lister(
             api_url="https://vrfi1sk8a0.jobs.feishu.cn/api/v1/search/job/posts",
-            url_tmpl="https://vrfi1sk8a0.jobs.feishu.cn/index/position/{id}",
+            url_tmpl="https://vrfi1sk8a0.jobs.feishu.cn/index/position/{id}/detail",
             company="MiniMax",
             extra_body={"site_id": "7009629032762640676", "portal_entrance": 2},
         ),
@@ -803,7 +947,7 @@ def _family_specs() -> dict[str, object]:
         ),
         "shengshu": make_feishu_hire_lister(
             api_url="https://shengshu.jobs.feishu.cn/api/v1/search/job/posts",
-            url_tmpl="https://shengshu.jobs.feishu.cn/index/position/{id}",
+            url_tmpl="https://shengshu.jobs.feishu.cn/index/position/{id}/detail",
             company="生数科技",
             extra_body={
                 "keyword": "",
@@ -1310,6 +1454,7 @@ async def _liauto_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa:
                     if len(plain) < 80:  # 诚实原则:无可验证正文的岗位不产出
                         continue
                     seen.add(job_id)
+                    job_mode = str(item.get("job_mode") or "").strip()
                     jobs.append(
                         DiscoveredJob(
                             url=f"https://www.lixiang.com/employ/detail/{url_parse.quote(job_id)}.html",
@@ -1318,6 +1463,10 @@ async def _liauto_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa:
                             location=str(item.get("location_title") or "").strip(),
                             jd_text=plain,
                             source="liauto",
+                            internship_evidence_source=(
+                                "liauto:list:job_mode" if job_mode else ""
+                            ),
+                            internship_evidence_value=job_mode,
                         )
                     )
                 page += 1
@@ -1652,6 +1801,39 @@ _SPECS: dict[str, object] = {
 }
 
 
+class _DiagnosticTransport:
+    """Observe failures even when a source adapter handles them internally."""
+
+    def __init__(self, transport, *, keyword: str = "", location: str = "全国"):
+        self.transport = transport
+        self.last_error: Exception | None = None
+        self.search_keyword = keyword
+        self.search_location = location
+
+    def __getattr__(self, name):
+        return getattr(self.transport, name)
+
+    def _call(self, method, *args, **kwargs):
+        try:
+            return getattr(self.transport, method)(*args, **kwargs)
+        except Exception as exc:
+            self.last_error = exc
+            raise
+
+    def open_json(self, *args, **kwargs):
+        return self._call("open_json", *args, **kwargs)
+
+    def open_text(self, *args, **kwargs):
+        return self._call("open_text", *args, **kwargs)
+
+    def fetch_html(self, *args, **kwargs):
+        return self._call("fetch_html", *args, **kwargs)
+
+    def record_error(self, error: Exception) -> None:
+        """Retain a business rejection deliberately handled by a lister."""
+        self.last_error = error
+
+
 class OfficialListSource:
     """官方列表 API 直连发现源(实时岗位)。
 
@@ -1665,12 +1847,17 @@ class OfficialListSource:
         specs: list[str] | None = None,
         *,
         transport: object | None = None,
+        keyword: str = "",
+        location: str = "全国",
     ) -> None:
         self.specs = specs or list(_SPECS)
         for spec in self.specs:
             if spec not in _SPECS:
                 raise ValueError(f"unknown spec: {spec} (available: {sorted(_SPECS)})")
         self.transport = transport if transport is not None else DefaultTransport()
+        self.diagnostics: list[dict[str, object]] = []
+        self.keyword = keyword
+        self.location = location
 
     async def discover(self, limit: int) -> list[DiscoveredJob]:
         """公平采样发现:每源预算 = ceil(limit/源数),跨源交错合并。
@@ -1679,25 +1866,83 @@ class OfficialListSource:
         全局搜索模式需要跨梯队/跨公司的广度,故按源预算 + 轮转交错。
         每源内部仍由各 lister 自行分页,预算用尽即停。
         """
+        self.diagnostics = []
+        diagnostic_by_source: dict[str, dict[str, object]] = {}
+        exhausted_sources: set[str] = set()
+        permanently_rejected_sources: set[str] = set()
         if limit <= 0:
             return []
 
         async def _collect(budget: int) -> list[list[DiscoveredJob]]:
             batches: list[list[DiscoveredJob]] = []
             for spec in self.specs:
+                record = diagnostic_by_source.setdefault(
+                    spec, {"source": spec, "status": "empty", "count": 0, "attempts": 0}
+                )
+                if (
+                    record["status"] == "partial"
+                    or spec in permanently_rejected_sources
+                    or spec in exhausted_sources
+                ):
+                    # Permanent rejections and exhausted listers cannot gain
+                    # new candidates from an unchanged rescan. A source that
+                    # returned its full budget remains eligible for expansion.
+                    batches.append([])
+                    continue
+                record["attempts"] = int(record["attempts"]) + 1
+                observed_transport = _DiagnosticTransport(self.transport, keyword=self.keyword, location=self.location)
+                failure: Exception | None = None
                 try:
-                    per_source = await _SPECS[spec](self.transport, budget)
-                except Exception:  # noqa: BLE001 — 单源故障(限流/SSL)不炸全局,诚实缺源
+                    per_source = await _SPECS[spec](observed_transport, budget)
+                except Exception as exc:  # noqa: BLE001 — isolate sources, retain safe diagnostics
+                    failure = exc
+                    record.update(status="failed", count=0, error_type=type(exc).__name__)
                     per_source = []
+                else:
+                    record.update(status="healthy" if per_source else "empty", count=len(per_source))
+                    for key in ("error_type", "error_category", "error_detail"):
+                        record.pop(key, None)
+                    if observed_transport.last_error is not None:
+                        failure = observed_transport.last_error
+                        record.update(status="partial" if per_source else "failed",
+                                      error_type=type(observed_transport.last_error).__name__)
+                if failure is not None:
+                    if isinstance(failure, _OfficialListResponseError):
+                        record.update(
+                            error_category=failure.error_category,
+                            error_detail=failure.safe_detail,
+                        )
+                        if failure.error_category in {"blocked", "config"}:
+                            permanently_rejected_sources.add(spec)
+                    else:
+                        classified = classify_page_exception(failure)
+                        record.update(
+                            error_category=classified.category.value,
+                            error_detail=classified.detail,
+                        )
+                elif len(per_source) < budget:
+                    exhausted_sources.add(spec)
+                candidates = [
+                    job for job in per_source
+                    if candidate_matches(
+                        self.keyword, self.location, title=job.title, jd_text=job.jd_text, location=job.location,
+                        internship_evidence_source=job.internship_evidence_source,
+                        internship_evidence_value=job.internship_evidence_value,
+                    )
+                ]
+                record["candidate_count"] = len(candidates)
                 batches.append(
                     [
-                        job if job.tier else dataclasses.replace(job, tier=_SPEC_TIER.get(spec, ""))
-                        for job in per_source
+                        dataclasses.replace(job, source=spec, tier=job.tier or _SPEC_TIER.get(spec, ""),
+                                            discovered_at=job.discovered_at or datetime.now(UTC))
+                        for job in candidates
                     ]
                 )
             return batches
 
         budget = max(1, -(-limit // len(self.specs)))  # ceil
+        if self.keyword or self.location not in ("全国", "不限"):
+            budget = max(5, budget)
         batches = await _collect(budget)
 
         def _interleave(
@@ -1735,4 +1980,5 @@ class OfficialListSource:
             budget *= 3
             batches = await _collect(budget)
             _interleave(batches, jobs, seen)
+        self.diagnostics = list(diagnostic_by_source.values())
         return jobs

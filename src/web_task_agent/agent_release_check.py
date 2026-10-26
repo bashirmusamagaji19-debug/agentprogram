@@ -36,14 +36,7 @@ def run_release_checks(
     root = Path(repo_root).resolve()
     python = sys.executable
     cli_code = "from web_task_agent.cli import main; raise SystemExit(main(%r))"
-    agent_modules = sorted(root.glob("src/web_task_agent/agent_*.py"))
-    agent_tests = sorted(root.glob("tests/test_agent_*.py"))
-    ruff_targets = [
-        *(str(path.relative_to(root)) for path in agent_modules),
-        "src/web_task_agent/search_discovery.py",
-        *(str(path.relative_to(root)) for path in agent_tests),
-        "tests/test_search_discovery.py",
-    ]
+    ruff_targets = ["src", "tests"]
 
     with TemporaryDirectory(prefix="web-task-agent-release-") as temp_dir:
         temp = Path(temp_dir)
@@ -116,9 +109,11 @@ def run_release_checks(
             completed = runner(
                 command,
                 cwd=root,
-                env=environment,
+                env={**(environment if environment is not None else os.environ), "PYTHONIOENCODING": "utf-8"},
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             stdout = str(getattr(completed, "stdout", "") or "")
             stderr = str(getattr(completed, "stderr", "") or "")

@@ -233,6 +233,41 @@ def test_extract_job_uses_llm_field_extractor_when_rule_confidence_is_low():
     assert job.confidence >= 0.8
 
 
+def test_empty_llm_location_keeps_discovered_location():
+    page = BrowserPage(
+        url="https://example.com/jobs/unstructured",
+        title="大模型算法实习生",
+        content=(
+            "这是一段没有地点标签的岗位正文，用于触发结构化模型抽取。"
+            "岗位负责大模型训练、评测、推理优化和应用落地，"
+            "候选人需要熟悉 Python、深度学习框架与常见模型工程工具。"
+        )
+        * 3,
+        source="aggregator:official-list",
+        metadata={"discovered_company": "示例公司", "discovered_location": "深圳"},
+    )
+
+    calls: list[BrowserPage] = []
+
+    def fake_llm_extract(page: BrowserPage) -> dict[str, str]:
+        calls.append(page)
+        return {
+            "title": "大模型算法实习生",
+            "company": "示例公司",
+            "location": "",
+            "requirements": "熟悉 Python 与深度学习框架",
+            "responsibilities": "负责大模型训练与评测",
+        }
+
+    job = PageExtractor(
+        llm_field_extractor=fake_llm_extract,
+        llm_min_rule_confidence=1.1,
+    ).extract(page)
+
+    assert calls == [page]
+    assert job.location == "深圳"
+
+
 def test_extract_job_skips_llm_when_content_too_short():
     """标题行式短正文不得触发 LLM 抽取——否则幻觉编造整段 JD（复现实录 #21）。"""
     calls: list[BrowserPage] = []
@@ -413,3 +448,24 @@ def test_discovered_company_beats_heuristic_inference():
 
     assert job.company == "星尘智能"
     assert not job.company.startswith("1.")
+
+
+def test_discovered_location_fills_location_missing_from_jd_content():
+    """列表 API 已给出结构化地点时，详情正文缺地点不能降级为 Unknown。"""
+    content = (
+        "岗位职责：\n"
+        "1. 负责大模型训练、评测与推理优化，推动算法能力在业务场景落地。\n"
+        "任职要求：\n"
+        "1. 熟悉 Python 与深度学习框架，具备良好的工程实现能力。\n"
+    )
+    page = BrowserPage(
+        url="https://example.com/jobs/1",
+        title="大模型算法实习生",
+        content=content,
+        source="aggregator:official-list",
+        metadata={"discovered_company": "示例公司", "discovered_location": "上海"},
+    )
+
+    job = PageExtractor().extract(page)
+
+    assert job.location == "上海"

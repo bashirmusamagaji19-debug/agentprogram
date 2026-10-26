@@ -1513,6 +1513,10 @@ def test_cli_seed_url_can_use_visual_extractor_provider(
 ) -> None:
     """--visual-extractor-provider qwen-vl routes through the real provider bridge."""
     monkeypatch.chdir(tmp_path)
+    from tests.fixtures.link_receipts import VerifiedLinkStub
+
+    monkeypatch.setattr("web_task_agent.link_verification.JobLinkVerifier",
+                        lambda **kwargs: VerifiedLinkStub())
 
     class FakeProviderAdapter:
         provider = "qwen-vl"
@@ -1845,8 +1849,6 @@ def test_portfolio_docs_expose_recruiter_entrypoint_and_evidence():
         "--release-check",
         "approval_id",
         "human_denied",
-                "520 passed",
-                "84.89%",
         "3/3",
         "简历三条",
         "60 秒讲法",
@@ -1854,6 +1856,17 @@ def test_portfolio_docs_expose_recruiter_entrypoint_and_evidence():
         "deterministic fixture",
     ]:
         assert required in combined
+
+    # Counts evolve as tests are added; protect agreement between the recruiter
+    # entrypoints instead of requiring a stale historical number forever.
+    import re
+
+    readme_metrics = re.search(r"`(\d+) passed`.*?总覆盖率 `(\d+\.\d+)%`", readme)
+    interview_metrics = re.search(r"`(\d+) passed`、`(\d+\.\d+)%` coverage", interview)
+    assert readme_metrics is not None and interview_metrics is not None
+    assert readme_metrics.groups() == interview_metrics.groups()
+    assert int(readme_metrics.group(1)) > 0
+    assert 70 <= float(readme_metrics.group(2)) <= 100
 
     gitignore = (root / ".gitignore").read_text(encoding="utf-8")
     assert "portfolio-artifacts/" in gitignore

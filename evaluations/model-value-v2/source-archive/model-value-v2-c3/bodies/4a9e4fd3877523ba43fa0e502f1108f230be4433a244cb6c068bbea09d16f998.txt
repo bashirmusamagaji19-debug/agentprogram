@@ -1,0 +1,14 @@
+Title: AI 产品经理实习生
+Company: 拾光产品
+Location: 广州
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 AI 产品 相关项目或课程基础
+- 具备 需求分析 相关项目或课程基础
+- 具备 原型设计 相关项目或课程基础
+- 具备 数据分析 相关项目或课程基础
+Responsibilities:
+- 梳理智能助手的使用场景
+- 设计可验证的功能验收标准
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.

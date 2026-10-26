@@ -1,0 +1,15 @@
+Title: 搜索算法实习生
+Company: 青禾引擎
+Location: 北京
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 C++ 相关项目或课程基础
+- 具备 搜索排序 相关项目或课程基础
+- 具备 召回 相关项目或课程基础
+- 具备 A/B测试 相关项目或课程基础
+Responsibilities:
+- 优化查询召回与排序特征
+- 设计离线对照实验并解释结果
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-03

@@ -1,0 +1,600 @@
+{
+  "actual_runtime_execution": true,
+  "external_vlm_called": false,
+  "cases": [
+    {
+      "case_id": "next-url",
+      "controlled_adapters": true,
+      "orchestration_mode": "hybrid-agent",
+      "thread_id": null,
+      "hitl_status": "completed",
+      "pending_approval": null,
+      "approval_audit": [],
+      "goal": {
+        "keyword": "AI intern",
+        "location": "Remote",
+        "target_count": 1,
+        "skills": [
+          "Python",
+          "LangGraph"
+        ]
+      },
+      "terminal_status": "completed",
+      "terminal_reason": "target_reached",
+      "budget": {
+        "max_steps": 12,
+        "consumed_steps": 7,
+        "remaining_steps": 5
+      },
+      "metrics": {
+        "tool_calls": 8,
+        "tool_success_rate": 0.75,
+        "recovery_attempts": 2,
+        "successful_recoveries": 1,
+        "recovery_success_rate": 0.5,
+        "planner_calls": 0,
+        "fallback_decisions": 0,
+        "fallback_rate": 0.0,
+        "invalid_actions": 0,
+        "average_tool_latency_ms": 1.15
+      },
+      "candidate_urls": [
+        "https://example.com/jobs/broken",
+        "https://example.com/jobs/ai-engineering-intern"
+      ],
+      "visited_urls": [
+        "https://example.com/jobs/ai-engineering-intern"
+      ],
+      "jobs": [
+        {
+          "title": "AI Engineering Intern",
+          "company": "Example AI",
+          "location": "Remote",
+          "source": "demo",
+          "url": "https://example.com/jobs/ai-engineering-intern",
+          "requirements": "Python, LangGraph, LLM",
+          "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+          "skills": [
+            "Python",
+            "LangGraph",
+            "LLM"
+          ],
+          "posted_at": "2026-06-07",
+          "confidence": 1.0,
+          "tier": "",
+          "category": "其他",
+          "url_verification": "unverified"
+        }
+      ],
+      "matches": [
+        {
+          "job_id": "https://example.com/jobs/ai-engineering-intern",
+          "score": 0.67,
+          "matched_skills": [
+            "Python",
+            "LangGraph"
+          ],
+          "missing_skills": [
+            "LLM"
+          ],
+          "reason": "匹配 2/3 个岗位技能：Python, LangGraph。",
+          "priority": "medium",
+          "suggested_actions": [
+            "补强或准备相关经历：LLM"
+          ]
+        }
+      ],
+      "trace": [
+        {
+          "step": 1,
+          "action": "open_page",
+          "source": "policy",
+          "reason": "Open the next unvisited candidate job URL.",
+          "target": "https://example.com/jobs/broken",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "open_page",
+            "success": false,
+            "summary": "Page navigation failed.",
+            "payload": {},
+            "error_category": "browser_error",
+            "error_message": "PageTimeoutError: controlled timeout",
+            "latency_ms": 0.020499923266470432,
+            "recoverable": true
+          }
+        },
+        {
+          "step": 2,
+          "action": "open_page",
+          "source": "policy",
+          "reason": "The page failure is recoverable and remains within the per-URL retry budget.",
+          "target": "https://example.com/jobs/broken",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "open_page",
+            "success": false,
+            "summary": "Page navigation failed.",
+            "payload": {},
+            "error_category": "browser_error",
+            "error_message": "PageTimeoutError: controlled timeout",
+            "latency_ms": 0.01009996049106121,
+            "recoverable": true
+          }
+        },
+        {
+          "step": 3,
+          "action": "open_page",
+          "source": "policy",
+          "reason": "The current URL exhausted its retries, so continue with the next candidate.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "open_page",
+            "success": true,
+            "summary": "Opened https://example.com/jobs/ai-engineering-intern.",
+            "payload": {
+              "url": "https://example.com/jobs/ai-engineering-intern",
+              "title": "AI Engineering Intern at Example AI"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.01850002445280552,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 4,
+          "action": "extract_text",
+          "source": "policy",
+          "reason": "The current page has not been converted into a structured job.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "extract_text",
+            "success": true,
+            "summary": "Extracted AI Engineering Intern with confidence 1.00.",
+            "payload": {
+              "job": {
+                "title": "AI Engineering Intern",
+                "company": "Example AI",
+                "location": "Remote",
+                "source": "demo",
+                "url": "https://example.com/jobs/ai-engineering-intern",
+                "requirements": "Python, LangGraph, LLM",
+                "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM"
+                ],
+                "posted_at": "2026-06-07",
+                "confidence": 1.0,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              },
+              "confidence": 1.0
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.19129994325339794,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 5,
+          "action": "verify_job",
+          "source": "policy",
+          "reason": "Extracted job candidates require quality verification.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "verify_job",
+            "success": true,
+            "summary": "Verifier accepted AI Engineering Intern.",
+            "payload": {
+              "job": {
+                "title": "AI Engineering Intern",
+                "company": "Example AI",
+                "location": "Remote",
+                "source": "demo",
+                "url": "https://example.com/jobs/ai-engineering-intern",
+                "requirements": "Python, LangGraph, LLM",
+                "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM"
+                ],
+                "posted_at": "2026-06-07",
+                "confidence": 1.0,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              }
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.020700041204690933,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 6,
+          "action": "score_match",
+          "source": "policy",
+          "reason": "The verified target is ready for profile matching.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "score_match",
+            "success": true,
+            "summary": "Scored 1 verified jobs.",
+            "payload": {
+              "matches": [
+                {
+                  "job_id": "https://example.com/jobs/ai-engineering-intern",
+                  "score": 0.67,
+                  "matched_skills": [
+                    "Python",
+                    "LangGraph"
+                  ],
+                  "missing_skills": [
+                    "LLM"
+                  ],
+                  "reason": "匹配 2/3 个岗位技能：Python, LangGraph。",
+                  "priority": "medium",
+                  "suggested_actions": [
+                    "补强或准备相关经历：LLM"
+                  ]
+                }
+              ]
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 1.8013999797403812,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 7,
+          "action": "save_results",
+          "source": "policy",
+          "reason": "Matched target results are ready for persistence.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "save_results",
+            "success": true,
+            "summary": "Persisted 1 verified jobs.",
+            "payload": {
+              "saved_jobs": 1,
+              "reused": false
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 7.096400018781424,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 8,
+          "action": "finish",
+          "source": "policy",
+          "reason": "The requested results were verified, matched, and saved.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "finish",
+            "success": true,
+            "summary": "Agent finished with status completed: target_reached.",
+            "payload": {
+              "terminal_status": "completed",
+              "terminal_reason": "target_reached"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.0198000343516469,
+            "recoverable": false
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "text-to-visual",
+      "controlled_adapters": true,
+      "orchestration_mode": "hybrid-agent",
+      "thread_id": null,
+      "hitl_status": "completed",
+      "pending_approval": null,
+      "approval_audit": [],
+      "goal": {
+        "keyword": "AI intern",
+        "location": "Remote",
+        "target_count": 1,
+        "skills": [
+          "Python",
+          "LangGraph"
+        ]
+      },
+      "terminal_status": "completed",
+      "terminal_reason": "target_reached",
+      "budget": {
+        "max_steps": 12,
+        "consumed_steps": 6,
+        "remaining_steps": 6
+      },
+      "metrics": {
+        "tool_calls": 7,
+        "tool_success_rate": 1.0,
+        "recovery_attempts": 0,
+        "successful_recoveries": 0,
+        "recovery_success_rate": 0.0,
+        "planner_calls": 0,
+        "fallback_decisions": 0,
+        "fallback_rate": 0.0,
+        "invalid_actions": 0,
+        "average_tool_latency_ms": 0.87
+      },
+      "candidate_urls": [
+        "https://example.com/jobs/unstructured-ai-agent-intern"
+      ],
+      "visited_urls": [
+        "https://example.com/jobs/unstructured-ai-agent-intern"
+      ],
+      "jobs": [
+        {
+          "title": "AI Agent Intern",
+          "company": "Example Robotics",
+          "location": "Remote",
+          "source": "visual-demo",
+          "url": "https://example.com/jobs/unstructured-ai-agent-intern",
+          "requirements": "Python, LangGraph, LLM evaluation",
+          "responsibilities": "Build browser agents from screenshot evidence",
+          "skills": [
+            "Python",
+            "LangGraph",
+            "LLM evaluation"
+          ],
+          "posted_at": "",
+          "confidence": 0.84,
+          "tier": "",
+          "category": "",
+          "url_verification": "unverified"
+        }
+      ],
+      "matches": [
+        {
+          "job_id": "https://example.com/jobs/unstructured-ai-agent-intern",
+          "score": 0.67,
+          "matched_skills": [
+            "Python",
+            "LangGraph"
+          ],
+          "missing_skills": [
+            "LLM evaluation"
+          ],
+          "reason": "匹配 2/3 个岗位技能：Python, LangGraph。",
+          "priority": "medium",
+          "suggested_actions": [
+            "补强或准备相关经历：LLM evaluation"
+          ]
+        }
+      ],
+      "trace": [
+        {
+          "step": 1,
+          "action": "open_page",
+          "source": "policy",
+          "reason": "Open the next unvisited candidate job URL.",
+          "target": "https://example.com/jobs/unstructured-ai-agent-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "open_page",
+            "success": true,
+            "summary": "Opened https://example.com/jobs/unstructured-ai-agent-intern.",
+            "payload": {
+              "url": "https://example.com/jobs/unstructured-ai-agent-intern",
+              "title": "Careers"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.01309998333454132,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 2,
+          "action": "extract_text",
+          "source": "policy",
+          "reason": "The current page has not been converted into a structured job.",
+          "target": "https://example.com/jobs/unstructured-ai-agent-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "extract_text",
+            "success": true,
+            "summary": "Extracted Careers with confidence 0.20.",
+            "payload": {
+              "job": {
+                "title": "Careers",
+                "company": "Unknown Company",
+                "location": "Unknown Location",
+                "source": "demo-unstructured",
+                "url": "https://example.com/jobs/unstructured-ai-agent-intern",
+                "requirements": "",
+                "responsibilities": "",
+                "skills": [],
+                "posted_at": "",
+                "confidence": 0.2,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              },
+              "confidence": 0.2
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.06859994027763605,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 3,
+          "action": "extract_visual",
+          "source": "policy",
+          "reason": "Text extraction confidence is low, so the visual extractor is the next recovery tool.",
+          "target": "https://example.com/jobs/unstructured-ai-agent-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "extract_visual",
+            "success": true,
+            "summary": "Visually extracted AI Agent Intern with confidence 0.84.",
+            "payload": {
+              "job": {
+                "title": "AI Agent Intern",
+                "company": "Example Robotics",
+                "location": "Remote",
+                "source": "visual-demo",
+                "url": "https://example.com/jobs/unstructured-ai-agent-intern",
+                "requirements": "Python, LangGraph, LLM evaluation",
+                "responsibilities": "Build browser agents from screenshot evidence",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM evaluation"
+                ],
+                "posted_at": "",
+                "confidence": 0.84,
+                "tier": "",
+                "category": "",
+                "url_verification": "unverified"
+              },
+              "confidence": 0.84
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.036400044336915016,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 4,
+          "action": "verify_job",
+          "source": "policy",
+          "reason": "Extracted job candidates require quality verification.",
+          "target": "https://example.com/jobs/unstructured-ai-agent-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "verify_job",
+            "success": true,
+            "summary": "Verifier accepted AI Agent Intern.",
+            "payload": {
+              "job": {
+                "title": "AI Agent Intern",
+                "company": "Example Robotics",
+                "location": "Remote",
+                "source": "visual-demo",
+                "url": "https://example.com/jobs/unstructured-ai-agent-intern",
+                "requirements": "Python, LangGraph, LLM evaluation",
+                "responsibilities": "Build browser agents from screenshot evidence",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM evaluation"
+                ],
+                "posted_at": "",
+                "confidence": 0.84,
+                "tier": "",
+                "category": "",
+                "url_verification": "unverified"
+              }
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.02019992098212242,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 5,
+          "action": "score_match",
+          "source": "policy",
+          "reason": "The verified target is ready for profile matching.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "score_match",
+            "success": true,
+            "summary": "Scored 1 verified jobs.",
+            "payload": {
+              "matches": [
+                {
+                  "job_id": "https://example.com/jobs/unstructured-ai-agent-intern",
+                  "score": 0.67,
+                  "matched_skills": [
+                    "Python",
+                    "LangGraph"
+                  ],
+                  "missing_skills": [
+                    "LLM evaluation"
+                  ],
+                  "reason": "匹配 2/3 个岗位技能：Python, LangGraph。",
+                  "priority": "medium",
+                  "suggested_actions": [
+                    "补强或准备相关经历：LLM evaluation"
+                  ]
+                }
+              ]
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.11150003410875797,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 6,
+          "action": "save_results",
+          "source": "policy",
+          "reason": "Matched target results are ready for persistence.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "save_results",
+            "success": true,
+            "summary": "Persisted 1 verified jobs.",
+            "payload": {
+              "saved_jobs": 1,
+              "reused": false
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 5.863599944859743,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 7,
+          "action": "finish",
+          "source": "policy",
+          "reason": "The requested results were verified, matched, and saved.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "finish",
+            "success": true,
+            "summary": "Agent finished with status completed: target_reached.",
+            "payload": {
+              "terminal_status": "completed",
+              "terminal_reason": "target_reached"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.008500064723193645,
+            "recoverable": false
+          }
+        }
+      ]
+    }
+  ]
+}

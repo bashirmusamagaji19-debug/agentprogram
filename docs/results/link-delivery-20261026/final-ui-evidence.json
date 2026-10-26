@@ -1,0 +1,38 @@
+{
+  "run_id": "run-3de02cbd",
+  "progress": {
+    "discovered": 20,
+    "selected": 10,
+    "limit": 10,
+    "checked": 3,
+    "verified": 3,
+    "delivered": 3,
+    "pending": 0,
+    "unexamined": 17
+  },
+  "checks": [
+    {
+      "title": "agent应用实习生-2027届",
+      "checked_at": "2026-10-26T10:36:08.180678+00:00",
+      "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662271237599725834/detail",
+      "http_status": null,
+      "evidence_sha256": "027238e094f1b87a17afa78a2036fb7a68bc85ee21b6a5edac235113ef127799"
+    },
+    {
+      "title": "AI 开发工程师（Agent 方向）-2027届",
+      "checked_at": "2026-10-26T10:36:14.600135+00:00",
+      "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7698943066581584191/detail",
+      "http_status": null,
+      "evidence_sha256": "760e5eecc428298efe5b56b043c31d23400792df3dd1667119ac9b6cd15f47f7"
+    },
+    {
+      "title": "Agent评估方向算法实习生",
+      "checked_at": "2026-10-26T10:36:20.731882+00:00",
+      "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662657793955268910/detail",
+      "http_status": null,
+      "evidence_sha256": "a2f7c18ea7bdfb558267414208bc6f6af032570d148c408aef2dbba8ecf458af"
+    }
+  ],
+  "db_rows": 3,
+  "saved": true
+}

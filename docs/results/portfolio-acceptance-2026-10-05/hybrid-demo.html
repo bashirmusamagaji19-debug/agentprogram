@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hybrid Decision Agent</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 32px; color: #202124; }
+h1 { font-size: 24px; }
+.metrics { display: flex; gap: 24px; margin: 20px 0; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border-bottom: 1px solid #dadce0; padding: 10px; text-align: left; }
+th { background: #f8f9fa; }
+code { color: #1769aa; }
+</style>
+</head>
+<body>
+<h1>Hybrid Decision Agent</h1>
+<p>Status: completed /
+target_reached</p>
+<div class="metrics">
+<span>Tool success: 1.00</span>
+<span>Recovery success: 0.00</span>
+<span>Fallback: 0.00</span>
+</div>
+<table>
+<thead><tr><th>Step</th><th>Action</th><th>Source</th><th>Reason</th><th>Observation</th><th>ms</th></tr></thead>
+<tbody><tr><td>1</td><td><code>search_jobs</code></td><td>policy</td><td>No candidate URLs are available, so job search must run first.</td><td>Discovered 1 candidate URLs.</td><td>0.03</td></tr><tr><td>2</td><td><code>open_page</code></td><td>policy</td><td>Open the next unvisited candidate job URL.</td><td>Opened https://example.com/jobs/ai-engineering-intern.</td><td>0.02</td></tr><tr><td>3</td><td><code>extract_text</code></td><td>policy</td><td>The current page has not been converted into a structured job.</td><td>Extracted AI Engineering Intern with confidence 1.00.</td><td>0.15</td></tr><tr><td>4</td><td><code>verify_job</code></td><td>policy</td><td>Extracted job candidates require quality verification.</td><td>Verifier accepted AI Engineering Intern.</td><td>0.02</td></tr><tr><td>5</td><td><code>score_match</code></td><td>policy</td><td>The verified target is ready for profile matching.</td><td>Scored 1 verified jobs.</td><td>1.74</td></tr><tr><td>6</td><td><code>save_results</code></td><td>policy</td><td>Matched target results are ready for persistence.</td><td>Persisted 1 verified jobs.</td><td>3.72</td></tr><tr><td>7</td><td><code>finish</code></td><td>policy</td><td>The requested results were verified, matched, and saved.</td><td>Agent finished with status completed: target_reached.</td><td>0.02</td></tr></tbody>
+</table>
+<h2>Approval Audit</h2>
+<table>
+<thead><tr><th>Event</th><th>Action</th><th>Outcome</th><th>Note</th><th>UTC time</th></tr></thead>
+<tbody></tbody>
+</table>
+</body>
+</html>

@@ -66,7 +66,7 @@ def test_official_list_source_backfills_tier() -> None:
                 "data": {
                     "positionList": [
                         {
-                            "positionTitle": "AI全栈工程师",
+                            "positionTitle": "AI全栈工程师实习生",
                             "postId": "p-1",
                             "projectName": "应届毕业生",
                             "recruitLabelName": "应届毕业生",

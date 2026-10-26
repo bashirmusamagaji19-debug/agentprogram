@@ -9,10 +9,16 @@ from web_task_agent.streamlit_app import (
     artifact_cards_html,
     artifact_download_spec,
     diagnostic_rows,
+    empty_result_explanation,
+    humanize_terminal_reason,
+    internship_evidence_text,
+    job_cards_html,
     job_result_rows,
     metric_grid_html,
     mode_hint,
+    progress_summary_text,
     run_status,
+    saved_status_text,
 )
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
@@ -68,7 +74,11 @@ def test_job_result_rows_join_jobs_with_match_results(tmp_path: Path) -> None:
         {
             "岗位": "AI Agent 实习生",
             "公司": "示例科技",
-            "页面核验": "—",
+            "正文来源": "来源未标注",
+            "链接核验": "未核验（无核验记录）",
+            "核验时间": "—",
+            "核验方式": "—",
+            "最终URL": "—",
             "梯队": "—",
             "类别": "—",
             "地点": "北京",
@@ -112,9 +122,28 @@ def test_metric_grid_switches_to_two_columns_on_mobile() -> None:
     assert ">3<" in html
 
 
+def test_run_status_does_not_claim_pending_or_rejected_saved(tmp_path):
+    pending = make_result(tmp_path).model_copy(update={"run_status": "awaiting_approval"})
+    assert run_status(pending)[0] == "等待确认"
+    rejected = pending.model_copy(update={"run_status": "rejected"})
+    assert run_status(rejected)[0] == "已拒绝"
+    partial = pending.model_copy(update={"run_status": "partial", "terminal_reason": "candidates_exhausted"})
+    assert run_status(partial)[0] == "部分完成"
+
+
 def test_run_status_distinguishes_ready_success_and_partial_failure(tmp_path: Path) -> None:
     assert run_status(None) == ("待运行", "配置任务后开始一次岗位扫描", "ready")
     assert run_status(make_result(tmp_path)) == ("已完成", "1 个有效岗位 · 1 个页面失败", "warning")
+
+
+def test_search_condition_exclusions_are_not_page_failures(tmp_path):
+    result = make_result(tmp_path)
+    result.metrics.failed_pages = 0
+    result.diagnostics = [{"url": "https://example.com/jobs/2",
+                           "error": "verification_filtered: location mismatch: requested 北京, got 上海",
+                           "kind": "search_filter"}]
+    assert run_status(result)[2] == "success"
+    assert "页面失败" not in run_status(result)[1]
 
 
 def test_mode_hint_explains_each_data_mode() -> None:
@@ -309,17 +338,216 @@ def test_llm_run_budget_allows_then_blocks():
         consume_llm_budget(budget)  # 超限必须拒绝,不能负数
 
 
-def test_demo_mode_does_not_consume_llm_budget():
-    """Demo 模式不调 LLM,不占预算。"""
+def test_real_provider_consumes_llm_budget_even_on_demo_data():
+    """演示数据配真实模型仍有请求成本。"""
     from web_task_agent.streamlit_app import consume_llm_budget, should_consume_llm_budget
 
     budget: dict = {}
     request = UiRunRequest(data_mode="demo", llm_match_provider="qwen")
 
-    assert not should_consume_llm_budget(request)
+    assert should_consume_llm_budget(request)
+    assert not should_consume_llm_budget(UiRunRequest(data_mode="demo"))
 
     request = UiRunRequest(
         data_mode="official", official_specs=["tencent-campus"], llm_match_provider="qwen"
     )
     assert should_consume_llm_budget(request)
     consume_llm_budget(budget)
+
+
+def test_default_ui_uses_xiaomi_three_targets_and_empty_skills(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(REPO_ROOT / "streamlit_app.py"), default_timeout=30
+    ).run()
+
+    assert not app.exception
+    mode = next(item for item in app.segmented_control if item.label == "数据模式")
+    assert mode.value == "实时岗位（官方 API）"
+    sources = next(item for item in app.multiselect if item.label == "官方发现源")
+    assert sources.value == ["xiaomi"]
+    target = next(item for item in app.number_input if item.label == "目标岗位数")
+    assert target.value == 3
+    skills = next(item for item in app.text_input if item.label == "技能标签")
+    assert skills.value == ""
+    toggles = {item.label: item.value for item in app.toggle}
+    assert toggles["启用 LLM 抽取"] is False
+    assert toggles["启用 LLM 匹配"] is False
+    assert toggles["启用模型选择候选"] is False
+
+
+def test_job_cards_show_internship_evidence_basis_and_low_score(tmp_path: Path) -> None:
+    result = make_result(tmp_path)
+    result.jobs[0] = result.jobs[0].model_copy(
+        update={
+            "internship_evidence_source": "xiaomi:list:type",
+            "internship_evidence_value": "3",
+        }
+    )
+    result.matches[0] = result.matches[0].model_copy(
+        update={"score": 0.3, "reason": "命中 Python，缺少 RAG"}
+    )
+
+    html = job_cards_html(result)
+
+    assert "AI Agent 实习生" in html
+    assert "示例科技" in html
+    assert "北京" in html
+    assert "官方实习" in html
+    assert "type=3" in html
+    assert "https://example.com/jobs/1" in html
+    assert "Python" in html and "RAG" in html
+    assert "命中 Python，缺少 RAG" in html
+    assert "30%" in html
+
+
+def test_internship_evidence_uses_verified_xiaomi_enum_and_title_fallback() -> None:
+    detail = JobPosting(
+        title="AI 算法工程师",
+        company="小米",
+        location="北京",
+        source="xiaomi",
+        url="https://example.com/xiaomi/1",
+        internship_evidence_source="xiaomi:detail:recruit_type.id",
+        internship_evidence_value="202",
+    )
+    title_only = JobPosting(
+        title="Agent 实习",
+        company="示例",
+        location="上海",
+        source="fixture",
+        url="https://example.com/jobs/2",
+    )
+    unknown = title_only.model_copy(update={"title": "Agent 工程师"})
+
+    assert "官方实习" in internship_evidence_text(detail)
+    assert "202" in internship_evidence_text(detail)
+    assert "标题含“实习”" in internship_evidence_text(title_only)
+    assert internship_evidence_text(unknown) == "未提供"
+
+
+def test_terminal_reasons_are_user_readable() -> None:
+    assert humanize_terminal_reason("budget_exhausted") == (
+        "本轮检查步数已用完，已交付确认的部分岗位"
+    )
+    assert humanize_terminal_reason("deadline_exceeded") == (
+        "达到本次总时限，已停止处理"
+    )
+    for reason in ("candidates_exhausted", "no_candidates", "search_error"):
+        readable = humanize_terminal_reason(reason)
+        assert readable
+        assert reason not in readable
+
+
+def test_partial_status_hides_internal_terminal_code(tmp_path: Path) -> None:
+    result = make_result(tmp_path).model_copy(
+        update={"run_status": "partial", "terminal_reason": "budget_exhausted"}
+    )
+
+    status, detail, _ = run_status(result)
+
+    assert status == "部分完成"
+    assert "budget_exhausted" not in detail
+    assert "检查步数" in detail
+
+
+def test_progress_summary_reports_counts_and_unexamined_candidates(
+    tmp_path: Path,
+) -> None:
+    result = make_result(tmp_path).model_copy(
+        update={
+            "progress": {
+                "discovered": 12,
+                "selected": 10,
+                "checked": 7,
+                "verified": 2,
+                "delivered": 2,
+                "unexamined": 5,
+                "limit": 10,
+            }
+        }
+    )
+
+    summary = progress_summary_text(result)
+
+    assert "发现 12" in summary
+    assert "选定 10" in summary
+    assert "已检查 7" in summary
+    assert "验证通过 2" in summary
+    assert "已交付 2" in summary
+    assert "未检查 5" in summary
+    assert "上限 10" in summary
+
+
+def test_empty_result_explains_counts_filters_and_remaining_candidates(
+    tmp_path: Path,
+) -> None:
+    result = make_result(tmp_path)
+    result.jobs = []
+    result.matches = []
+    result.metrics.valid_jobs = 0
+    result.diagnostics = [
+        {
+            "url": "https://example.com/jobs/2",
+            "error": "search_filtered: location mismatch",
+            "kind": "search_filter",
+        },
+        {
+            "url": "https://example.com/jobs/3",
+            "error": "verification_filtered: missing internship evidence",
+            "kind": "verification",
+        },
+    ]
+    result.progress = {
+        "discovered": 12,
+        "selected": 10,
+        "checked": 7,
+        "verified": 0,
+        "delivered": 0,
+        "unexamined": 2,
+        "limit": 10,
+    }
+
+    explanation = empty_result_explanation(result)
+
+    assert "发现 12" in explanation
+    assert "已检查 7" in explanation
+    assert "关键词或地点过滤 1" in explanation
+    assert "正文验证过滤 1" in explanation
+    assert "还有 2 条候选未检查" in explanation
+    assert "上限 10" in explanation
+
+
+def test_saved_status_distinguishes_pending_and_saved(tmp_path: Path) -> None:
+    pending = make_result(tmp_path).model_copy(update={"run_status": "awaiting_approval"})
+    saved = make_result(tmp_path).model_copy(update={"saved": True})
+
+    assert "尚未保存" in saved_status_text(pending)
+    assert "已保存到岗位库" in saved_status_text(saved)
+
+
+def test_empty_explanation_does_not_treat_status_word_as_reason(tmp_path: Path) -> None:
+    result = make_result(tmp_path)
+    result.jobs = []
+    result.matches = []
+    result.terminal_status = "partial"
+    result.terminal_reason = ""
+
+    explanation = empty_result_explanation(result)
+
+    assert "运行提前结束" not in explanation
+
+
+def test_diagnostic_budget_code_is_rendered_as_user_explanation() -> None:
+    result = UiRunResult(
+        run_id="run-ui",
+        metrics=RunMetrics(run_id="run-ui"),
+        diagnostics=[{"url": "https://example.com/jobs/1", "error": "budget_exhausted"}],
+    )
+
+    row = diagnostic_rows(result)[0]
+
+    assert row["类别"] == "本轮检查步数已用完"
+    assert "budget_exhausted" not in row["详情"]

@@ -152,6 +152,7 @@ def test_build_discovered_page_uses_jd_text_as_content():
         url="https://example.com/job/1",
         title="算法实习生",
         company="示例公司",
+        location="上海",
         jd_text="岗位职责：测试。",
         source="job-radar",
     )
@@ -163,3 +164,4 @@ def test_build_discovered_page_uses_jd_text_as_content():
     assert page.content == "岗位职责：测试。"
     assert page.source == "aggregator:job-radar"
     assert page.metadata["discovered_company"] == "示例公司"
+    assert page.metadata["discovered_location"] == "上海"

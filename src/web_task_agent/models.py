@@ -67,9 +67,12 @@ class JobPosting(BaseModel):
     confidence: float = 0.0
     tier: str = ""  # 公司梯队:大厂/车企/具身智能/AI 中厂/初创/中小厂(长尾)
     category: str = ""  # 岗位类型:算法/工程/产品/运营/设计/其他
-    # 页面可打开性:api-verified(正文来自官方详情接口)/list-attested(列表自带,
-    # id 有效性未独立验证)/http-fetched/unverified — 用户点击前甄别 SPA 空页
+    # 正文来源；这些标签不能证明显示链接可以打开。
     url_verification: str = "unverified"
+    # Content provenance above is not proof that the displayed link works.
+    link_verification: dict[str, Any] = Field(default_factory=dict)
+    internship_evidence_source: str = ""
+    internship_evidence_value: str = ""
 
     @field_validator("title", "company", "location", "source", "url")
     @classmethod
@@ -112,7 +115,7 @@ class RunMetrics(BaseModel):
     duplicate_jobs: int = Field(default=0, ge=0)
     failed_pages: int = Field(default=0, ge=0)
     avg_steps_per_job: float = Field(default=0.0, ge=0.0)
-    estimated_token_cost: float = Field(default=0.0, ge=0.0)
+    estimated_token_cost: float | None = Field(default=None, ge=0.0)
 
     @field_validator("started_at", "finished_at")
     @classmethod
@@ -125,7 +128,9 @@ class RunMetrics(BaseModel):
 
     @field_validator("avg_steps_per_job", "estimated_token_cost")
     @classmethod
-    def reject_non_finite_float_metrics(cls, value: float) -> float:
+    def reject_non_finite_float_metrics(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
         if not isfinite(value):
             raise ValueError("metric float must be finite")
         return value
@@ -139,6 +144,7 @@ class WorkflowState(BaseModel):
     candidate_urls: list[str] = Field(default_factory=list)
     pages: list[BrowserPage] = Field(default_factory=list)
     jobs: list[JobPosting] = Field(default_factory=list)
+    pending_jobs: list[JobPosting] = Field(default_factory=list)
     matches: list[MatchResult] = Field(default_factory=list)
     failed_urls: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

@@ -26,6 +26,8 @@ def test_release_check_runs_ci_equivalent_named_stages(tmp_path):
     ]
     assert all(stage.passed for stage in result.stages)
     assert len(calls) == 6
+    assert all(kwargs.get("encoding") == "utf-8" for _, kwargs in calls)
+    assert all(kwargs["env"].get("PYTHONIOENCODING") == "utf-8" for _, kwargs in calls)
     strict_call = calls[4]
     assert strict_call[1]["env"]["LANGGRAPH_STRICT_MSGPACK"] == "true"
 

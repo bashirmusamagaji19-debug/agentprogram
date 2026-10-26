@@ -1,0 +1,290 @@
+{
+  "target3": {
+    "run_id": "run-0c6023c3",
+    "engine": "hybrid",
+    "planner_strategy": "policy",
+    "reader_strategy": "rules",
+    "status": "succeeded",
+    "terminal_reason": "target_reached",
+    "valid_jobs": 3,
+    "saved_jobs": 3,
+    "approval": null,
+    "source_manifest": "source-archive/run-0c6023c3/manifest.json",
+    "source_mode": "demo",
+    "source_captured_at": "2026-10-25T04:43:09.229234+00:00",
+    "source_metrics": {
+      "source_callable": {
+        "numerator": 0,
+        "denominator": 0,
+        "value": null
+      },
+      "sources_with_candidates": {
+        "numerator": 0,
+        "denominator": 0,
+        "value": null
+      },
+      "source_empty": 0,
+      "source_error": 0,
+      "detail_body_fetch": {
+        "numerator": 3,
+        "denominator": 3,
+        "value": 1.0
+      },
+      "deliveries_by_origin": {
+        "http": 3
+      },
+      "conditions_passed": {
+        "numerator": 3,
+        "denominator": 3,
+        "value": 1.0
+      },
+      "snapshot_integrity": {
+        "numerator": 6,
+        "denominator": 6,
+        "value": 1.0
+      }
+    },
+    "source_evidence": {
+      "https://example.com/jobs/ai-intern-1": {
+        "snapshot_id": "snap_3569cb82460bf4edddd440bd8ba00ec38e7873204f60b9383b50d67d1e8a2dbd",
+        "content_origin": "http",
+        "evidence_level": "detail",
+        "availability": "observed",
+        "observed_at": "2026-10-25T04:43:09.501216Z",
+        "source_spec": "browser-search"
+      },
+      "https://example.com/jobs/ai-intern-2": {
+        "snapshot_id": "snap_9c689c823d75bc00c95d5f9686d0b5700daa815185586ec5f13c5e83c9e45950",
+        "content_origin": "http",
+        "evidence_level": "detail",
+        "availability": "observed",
+        "observed_at": "2026-10-25T04:43:09.523727Z",
+        "source_spec": "browser-search"
+      },
+      "https://example.com/jobs/ai-intern-3": {
+        "snapshot_id": "snap_f1ff7aa4a8fd534aff3cd5af4eb50d8466d356f9d7701ceccaa66f3a64e5e897",
+        "content_origin": "http",
+        "evidence_level": "detail",
+        "availability": "observed",
+        "observed_at": "2026-10-25T04:43:09.548509Z",
+        "source_spec": "browser-search"
+      }
+    },
+    "conditions": {
+      "keyword": "AI intern",
+      "location": "Remote",
+      "target_count": 3
+    },
+    "artifacts": {
+      "report": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-target3\\reports\\run-0c6023c3.md",
+      "dashboard": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-target3\\dashboards\\run-0c6023c3.html",
+      "action_plan": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-target3\\action-plans\\run-0c6023c3.md"
+    }
+  },
+  "replay": {
+    "run_id": "replay-a1941ad8",
+    "status": "succeeded",
+    "terminal_reason": "target_reached",
+    "valid_jobs": 3,
+    "saved_jobs": 3,
+    "reader": "rules",
+    "replay_mode": "attempts",
+    "network_calls": 0,
+    "live_model_calls": 0,
+    "conditions_match": true,
+    "conditions": {
+      "keyword": "AI intern",
+      "location": "Remote",
+      "mode": "demo",
+      "target_count": 3
+    },
+    "source_manifest": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-target3\\source-archive\\run-0c6023c3\\manifest.json",
+    "source_captured_at": "2026-10-25T04:43:09.229234+00:00",
+    "integrity": {
+      "candidates": 6,
+      "snapshots": 6,
+      "attempts": 6
+    },
+    "normalized_results_match": true
+  },
+  "approve_and_replay": {
+    "run_id": "run-dd861956",
+    "engine": "hybrid",
+    "planner_strategy": "policy",
+    "reader_strategy": "rules",
+    "status": "succeeded",
+    "terminal_reason": "target_reached",
+    "valid_jobs": 3,
+    "saved_jobs": 3,
+    "approval": {
+      "approval_id": "approval-3a791d9330d74650bbb52eec3f6555ca",
+      "thread_id": "b937bbf96f4bd26e197ac47c62fbb203419620249a67369390e78178b33fedd4",
+      "action": "save_results",
+      "requested_at": "2026-10-25T04:48:44.465009Z",
+      "job_count": 3,
+      "summary": "Persist 3 verified job records.",
+      "status": "approved",
+      "payload_hash": "b67999543ee4e2b7b98b3e1d5b37bf6705ee8f39f0d8a1d225462fb13700ee75"
+    },
+    "source_manifest": "source-archive/run-dd861956/manifest.json",
+    "source_mode": "demo",
+    "source_captured_at": "2026-10-25T04:48:44.249338+00:00",
+    "source_metrics": {},
+    "source_evidence": {},
+    "conditions": {
+      "keyword": "AI intern",
+      "location": "Remote",
+      "target_count": 3
+    },
+    "artifacts": {
+      "report": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-hitl-approve\\reports\\run-dd861956.md",
+      "dashboard": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-hitl-approve\\dashboards\\run-dd861956.html",
+      "action_plan": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-hitl-approve\\action-plans\\run-dd861956.md"
+    }
+  },
+  "reject": {
+    "run_id": "run-056337b6",
+    "engine": "hybrid",
+    "planner_strategy": "policy",
+    "reader_strategy": "rules",
+    "status": "rejected",
+    "terminal_reason": "human_denied",
+    "valid_jobs": 3,
+    "saved_jobs": 0,
+    "approval": {
+      "approval_id": "approval-25c67e1ed6b94123a0da98e8eee9e233",
+      "thread_id": "9a0460a247bf302222eb6aabf2c6f5a3f2290fc668b3ba5acd50d7315a4ac48e",
+      "action": "save_results",
+      "requested_at": "2026-10-25T04:48:45.720892Z",
+      "job_count": 3,
+      "summary": "Persist 3 verified job records.",
+      "status": "rejected",
+      "payload_hash": "b67999543ee4e2b7b98b3e1d5b37bf6705ee8f39f0d8a1d225462fb13700ee75"
+    },
+    "source_manifest": "source-archive/run-056337b6/manifest.json",
+    "source_mode": "demo",
+    "source_captured_at": "2026-10-25T04:48:45.507691+00:00",
+    "source_metrics": {},
+    "source_evidence": {},
+    "conditions": {
+      "keyword": "AI intern",
+      "location": "Remote",
+      "target_count": 3
+    },
+    "artifacts": {
+      "report": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-hitl-reject\\reports\\run-056337b6.md",
+      "dashboard": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-hitl-reject\\dashboards\\run-056337b6.html",
+      "action_plan": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-hitl-reject\\action-plans\\run-056337b6.md"
+    }
+  },
+  "live": {
+    "run_id": "run-3ff9e391",
+    "engine": "hybrid",
+    "planner_strategy": "policy",
+    "reader_strategy": "rules",
+    "status": "failed",
+    "terminal_reason": "budget_exhausted",
+    "valid_jobs": 0,
+    "saved_jobs": 0,
+    "approval": null,
+    "source_manifest": "source-archive/run-3ff9e391/manifest.json",
+    "source_mode": "official",
+    "source_captured_at": "2026-10-25T04:42:47.316570+00:00",
+    "source_metrics": {
+      "source_callable": {
+        "numerator": 2,
+        "denominator": 2,
+        "value": 1.0
+      },
+      "sources_with_candidates": {
+        "numerator": 2,
+        "denominator": 2,
+        "value": 1.0
+      },
+      "source_empty": 0,
+      "source_error": 0,
+      "detail_body_fetch": {
+        "numerator": 9,
+        "denominator": 10,
+        "value": 0.9
+      },
+      "deliveries_by_origin": {},
+      "conditions_passed": {
+        "numerator": 0,
+        "denominator": 8,
+        "value": 0.0
+      },
+      "snapshot_integrity": {
+        "numerator": 9,
+        "denominator": 9,
+        "value": 1.0
+      }
+    },
+    "source_evidence": {},
+    "conditions": {
+      "keyword": "AI Agent 实习",
+      "location": "北京、上海",
+      "target_count": 3
+    },
+    "artifacts": {
+      "report": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-live\\reports\\run-3ff9e391.md",
+      "dashboard": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-live\\dashboards\\run-3ff9e391.html",
+      "action_plan": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-live\\action-plans\\run-3ff9e391.md"
+    }
+  },
+  "live_alternate": {
+    "run_id": "run-b342b0c4",
+    "engine": "hybrid",
+    "planner_strategy": "policy",
+    "reader_strategy": "rules",
+    "status": "failed",
+    "terminal_reason": "no_candidates",
+    "valid_jobs": 0,
+    "saved_jobs": 0,
+    "approval": null,
+    "source_manifest": "source-archive/run-b342b0c4/manifest.json",
+    "source_mode": "official",
+    "source_captured_at": "2026-10-25T04:44:17.014614+00:00",
+    "source_metrics": {
+      "source_callable": {
+        "numerator": 2,
+        "denominator": 2,
+        "value": 1.0
+      },
+      "sources_with_candidates": {
+        "numerator": 0,
+        "denominator": 2,
+        "value": 0.0
+      },
+      "source_empty": 2,
+      "source_error": 0,
+      "detail_body_fetch": {
+        "numerator": 0,
+        "denominator": 0,
+        "value": null
+      },
+      "deliveries_by_origin": {},
+      "conditions_passed": {
+        "numerator": 0,
+        "denominator": 0,
+        "value": null
+      },
+      "snapshot_integrity": {
+        "numerator": 0,
+        "denominator": 0,
+        "value": null
+      }
+    },
+    "source_evidence": {},
+    "conditions": {
+      "keyword": "大模型 实习",
+      "location": "北京、上海",
+      "target_count": 3
+    },
+    "artifacts": {
+      "report": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-live-alternate\\reports\\run-b342b0c4.md",
+      "dashboard": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-live-alternate\\dashboards\\run-b342b0c4.html",
+      "action_plan": "C:\\Users\\13993\\Desktop\\大模型学习\\Agent\\.worktrees\\agent-improvements\\portfolio-artifacts\\audit-fix-20261025-live-alternate\\action-plans\\run-b342b0c4.md"
+    }
+  }
+}

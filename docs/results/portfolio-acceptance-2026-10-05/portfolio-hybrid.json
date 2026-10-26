@@ -1,0 +1,282 @@
+{
+  "orchestration_mode": "hybrid-agent",
+  "thread_id": null,
+  "hitl_status": "completed",
+  "pending_approval": null,
+  "approval_audit": [],
+  "goal": {
+    "keyword": "AI Agent intern",
+    "location": "Remote",
+    "target_count": 1,
+    "skills": [
+      "Python",
+      "LangGraph"
+    ]
+  },
+  "terminal_status": "completed",
+  "terminal_reason": "target_reached",
+  "budget": {
+    "max_steps": 8,
+    "consumed_steps": 6,
+    "remaining_steps": 2
+  },
+  "metrics": {
+    "tool_calls": 7,
+    "tool_success_rate": 1.0,
+    "recovery_attempts": 0,
+    "successful_recoveries": 0,
+    "recovery_success_rate": 0.0,
+    "planner_calls": 0,
+    "fallback_decisions": 0,
+    "fallback_rate": 0.0,
+    "invalid_actions": 0,
+    "average_tool_latency_ms": 0.82
+  },
+  "candidate_urls": [
+    "https://example.com/jobs/ai-engineering-intern"
+  ],
+  "visited_urls": [
+    "https://example.com/jobs/ai-engineering-intern"
+  ],
+  "jobs": [
+    {
+      "title": "AI Engineering Intern",
+      "company": "Example AI",
+      "location": "Remote",
+      "source": "demo",
+      "url": "https://example.com/jobs/ai-engineering-intern",
+      "requirements": "Python, LangGraph, LLM",
+      "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+      "skills": [
+        "Python",
+        "LangGraph",
+        "LLM"
+      ],
+      "posted_at": "2026-06-07",
+      "confidence": 1.0,
+      "tier": "",
+      "category": "其他",
+      "url_verification": "unverified"
+    }
+  ],
+  "matches": [
+    {
+      "job_id": "https://example.com/jobs/ai-engineering-intern",
+      "score": 0.67,
+      "matched_skills": [
+        "Python",
+        "LangGraph"
+      ],
+      "missing_skills": [
+        "LLM"
+      ],
+      "reason": "匹配 2/3 个岗位技能：Python, LangGraph。",
+      "priority": "medium",
+      "suggested_actions": [
+        "补强或准备相关经历：LLM"
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "step": 1,
+      "action": "search_jobs",
+      "source": "policy",
+      "reason": "No candidate URLs are available, so job search must run first.",
+      "target": null,
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "search_jobs",
+        "success": true,
+        "summary": "Discovered 1 candidate URLs.",
+        "payload": {
+          "candidate_urls": [
+            "https://example.com/jobs/ai-engineering-intern"
+          ],
+          "query": "AI Agent intern Remote"
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 0.03460003063082695,
+        "recoverable": false
+      }
+    },
+    {
+      "step": 2,
+      "action": "open_page",
+      "source": "policy",
+      "reason": "Open the next unvisited candidate job URL.",
+      "target": "https://example.com/jobs/ai-engineering-intern",
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "open_page",
+        "success": true,
+        "summary": "Opened https://example.com/jobs/ai-engineering-intern.",
+        "payload": {
+          "url": "https://example.com/jobs/ai-engineering-intern",
+          "title": "AI Engineering Intern at Example AI"
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 0.02059992402791977,
+        "recoverable": false
+      }
+    },
+    {
+      "step": 3,
+      "action": "extract_text",
+      "source": "policy",
+      "reason": "The current page has not been converted into a structured job.",
+      "target": "https://example.com/jobs/ai-engineering-intern",
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "extract_text",
+        "success": true,
+        "summary": "Extracted AI Engineering Intern with confidence 1.00.",
+        "payload": {
+          "job": {
+            "title": "AI Engineering Intern",
+            "company": "Example AI",
+            "location": "Remote",
+            "source": "demo",
+            "url": "https://example.com/jobs/ai-engineering-intern",
+            "requirements": "Python, LangGraph, LLM",
+            "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+            "skills": [
+              "Python",
+              "LangGraph",
+              "LLM"
+            ],
+            "posted_at": "2026-06-07",
+            "confidence": 1.0,
+            "tier": "",
+            "category": "其他",
+            "url_verification": "unverified"
+          },
+          "confidence": 1.0
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 0.14669995289295912,
+        "recoverable": false
+      }
+    },
+    {
+      "step": 4,
+      "action": "verify_job",
+      "source": "policy",
+      "reason": "Extracted job candidates require quality verification.",
+      "target": "https://example.com/jobs/ai-engineering-intern",
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "verify_job",
+        "success": true,
+        "summary": "Verifier accepted AI Engineering Intern.",
+        "payload": {
+          "job": {
+            "title": "AI Engineering Intern",
+            "company": "Example AI",
+            "location": "Remote",
+            "source": "demo",
+            "url": "https://example.com/jobs/ai-engineering-intern",
+            "requirements": "Python, LangGraph, LLM",
+            "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+            "skills": [
+              "Python",
+              "LangGraph",
+              "LLM"
+            ],
+            "posted_at": "2026-06-07",
+            "confidence": 1.0,
+            "tier": "",
+            "category": "其他",
+            "url_verification": "unverified"
+          }
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 0.02110004425048828,
+        "recoverable": false
+      }
+    },
+    {
+      "step": 5,
+      "action": "score_match",
+      "source": "policy",
+      "reason": "The verified target is ready for profile matching.",
+      "target": null,
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "score_match",
+        "success": true,
+        "summary": "Scored 1 verified jobs.",
+        "payload": {
+          "matches": [
+            {
+              "job_id": "https://example.com/jobs/ai-engineering-intern",
+              "score": 0.67,
+              "matched_skills": [
+                "Python",
+                "LangGraph"
+              ],
+              "missing_skills": [
+                "LLM"
+              ],
+              "reason": "匹配 2/3 个岗位技能：Python, LangGraph。",
+              "priority": "medium",
+              "suggested_actions": [
+                "补强或准备相关经历：LLM"
+              ]
+            }
+          ]
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 1.7425999976694584,
+        "recoverable": false
+      }
+    },
+    {
+      "step": 6,
+      "action": "save_results",
+      "source": "policy",
+      "reason": "Matched target results are ready for persistence.",
+      "target": null,
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "save_results",
+        "success": true,
+        "summary": "Persisted 1 verified jobs.",
+        "payload": {
+          "saved_jobs": 1,
+          "reused": false
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 3.7234999472275376,
+        "recoverable": false
+      }
+    },
+    {
+      "step": 7,
+      "action": "finish",
+      "source": "policy",
+      "reason": "The requested results were verified, matched, and saved.",
+      "target": null,
+      "confidence": 1.0,
+      "observation": {
+        "tool_name": "finish",
+        "success": true,
+        "summary": "Agent finished with status completed: target_reached.",
+        "payload": {
+          "terminal_status": "completed",
+          "terminal_reason": "target_reached"
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 0.01610000617802143,
+        "recoverable": false
+      }
+    }
+  ]
+}

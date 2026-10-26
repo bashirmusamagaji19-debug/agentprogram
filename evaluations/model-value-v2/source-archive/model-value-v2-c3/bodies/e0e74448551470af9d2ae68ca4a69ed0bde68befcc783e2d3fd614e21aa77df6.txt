@@ -1,0 +1,15 @@
+Title: 计算机视觉实习生
+Company: 青麓视觉
+Location: 南京
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 计算机视觉 相关项目或课程基础
+- 具备 OpenCV 相关项目或课程基础
+- 具备 PyTorch 相关项目或课程基础
+- 具备 图像分割 相关项目或课程基础
+Responsibilities:
+- 实现图像分割的预处理脚本
+- 检查标注掩码与图像尺寸
+Variant focus: 检索闭环与引用核验
+Text integrity note: 原始正文存在缺字与替换字符 �。
+Source note: This is a controlled synthetic job page for offline evaluation.

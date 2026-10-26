@@ -1,0 +1,15 @@
+Title: AI 编译器实习生
+Company: 弦歌编译
+Location: 西安
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 AI 编译器 相关项目或课程基础
+- 具备 MLIR 相关项目或课程基础
+- 具备 C++ 相关项目或课程基础
+- 具备 性能优化 相关项目或课程基础
+Responsibilities:
+- 扩展算子融合规则
+- 定位计算图性能回退
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-22

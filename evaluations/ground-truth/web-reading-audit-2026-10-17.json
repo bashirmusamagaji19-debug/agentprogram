@@ -1,0 +1,28 @@
+{
+  "scope": "Predeclared audit controls, selected from prior manual review before model replay. Not exhaustive ground truth.",
+  "controls": [
+    {
+      "id": "hr-company-intro-false-positive",
+      "url_contains": "positionDetailId=21584f2d2f834d52b0d87a4d7461901a",
+      "must_not_accept": true,
+      "expected_page_types": ["single_job"],
+      "expected_semantic_ai_role": false,
+      "evidence": "负责本部门招聘全流程事宜；完成员工入离职等人事手续。大模型出现在公司介绍。"
+    },
+    {
+      "id": "llm-intern-damaged-conflicting-location",
+      "url_contains": "jy.xmu.edu.cn/job/view/id/2398415/",
+      "must_not_accept": true,
+      "expected_page_types": ["single_job"],
+      "expected_location_conflict": true,
+      "evidence": "头部上海市松江区，正文工作地址深圳市南山区。原规则公司字段误为薪资。"
+    },
+    {
+      "id": "bytedance-campus-list",
+      "url_contains": "jobs.bytedance.com/campus/position?",
+      "must_not_accept": true,
+      "expected_page_types": ["job_list"],
+      "evidence": "筛选器及多个职位，不能整页当作一个岗位。"
+    }
+  ]
+}

@@ -74,7 +74,7 @@ def job_from_visual_fields(*, page: BrowserPage, fields: VisualJobFields) -> Job
         company=fields.company.strip() or "Unknown Company",
         location=fields.location.strip() or "Unknown Location",
         source="visual-demo",
-        url=page.url,
+        url=str(page.metadata.get("canonical_url") or page.url),
         requirements=requirements,
         responsibilities=fields.responsibilities.strip(),
         skills=skills,

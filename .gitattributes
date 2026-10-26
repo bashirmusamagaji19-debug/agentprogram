@@ -1,0 +1,4 @@
+# Preserve byte hashes in frozen datasets and captured public evidence.
+evaluations/** -text
+docs/results/** -text
+tests/fixtures/** -text

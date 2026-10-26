@@ -3,6 +3,7 @@
 # browser.py and not needed for Demo / aggregator-JSON / HTTP fetching or LLM
 # extraction & matching. Keep this file ASCII-only for locale-safe pip parsing.
 streamlit>=1.41,<2
+pypdf>=6,<7
 langgraph>=0.2.60
 langgraph-checkpoint-sqlite>=3.1,<4
 pydantic>=2.7

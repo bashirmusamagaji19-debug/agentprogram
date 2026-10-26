@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 from time import perf_counter
+from uuid import uuid4
 
 from dotenv import load_dotenv
 
@@ -26,8 +27,8 @@ from web_task_agent.agent_approval import (
     HitlRunStatus,
     HitlRuntimeError,
 )
-from web_task_agent.agent_checkpoint import open_sqlite_checkpointer
-from web_task_agent.agent_cli import build_hybrid_runtime, write_hybrid_artifacts
+from web_task_agent.agent_cli import write_hybrid_artifacts
+from web_task_agent.agent_components import AgentServices
 from web_task_agent.agent_hitl_evaluation import (
     run_hitl_evaluation,
     write_hitl_evaluation_artifacts,
@@ -39,6 +40,9 @@ from web_task_agent.agent_planner_benchmark import (
     write_planner_benchmark_artifacts,
 )
 from web_task_agent.agent_release_check import run_release_checks
+from web_task_agent.agent_run_context import require_run_identity
+from web_task_agent.agent_runtime import HitlRunResult
+from web_task_agent.agent_service import AgentRunOptions, AgentRunRequest, resume_agent_run, start_agent_run
 from web_task_agent.benchmark import (
     BenchmarkMatrixResult,
     BenchmarkProviderResult,
@@ -711,6 +715,55 @@ def build_aggregator_browser(
     )
 
 
+async def _build_hybrid_cli_browser(args, *, repository):
+    """Adapt existing CLI source choices to the shared browser builder."""
+    from web_task_agent.agent_components import build_browser_components
+    from web_task_agent.browser import CachedPageLoader
+
+    mode = "demo" if args.demo else "aggregator" if args.from_aggregator else "seed_urls"
+    request = AgentRunRequest(
+        keyword=args.keyword or "AI", location=args.location, target_count=args.target_count,
+        data_mode=mode, seed_urls=list(args.seed_url),
+        aggregator_path=args.from_aggregator, engine="hybrid",
+    )
+
+    class LimitedAggregatorSource:
+        def __init__(self, *source_args, **source_options):
+            self.source = AggregatorRepoSource(*source_args, **source_options)
+
+        @property
+        def deadline(self):
+            return self.source.deadline
+
+        @deadline.setter
+        def deadline(self, value):
+            self.source.deadline = value
+
+        @property
+        def diagnostics(self):
+            return getattr(self.source, "diagnostics", [])
+
+        async def discover(self, *, limit):
+            # CLI has an explicit candidate limit independent of its result
+            # target; preserve that flag under the shared builder's defaults.
+            return await self.source.discover(limit=min(100, args.aggregator_limit))
+
+    factories = {"fake": FakeBrowserClient, "aggregator": LimitedAggregatorSource}
+    loader = None
+    if mode == "aggregator":
+        factories["browser"] = BrowserUseClient
+        loader = CachedPageLoader(HttpPageLoader(timeout_seconds=30), repository)
+    elif mode == "seed_urls":
+        # A keyword-only CLI invocation historically uses browser search. Keep
+        # that transport, and exact-URL opening, rather than selecting an
+        # official-list source or replacing it with an HTTP search transport.
+        factories["browser"] = lambda **_options: build_browser(demo=False)
+    browser, discovered = await build_browser_components(
+        request, repository=repository, factories=factories, page_loader=loader,
+    )
+    return browser, list(dict.fromkeys([*args.seed_url, *discovered]))
+
+
 async def _run(args: argparse.Namespace) -> int:
     hitl_error = validate_hitl_args(args)
     if hitl_error:
@@ -1040,7 +1093,7 @@ async def _run(args: argparse.Namespace) -> int:
             "in search mode."
         )
     aggregator_jobs: list[DiscoveredJob] = []
-    if args.from_aggregator and not args.demo:
+    if args.from_aggregator and not args.demo and not args.hybrid_agent:
         try:
             aggregator_jobs = await discover_from_aggregator(
                 args.from_aggregator, limit=args.aggregator_limit
@@ -1052,7 +1105,11 @@ async def _run(args: argparse.Namespace) -> int:
             f"Aggregator: discovered {len(aggregator_jobs)} intern+AI jobs "
             f"from {args.from_aggregator}"
         )
-    if aggregator_jobs:
+    if args.hybrid_agent:
+        # Build the repository before the shared source adapters need it.
+        # Approval resumes use only the stored checkpoint and frozen batch.
+        browser = FakeBrowserClient([])
+    elif aggregator_jobs:
         browser = build_aggregator_browser(aggregator_jobs, db_path=args.db_path)
     else:
         browser = build_browser(demo=args.demo)
@@ -1075,10 +1132,22 @@ async def _run(args: argparse.Namespace) -> int:
         llm_matcher=llm_matcher,
         visual_extractor=visual_extractor,
     )
+    hybrid_seed_urls = list(args.seed_url)
+    # The hybrid browser is attached after workflow construction; approval
+    # resumes deliberately use a fake browser. Neither may weaken live saves.
+    workflow.require_verified_links = not args.demo
     if llm_matcher is not None:
         mode = f"llm-match-{args.llm_match_provider or 'demo'}"
         print(f"LLM match enabled: {mode}")
     try:
+        if args.hybrid_agent and not args.resume_approval:
+            try:
+                workflow.browser, hybrid_seed_urls = await _build_hybrid_cli_browser(
+                    args, repository=workflow.repository,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"Hybrid source construction failed: {type(exc).__name__}: {exc}")
+                return 2
         if args.hybrid_agent and args.hitl:
             planner = None
             if args.agent_planner_provider and not args.resume_approval:
@@ -1086,41 +1155,43 @@ async def _run(args: argparse.Namespace) -> int:
                     provider=args.agent_planner_provider,
                     model=args.agent_planner_model,
                 )
-            async with open_sqlite_checkpointer(args.checkpoint_db) as saver:
-                runtime = build_hybrid_runtime(
-                    workflow,
-                    planner=planner,
-                    checkpointer=saver,
+            service_run_id = require_run_identity(args.thread_id)
+            checkpoint_path = Path(args.checkpoint_db)
+            services = AgentServices(
+                workflow=workflow, planner=planner,
+                run_dir=checkpoint_path.parent / "runs" / service_run_id,
+                checkpoint_path=checkpoint_path, thread_id=args.thread_id,
+            )
+            if args.resume_approval:
+                service_result = await resume_agent_run(
+                    run_id=service_run_id, owner_id="cli", services=services,
+                    approval_decision=ApprovalDecision(
+                        approval_id=args.approval_id, outcome=ApprovalOutcome(args.resume_approval),
+                        note=args.approval_note,
+                    ),
                 )
-                if args.resume_approval:
-                    hitl_result = await runtime.resume_hitl(
-                        thread_id=args.thread_id,
-                        decision=ApprovalDecision(
-                            approval_id=args.approval_id,
-                            outcome=ApprovalOutcome(args.resume_approval),
-                            note=args.approval_note,
-                        ),
-                    )
-                else:
-                    resume_text = load_resume_text(args.resume_text, args.resume_file)
-                    hitl_seed_urls = list(args.seed_url) + [job.url for job in aggregator_jobs]
-                    user = UserProfile(
-                        keyword=args.keyword or "seed URLs",
-                        location=args.location,
-                        target_count=max(args.target_count, len(hitl_seed_urls)),
-                        skills=args.skill,
-                        resume_text=resume_text,
-                        seed_urls=hitl_seed_urls,
-                    )
-                    hitl_result = await workflow.start_with_hybrid_agent_hitl(
-                        user,
-                        runtime=runtime,
-                        thread_id=args.thread_id,
-                        max_steps=args.agent_max_steps,
-                    )
+            else:
+                resume_text = load_resume_text(args.resume_text, args.resume_file)
+                hitl_seed_urls = hybrid_seed_urls
+                user = UserProfile(
+                    keyword=args.keyword or "AI", location=args.location,
+                    target_count=args.target_count, skills=args.skill,
+                    resume_text=resume_text, seed_urls=hitl_seed_urls,
+                )
+                service_result = await start_agent_run(
+                    user, run_id=service_run_id, owner_id="cli", services=services,
+                    options=AgentRunOptions(engine="hybrid", hitl=True, max_steps=args.agent_max_steps,
+                        planner_strategy="always" if args.agent_planner_provider else "policy",
+                        planner_provider=args.agent_planner_provider, planner_model=args.agent_planner_model),
+                )
+            hitl_result = HitlRunResult(
+                status=HitlRunStatus("completed" if service_result.status == "succeeded" else service_result.status),
+                state=service_result.agent_state, approval=service_result.agent_state.pending_approval,
+            )
             agent_state = hitl_result.state
             artifacts = write_hybrid_artifacts(
                 agent_state,
+                run_id=service_run_id, report_path=service_result.view.report_path,
                 report_dir=args.report_dir,
                 dashboard_dir=args.dashboard_dir,
                 write_dashboard=args.dashboard,
@@ -1161,11 +1232,13 @@ async def _run(args: argparse.Namespace) -> int:
             )
 
         resume_text = load_resume_text(args.resume_text, args.resume_file)
-        seed_urls = list(args.seed_url) + [job.url for job in aggregator_jobs]
+        seed_urls = (
+            hybrid_seed_urls if args.hybrid_agent else list(args.seed_url) + [job.url for job in aggregator_jobs]
+        )
         user = UserProfile(
-            keyword=args.keyword or "seed URLs",
+            keyword=args.keyword or ("AI" if args.hybrid_agent else "seed URLs"),
             location=args.location,
-            target_count=max(args.target_count, len(seed_urls)),
+            target_count=args.target_count if args.hybrid_agent else max(args.target_count, len(seed_urls)),
             skills=args.skill,
             resume_text=resume_text,
             seed_urls=seed_urls,
@@ -1177,14 +1250,19 @@ async def _run(args: argparse.Namespace) -> int:
                     provider=args.agent_planner_provider,
                     model=args.agent_planner_model,
                 )
-            runtime = build_hybrid_runtime(workflow, planner=planner)
-            agent_state = await workflow.run_with_hybrid_agent(
-                user,
-                runtime=runtime,
-                max_steps=args.agent_max_steps,
+            service_run_id = f"cli-{uuid4().hex[:12]}"
+            service_result = await start_agent_run(
+                user, run_id=service_run_id, owner_id="cli",
+                services=AgentServices(workflow=workflow, planner=planner,
+                                       run_dir=Path(args.report_dir) / service_run_id),
+                options=AgentRunOptions(engine="hybrid", max_steps=args.agent_max_steps,
+                    planner_strategy="always" if args.agent_planner_provider else "policy",
+                    planner_provider=args.agent_planner_provider, planner_model=args.agent_planner_model),
             )
+            agent_state = service_result.agent_state
             artifacts = write_hybrid_artifacts(
                 agent_state,
+                run_id=service_run_id, report_path=service_result.view.report_path,
                 report_dir=args.report_dir,
                 dashboard_dir=args.dashboard_dir,
                 write_dashboard=args.dashboard,

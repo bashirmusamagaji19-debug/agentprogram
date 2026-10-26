@@ -1,0 +1,380 @@
+[
+  {
+    "source": "tencent-campus",
+    "status": "failed",
+    "seconds": 7.078,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "meituan",
+    "status": "failed",
+    "seconds": 90.14,
+    "discovered": 20,
+    "delivered": 0,
+    "pending": 6,
+    "reason": "达到90秒总时限，未交付"
+  },
+  {
+    "source": "unitree",
+    "status": "failed",
+    "seconds": 0.625,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "xiaomi",
+    "status": "succeeded",
+    "seconds": 25.5,
+    "discovered": 20,
+    "delivered": 3,
+    "pending": 0,
+    "reason": "已达到目标并入库"
+  },
+  {
+    "source": "netease",
+    "status": "policy_blocked_not_run",
+    "seconds": 0,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "沿用既有浏览器访问限制，未执行"
+  },
+  {
+    "source": "xiaohongshu",
+    "status": "succeeded",
+    "seconds": 20.937,
+    "discovered": 13,
+    "delivered": 3,
+    "pending": 0,
+    "reason": "已达到目标并入库"
+  },
+  {
+    "source": "mihoyo",
+    "status": "partial",
+    "seconds": 43.781,
+    "discovered": 6,
+    "delivered": 1,
+    "pending": 0,
+    "reason": "已核验并入库；不足目标时保留 partial"
+  },
+  {
+    "source": "baidu",
+    "status": "failed",
+    "seconds": 0.5,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "upstream denied access (status=no-auth, message=illegal-visit)"
+  },
+  {
+    "source": "bing-serp",
+    "status": "failed",
+    "seconds": 1.922,
+    "discovered": 1,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "empty_shell"
+  },
+  {
+    "source": "xpeng",
+    "status": "succeeded",
+    "seconds": 42.546,
+    "discovered": 8,
+    "delivered": 3,
+    "pending": 1,
+    "reason": "已达到目标并入库"
+  },
+  {
+    "source": "agibot",
+    "status": "succeeded",
+    "seconds": 28.172,
+    "discovered": 12,
+    "delivered": 3,
+    "pending": 0,
+    "reason": "已达到目标并入库"
+  },
+  {
+    "source": "galaxea",
+    "status": "failed",
+    "seconds": 3.657,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "robotera",
+    "status": "failed",
+    "seconds": 17.437,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "fourier",
+    "status": "partial",
+    "seconds": 13.281,
+    "discovered": 1,
+    "delivered": 1,
+    "pending": 0,
+    "reason": "已核验并入库；不足目标时保留 partial"
+  },
+  {
+    "source": "jd",
+    "status": "failed",
+    "seconds": 5.265,
+    "discovered": 4,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_empty_shell: page has insufficient content"
+  },
+  {
+    "source": "pinduoduo",
+    "status": "failed",
+    "seconds": 1.359,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "ctrip",
+    "status": "failed",
+    "seconds": 24.906,
+    "discovered": 2,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_empty_shell: PageEmptyError"
+  },
+  {
+    "source": "huawei",
+    "status": "failed",
+    "seconds": 3.672,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "nio",
+    "status": "failed",
+    "seconds": 26.64,
+    "discovered": 20,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_removed: HTTP 404"
+  },
+  {
+    "source": "liauto",
+    "status": "succeeded",
+    "seconds": 67.734,
+    "discovered": 10,
+    "delivered": 3,
+    "pending": 0,
+    "reason": "已达到目标并入库"
+  },
+  {
+    "source": "byd",
+    "status": "failed",
+    "seconds": 90.438,
+    "discovered": 16,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "来源请求已达到本次总时限，请稍后重试。"
+  },
+  {
+    "source": "geely",
+    "status": "failed",
+    "seconds": 70.297,
+    "discovered": 5,
+    "delivered": 0,
+    "pending": 1,
+    "reason": "no visible enabled apply control proves the posting is still open"
+  },
+  {
+    "source": "ubtech",
+    "status": "failed",
+    "seconds": 2.609,
+    "discovered": 1,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_empty_shell: page has insufficient content"
+  },
+  {
+    "source": "zhongqi",
+    "status": "failed",
+    "seconds": 11.219,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "xinghai",
+    "status": "failed",
+    "seconds": 10.688,
+    "discovered": 1,
+    "delivered": 0,
+    "pending": 1,
+    "reason": "the page is a login or anti-bot challenge rather than a job detail"
+  },
+  {
+    "source": "tarsrobot",
+    "status": "failed",
+    "seconds": 14.109,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "x2robot",
+    "status": "failed",
+    "seconds": 3.688,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "limx",
+    "status": "failed",
+    "seconds": 2.422,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "ai2robotics",
+    "status": "failed",
+    "seconds": 10.593,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "astribot",
+    "status": "failed",
+    "seconds": 4.329,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "dexmal",
+    "status": "failed",
+    "seconds": 13.344,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "booster",
+    "status": "failed",
+    "seconds": 2.875,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "deeprobotics",
+    "status": "failed",
+    "seconds": 0.563,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "moonshot",
+    "status": "failed",
+    "seconds": 19.047,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  },
+  {
+    "source": "zhipu",
+    "status": "failed",
+    "seconds": 7.375,
+    "discovered": 8,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_removed: HTTP 404"
+  },
+  {
+    "source": "minimax",
+    "status": "partial",
+    "seconds": 13.547,
+    "discovered": 3,
+    "delivered": 1,
+    "pending": 0,
+    "reason": "已核验并入库；不足目标时保留 partial"
+  },
+  {
+    "source": "stepfun",
+    "status": "failed",
+    "seconds": 69.015,
+    "discovered": 1,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "empty_shell"
+  },
+  {
+    "source": "deepseek",
+    "status": "failed",
+    "seconds": 19.89,
+    "discovered": 9,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_unknown: HTTP 302"
+  },
+  {
+    "source": "baichuan",
+    "status": "failed",
+    "seconds": 4.687,
+    "discovered": 1,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_removed: HTTP 404"
+  },
+  {
+    "source": "modelbest",
+    "status": "failed",
+    "seconds": 5.859,
+    "discovered": 1,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "page_removed: HTTP 404"
+  },
+  {
+    "source": "shengshu",
+    "status": "partial",
+    "seconds": 35.593,
+    "discovered": 2,
+    "delivered": 2,
+    "pending": 0,
+    "reason": "已核验并入库；不足目标时保留 partial"
+  },
+  {
+    "source": "enflame",
+    "status": "failed",
+    "seconds": 9.906,
+    "discovered": 0,
+    "delivered": 0,
+    "pending": 0,
+    "reason": "本轮未发现满足查询条件的候选；不代表全站没有岗位"
+  }
+]

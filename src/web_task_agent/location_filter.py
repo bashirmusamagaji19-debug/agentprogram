@@ -8,6 +8,7 @@ _WILDCARDS = {"全国", "不限", "任意", "any", "anywhere", "all"}
 _UNKNOWN = {"", "unknown", "unknown location", "未知", "未知地点", "未标注", "未注明"}
 _REMOTE = {"remote", "远程"}
 _SUFFIXES = ("特别行政区", "自治区", "自治州", "省", "市")
+_CITY_ALIASES = {"beijing": "北京", "shanghai": "上海", "shenzhen": "深圳", "guangzhou": "广州"}
 
 
 def _normalize(value: str) -> str:
@@ -20,8 +21,9 @@ def _canonical_token(value: str) -> str:
         return "remote"
     for suffix in _SUFFIXES:
         if token.endswith(suffix) and len(token) > len(suffix):
-            return token[: -len(suffix)]
-    return token
+            token = token[: -len(suffix)]
+            break
+    return _CITY_ALIASES.get(token, token)
 
 
 def _tokens(value: str) -> list[str]:

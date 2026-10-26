@@ -7,12 +7,13 @@ from langgraph.graph import END, START, StateGraph
 
 from web_task_agent.agent_models import AgentBudget, DecisionAgentState
 from web_task_agent.agent_runtime import HybridAgentRuntime
-from web_task_agent.browser import BrowserClient
+from web_task_agent.browser import BrowserClient, BrowserUseClient
 from web_task_agent.extractor import PageExtractor
 from web_task_agent.location_filter import is_unknown_location, location_matches
 from web_task_agent.matcher import JobMatcher
 from web_task_agent.models import BrowserPage, RunMetrics, UserProfile, WorkflowState
 from web_task_agent.reporter import MarkdownReporter
+from web_task_agent.search_conditions import job_condition_reasons
 from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.visual_extractor import (
@@ -32,6 +33,9 @@ class WebTaskWorkflow:
         repository: JobRepository,
         reporter: MarkdownReporter,
         visual_extractor: AsyncVisualJobExtractor | None = None,
+        enforce_search_conditions: bool = False,
+        require_verified_links: bool | None = None,
+        link_verifier=None,
     ) -> None:
         self.browser = browser
         self.extractor = extractor
@@ -40,6 +44,11 @@ class WebTaskWorkflow:
         self.verifier = verifier
         self.repository = repository
         self.reporter = reporter
+        self.enforce_search_conditions = enforce_search_conditions
+        self.require_verified_links = (
+            bool(getattr(browser, "require_verified_links", isinstance(browser, BrowserUseClient)))
+            if require_verified_links is None else require_verified_links)
+        self.link_verifier = link_verifier
 
     async def run(
         self,
@@ -53,6 +62,7 @@ class WebTaskWorkflow:
         state = await self._browser_node(state)
         state = await self._extractor_node(state)
         state = self._verifier_node(state)
+        state = await self._link_verifier_node(state)
         state = self._matcher_node(state)
         state = self._reporter_node(state)
         return state
@@ -69,6 +79,7 @@ class WebTaskWorkflow:
             budget=AgentBudget(max_steps=max_steps),
             candidate_urls=list(user.seed_urls),
             visual_available=self.visual_extractor is not None,
+            require_verified_links=self.require_verified_links,
         )
         return await runtime.run(state)
 
@@ -85,6 +96,7 @@ class WebTaskWorkflow:
             budget=AgentBudget(max_steps=max_steps),
             candidate_urls=list(user.seed_urls),
             visual_available=self.visual_extractor is not None,
+            require_verified_links=self.require_verified_links,
         )
         return await runtime.start_hitl(state, thread_id=thread_id)
 
@@ -107,20 +119,23 @@ class WebTaskWorkflow:
         graph.add_node("browser", self._browser_node)
         graph.add_node("extractor", self._extractor_node)
         graph.add_node("verifier", self._verifier_node)
+        graph.add_node("link_verifier", self._link_verifier_node)
         graph.add_node("matcher", self._matcher_node)
         graph.add_node("reporter", self._reporter_node)
         graph.add_edge(START, "planner")
         graph.add_edge("planner", "browser")
         graph.add_edge("browser", "extractor")
         graph.add_edge("extractor", "verifier")
-        graph.add_edge("verifier", "matcher")
+        graph.add_edge("verifier", "link_verifier")
+        graph.add_edge("link_verifier", "matcher")
         graph.add_edge("matcher", "reporter")
         graph.add_edge("reporter", END)
         return graph.compile()
 
     async def _plan_node(self, state: WorkflowState) -> WorkflowState:
         if state.user.seed_urls:
-            state.candidate_urls = state.user.seed_urls[: state.user.target_count]
+            limit = 100 if self.enforce_search_conditions else state.user.target_count
+            state.candidate_urls = state.user.seed_urls[:limit]
             state.search_queries = []
             self._record_trace(
                 state,
@@ -237,18 +252,27 @@ class WebTaskWorkflow:
 
     def _verifier_node(self, state: WorkflowState) -> WorkflowState:
         extracted_jobs = state.metadata.get("extracted_jobs", [])
-        unique_jobs, duplicate_jobs = self.verifier.dedupe(extracted_jobs)
+        if self.enforce_search_conditions:
+            # Two cities can share title/company. Filter first so an unwanted
+            # city cannot make a later eligible posting disappear as a duplicate.
+            unique_jobs, duplicate_jobs = extracted_jobs, []
+        else:
+            unique_jobs, duplicate_jobs = self.verifier.dedupe(extracted_jobs)
         verified_jobs: list = []
         filtered_jobs: list[dict[str, object]] = []
         for job in unique_jobs:
             result = self.verifier.verify(job)
-            if not result.is_valid:
+            reasons = list(result.reasons)
+            if self.enforce_search_conditions:
+                reasons.extend(job_condition_reasons(state.user.keyword, state.user.location, job))
+            if not result.is_valid or reasons:
                 filtered_jobs.append(
                     {
                         "title": job.title,
                         "company": job.company,
                         "url": job.url,
-                        "reasons": result.reasons,
+                        "reasons": reasons,
+                        "kind": "search_filter" if result.is_valid else "verification",
                     }
                 )
                 continue
@@ -269,9 +293,13 @@ class WebTaskWorkflow:
                     "company": job.company,
                     "url": job.url,
                     "reasons": [reason],
+                    "kind": "search_filter",
                 }
             )
-        state.jobs = verified_jobs
+        if self.enforce_search_conditions:
+            verified_jobs, duplicate_jobs = self.verifier.dedupe(verified_jobs)
+        state.jobs = (verified_jobs[:state.user.target_count]
+                      if self.enforce_search_conditions and not self.require_verified_links else verified_jobs)
         state.metadata["jobs_found"] = len(extracted_jobs)
         state.metadata["duplicate_jobs"] = len(duplicate_jobs)
         state.metadata["filtered_jobs"] = filtered_jobs
@@ -283,6 +311,35 @@ class WebTaskWorkflow:
                 f"{len(duplicate_jobs)} duplicates; filtered {len(filtered_jobs)} jobs"
             ),
         )
+        return state
+
+    async def _link_verifier_node(self, state: WorkflowState) -> WorkflowState:
+        if not self.require_verified_links:
+            return state
+        from web_task_agent.link_verification import JobLinkVerifier, is_deliverable
+
+        checker = self.link_verifier or JobLinkVerifier(
+            deadline=getattr(self.browser, "request_deadline", None),
+            evidence_dir=self.reporter.output_dir.parent / "link-checks")
+        run_id = state.metrics.run_id if state.metrics else ""
+        deliverable = []
+        for job in state.jobs:
+            proof = await checker.verify(job, run_id=run_id)
+            checked_job = job.model_copy(update={"link_verification": proof})
+            if is_deliverable(checked_job, run_id):
+                deliverable.append(checked_job)
+                if len(deliverable) >= state.user.target_count:
+                    break
+            else:
+                if proof.get("status") != "rejected":
+                    state.pending_jobs.append(checked_job)
+                state.metadata.setdefault("filtered_jobs", []).append({
+                    "url": job.url, "title": job.title, "company": job.company,
+                    "kind": "link_verification", "reasons": [proof.get("reason", "link_unconfirmed")]})
+        state.jobs = deliverable
+        state.metadata["pending_jobs"] = [job.model_dump(mode="json") for job in state.pending_jobs]
+        self._record_trace(state, "link_verifier",
+                           f"verified {len(deliverable)} links; pending {len(state.pending_jobs)}")
         return state
 
     def _matcher_node(self, state: WorkflowState) -> WorkflowState:
@@ -308,6 +365,25 @@ class WebTaskWorkflow:
     def _reporter_node(self, state: WorkflowState) -> WorkflowState:
         if state.metrics is None:
             return state
+        if self.require_verified_links:
+            from web_task_agent.link_verification import is_deliverable
+
+            safe_jobs = []
+            for job in state.jobs:
+                if is_deliverable(job, state.metrics.run_id):
+                    safe_jobs.append(job)
+                else:
+                    state.pending_jobs.append(job.model_copy(update={"link_verification": {
+                        **job.link_verification, "status": "pending", "reason": "missing_or_expired_link_receipt"}}))
+            if len(safe_jobs) != len(state.jobs):
+                state.matches = self.matcher.match_many(user=state.user, jobs=safe_jobs)
+            state.jobs = safe_jobs
+            state.metrics.valid_jobs = len(safe_jobs)
+            state.metadata["pending_jobs"] = [job.model_dump(mode="json") for job in state.pending_jobs]
+        state.metadata["terminal_status"] = (
+            "completed" if len(state.jobs) >= state.user.target_count else "partial" if state.jobs else "failed")
+        state.metadata["terminal_reason"] = (
+            "target_reached" if len(state.jobs) >= state.user.target_count else "candidates_exhausted")
         self.repository.save_jobs(state.jobs)
         self.repository.save_run_metrics(state.metrics)
         self._record_trace(
@@ -322,11 +398,18 @@ class WebTaskWorkflow:
             metrics=state.metrics,
             execution_trace=state.metadata.get("execution_trace", []),
             orchestration_mode=state.metadata.get("orchestration_mode", "sequential"),
+            run_details=state.metadata if self.require_verified_links else None,
         )
         state.report_path = str(report_path)
         return state
 
     def _plan_queries(self, user: UserProfile) -> list[str]:
+        if self.enforce_search_conditions:
+            return [
+                f"{user.keyword} {user.location}",
+                f"{user.keyword} {user.location} LangGraph browser agent internship",
+                f"{user.keyword} {user.location} LLM agent internship",
+            ]
         return [
             f"{user.keyword} {user.location}",
             f"{user.keyword} LangGraph browser agent internship",

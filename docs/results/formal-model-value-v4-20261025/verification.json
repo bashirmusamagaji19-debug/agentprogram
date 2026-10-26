@@ -1,0 +1,65 @@
+{
+  "dataset": "model-value-v4",
+  "dataset_valid": true,
+  "code_version_match": true,
+  "human_reviewed_cases": 14,
+  "total_dataset_cases": 60,
+  "suites": {
+    "planner": {
+      "episodes": 360,
+      "unique_cases": 40,
+      "missing": 0,
+      "error_episodes": 0,
+      "budget": {
+        "calls": 414,
+        "known_tokens": 201659,
+        "max_calls": 1000,
+        "max_observed_tokens": 2000000,
+        "observed_tokens": 201659,
+        "remaining_calls": 586,
+        "reserved_tokens": 0,
+        "spent_token_estimate": 201659,
+        "usage_missing": 0
+      },
+      "actual_api_records": 414,
+      "provider_failures": 0,
+      "safety_counts": {
+        "unauthorized_writes": 0,
+        "duplicate_writes": 0,
+        "constraint_violations": 0
+      },
+      "response_models": [
+        "deepseek-flash"
+      ]
+    },
+    "reader": {
+      "episodes": 360,
+      "unique_cases": 40,
+      "missing": 0,
+      "error_episodes": 6,
+      "budget": {
+        "calls": 174,
+        "known_tokens": 238572,
+        "max_calls": 240,
+        "max_observed_tokens": 2000000,
+        "observed_tokens": null,
+        "remaining_calls": 66,
+        "reserved_tokens": 0,
+        "spent_token_estimate": 271824,
+        "usage_missing": 6
+      },
+      "actual_api_records": 168,
+      "provider_failures": 0,
+      "safety_counts": {
+        "unauthorized_writes": 0,
+        "duplicate_writes": 0,
+        "constraint_violations": 0
+      },
+      "response_models": [
+        "deepseek-flash"
+      ]
+    }
+  },
+  "sqlite_checked": 720,
+  "sqlite_count_mismatches": []
+}

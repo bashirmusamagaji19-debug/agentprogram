@@ -1,0 +1,7 @@
+Release check
+[PASS] focused-ruff
+[PASS] pytest-coverage
+[PASS] wheel-build
+[PASS] doctor
+[PASS] strict-hitl
+[PASS] git-diff-check

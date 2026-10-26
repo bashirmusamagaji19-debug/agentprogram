@@ -76,7 +76,7 @@ class ToolObservation(BaseModel):
 class AgentBudget(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    max_steps: int = Field(default=12, ge=1, le=100)
+    max_steps: int = Field(default=12, ge=1, le=400)
     consumed_steps: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
@@ -108,6 +108,11 @@ class AgentMetrics(BaseModel):
     fallback_decisions: int = Field(default=0, ge=0)
     invalid_actions: int = Field(default=0, ge=0)
     total_latency_ms: float = Field(default=0.0, ge=0.0)
+    runtime_latency_ms: float = Field(default=0.0, ge=0.0)
+    approval_wait_ms: float = Field(default=0.0, ge=0.0)
+    planner_opportunities: int = Field(default=0, ge=0)
+    policy_skips: int = Field(default=0, ge=0)
+    budget_skips: int = Field(default=0, ge=0)
 
     @property
     def tool_success_rate(self) -> float:
@@ -134,10 +139,28 @@ class DecisionAgentState(BaseModel):
     budget: AgentBudget = Field(default_factory=AgentBudget)
     candidate_urls: list[str] = Field(default_factory=list)
     visited_urls: set[str] = Field(default_factory=set)
+    processed_urls: set[str] = Field(default_factory=set)
+    rejected_urls: set[str] = Field(default_factory=set)
+    verified_job_keys: set[str] = Field(default_factory=set)
+    current_job_key: str | None = None
+    page_attempts: dict[str, dict[str, int]] = Field(default_factory=dict)
+    candidate_summaries: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    allowed_actions: list[str] = Field(default_factory=list)
+    allowed_targets: dict[str, list[str]] = Field(default_factory=dict)
+    planner_routes: list[dict[str, Any]] = Field(default_factory=list)
+    model_usage: list[dict[str, Any]] = Field(default_factory=list)
+    decision_telemetry: list[dict[str, Any]] = Field(default_factory=list)
+    source_metadata: dict[str, Any] = Field(default_factory=dict)
+    unmetered_model_roles: list[str] = Field(default_factory=list)
+    enforce_search_conditions: bool = False
+    require_verified_links: bool = False
+    search_attempted: bool = False
+    search_attempts: int = Field(default=0, ge=0)
     current_url: str | None = None
     current_page: BrowserPage | None = None
     extracted_jobs: list[JobPosting] = Field(default_factory=list)
     verified_jobs: list[JobPosting] = Field(default_factory=list)
+    pending_jobs: list[JobPosting] = Field(default_factory=list)
     matches: list[MatchResult] = Field(default_factory=list)
     saved: bool = False
     visual_available: bool = False

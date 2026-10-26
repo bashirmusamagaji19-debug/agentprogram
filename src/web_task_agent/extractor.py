@@ -26,6 +26,9 @@ def _tier_of(page: BrowserPage) -> str:
 
 def _url_verification_of(page: BrowserPage) -> str:
     """页面可打开性:由 loader 的正文来源策略决定(用户点击前甄别 SPA 空页)。"""
+    if (page.metadata.get("cache_hit") or page.metadata.get("evidence_level") == "historical"
+            or page.metadata.get("snapshot_content_origin") == "cache"):
+        return "historical"
     origin = str(page.metadata.get("content_origin") or "").strip()
     if origin == "detail-probed":
         return "detail-probed"
@@ -80,6 +83,8 @@ class PageExtractor:
         self.llm_min_rule_confidence = llm_min_rule_confidence
 
     def extract(self, page: BrowserPage) -> JobPosting:
+        if page.metadata.get("candidate_binding") == "shared_page_requires_review":
+            raise ValueError("shared_page_requires_review: multiple native candidates share this page")
         fields = self._parse_labeled_lines(page.content)
         inferred_fields = self._infer_public_job_fields(page)
 
@@ -92,7 +97,12 @@ class PageExtractor:
             or inferred_fields.get("company")
             or "Unknown Company"
         )
-        location = fields.get("location") or inferred_fields.get("location") or "Unknown Location"
+        location = (
+            fields.get("location")
+            or str(page.metadata.get("discovered_location") or "").strip()
+            or inferred_fields.get("location")
+            or "Unknown Location"
+        )
         requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
         responsibilities = fields.get("responsibilities") or inferred_fields.get(
             "responsibilities", ""
@@ -109,6 +119,8 @@ class PageExtractor:
             skills=self._extract_skills(requirements),
             tier=_tier_of(page),
             url_verification=_url_verification_of(page),
+            internship_evidence_source=str(page.metadata.get("internship_evidence_source") or ""),
+            internship_evidence_value=str(page.metadata.get("internship_evidence_value") or ""),
             category=classify_job_category(title),
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(
@@ -131,7 +143,7 @@ class PageExtractor:
                 fields={
                     "title": llm_fields.get("title", job.title),
                     "company": llm_fields.get("company", job.company),
-                    "location": llm_fields.get("location", job.location),
+                    "location": llm_fields.get("location") or job.location,
                     "requirements": llm_fields.get("requirements", job.requirements),
                     "responsibilities": llm_fields.get(
                         "responsibilities",
@@ -167,6 +179,8 @@ class PageExtractor:
             skills=skills,
             tier=_tier_of(page),
             url_verification=_url_verification_of(page),
+            internship_evidence_source=str(page.metadata.get("internship_evidence_source") or ""),
+            internship_evidence_value=str(page.metadata.get("internship_evidence_value") or ""),
             category=classify_job_category(title),
             posted_at=fields.get("posted_at", ""),
             confidence=self._confidence(

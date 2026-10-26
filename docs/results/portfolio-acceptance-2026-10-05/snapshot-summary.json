@@ -1,0 +1,513 @@
+{
+  "dataset_version": "real-job-benchmark-v1",
+  "run_count": 6,
+  "providers": [
+    "snapshot-baseline",
+    "snapshot-llm-demo"
+  ],
+  "metric_summaries": {
+    "title_accuracy": {
+      "mean": 1.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "company_accuracy": {
+      "mean": 0.925,
+      "minimum": 0.925,
+      "maximum": 0.925
+    },
+    "location_accuracy": {
+      "mean": 1.0,
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "role_family_accuracy": {
+      "mean": 0.6486,
+      "minimum": 0.6486,
+      "maximum": 0.6486
+    },
+    "classification_accuracy": {
+      "mean": 0.8108,
+      "minimum": 0.8108,
+      "maximum": 0.8108
+    },
+    "precision_at_k": {
+      "mean": 0.6667,
+      "minimum": 0.6667,
+      "maximum": 0.6667
+    },
+    "recall_at_k": {
+      "mean": 0.6667,
+      "minimum": 0.6667,
+      "maximum": 0.6667
+    },
+    "ndcg_at_k": {
+      "mean": 0.7409,
+      "minimum": 0.7409,
+      "maximum": 0.7409
+    }
+  },
+  "provider_summaries": {
+    "snapshot-baseline": {
+      "provider": "snapshot-baseline",
+      "run_count": 3,
+      "metric_summaries": {
+        "title_accuracy": {
+          "mean": 1.0,
+          "minimum": 1.0,
+          "maximum": 1.0
+        },
+        "company_accuracy": {
+          "mean": 0.925,
+          "minimum": 0.925,
+          "maximum": 0.925
+        },
+        "location_accuracy": {
+          "mean": 1.0,
+          "minimum": 1.0,
+          "maximum": 1.0
+        },
+        "role_family_accuracy": {
+          "mean": 0.6486,
+          "minimum": 0.6486,
+          "maximum": 0.6486
+        },
+        "classification_accuracy": {
+          "mean": 0.8108,
+          "minimum": 0.8108,
+          "maximum": 0.8108
+        },
+        "precision_at_k": {
+          "mean": 0.6667,
+          "minimum": 0.6667,
+          "maximum": 0.6667
+        },
+        "recall_at_k": {
+          "mean": 0.6667,
+          "minimum": 0.6667,
+          "maximum": 0.6667
+        },
+        "ndcg_at_k": {
+          "mean": 0.7409,
+          "minimum": 0.7409,
+          "maximum": 0.7409
+        }
+      }
+    },
+    "snapshot-llm-demo": {
+      "provider": "snapshot-llm-demo",
+      "run_count": 3,
+      "metric_summaries": {
+        "title_accuracy": {
+          "mean": 1.0,
+          "minimum": 1.0,
+          "maximum": 1.0
+        },
+        "company_accuracy": {
+          "mean": 0.925,
+          "minimum": 0.925,
+          "maximum": 0.925
+        },
+        "location_accuracy": {
+          "mean": 1.0,
+          "minimum": 1.0,
+          "maximum": 1.0
+        },
+        "role_family_accuracy": {
+          "mean": 0.6486,
+          "minimum": 0.6486,
+          "maximum": 0.6486
+        },
+        "classification_accuracy": {
+          "mean": 0.8108,
+          "minimum": 0.8108,
+          "maximum": 0.8108
+        },
+        "precision_at_k": {
+          "mean": 0.6667,
+          "minimum": 0.6667,
+          "maximum": 0.6667
+        },
+        "recall_at_k": {
+          "mean": 0.6667,
+          "minimum": 0.6667,
+          "maximum": 0.6667
+        },
+        "ndcg_at_k": {
+          "mean": 0.7409,
+          "minimum": 0.7409,
+          "maximum": 0.7409
+        }
+      }
+    }
+  },
+  "scope": "40 historical cases; 37 archived JDs, 3 known source failures; snapshots replayed, no live webpage fetch",
+  "runs": [
+    {
+      "dataset_version": "real-job-benchmark-v1",
+      "run_id": "run-20261005T060109Z-01-snapshot-baseline",
+      "provider": "snapshot-baseline",
+      "started_at": "2026-10-05T06:01:09.709493Z",
+      "finished_at": "2026-10-05T06:01:10.480602Z",
+      "elapsed_seconds": 0.7809,
+      "cases_total": 40,
+      "source_attempts": 40,
+      "source_successes": 37,
+      "pages_visited": 37,
+      "valid_jobs": 37,
+      "failure_counts": {
+        "source_unavailable": 3
+      },
+      "field_metrics": {
+        "title": {
+          "correct": 37,
+          "labeled": 37,
+          "accuracy": 1.0
+        },
+        "company": {
+          "correct": 37,
+          "labeled": 40,
+          "accuracy": 0.925
+        },
+        "location": {
+          "correct": 2,
+          "labeled": 2,
+          "accuracy": 1.0
+        },
+        "role_family": {
+          "correct": 24,
+          "labeled": 37,
+          "accuracy": 0.6486
+        }
+      },
+      "skill_metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "labeled": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      "classification": {
+        "correct": 30,
+        "labeled": 37,
+        "accuracy": 0.8108
+      },
+      "recommendation": {
+        "k": 6,
+        "predicted_relevant": 11,
+        "ground_truth_relevant": 6,
+        "hits": 4,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 0.6667,
+        "ndcg_at_k": 0.7409
+      }
+    },
+    {
+      "dataset_version": "real-job-benchmark-v1",
+      "run_id": "run-20261005T060110Z-01-snapshot-llm-demo",
+      "provider": "snapshot-llm-demo",
+      "started_at": "2026-10-05T06:01:10.490622Z",
+      "finished_at": "2026-10-05T06:01:11.190041Z",
+      "elapsed_seconds": 0.704,
+      "cases_total": 40,
+      "source_attempts": 40,
+      "source_successes": 37,
+      "pages_visited": 37,
+      "valid_jobs": 37,
+      "failure_counts": {
+        "source_unavailable": 3
+      },
+      "field_metrics": {
+        "title": {
+          "correct": 37,
+          "labeled": 37,
+          "accuracy": 1.0
+        },
+        "company": {
+          "correct": 37,
+          "labeled": 40,
+          "accuracy": 0.925
+        },
+        "location": {
+          "correct": 2,
+          "labeled": 2,
+          "accuracy": 1.0
+        },
+        "role_family": {
+          "correct": 24,
+          "labeled": 37,
+          "accuracy": 0.6486
+        }
+      },
+      "skill_metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "labeled": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      "classification": {
+        "correct": 30,
+        "labeled": 37,
+        "accuracy": 0.8108
+      },
+      "recommendation": {
+        "k": 6,
+        "predicted_relevant": 11,
+        "ground_truth_relevant": 6,
+        "hits": 4,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 0.6667,
+        "ndcg_at_k": 0.7409
+      }
+    },
+    {
+      "dataset_version": "real-job-benchmark-v1",
+      "run_id": "run-20261005T060111Z-02-snapshot-baseline",
+      "provider": "snapshot-baseline",
+      "started_at": "2026-10-05T06:01:11.190041Z",
+      "finished_at": "2026-10-05T06:01:11.962401Z",
+      "elapsed_seconds": 0.7635,
+      "cases_total": 40,
+      "source_attempts": 40,
+      "source_successes": 37,
+      "pages_visited": 37,
+      "valid_jobs": 37,
+      "failure_counts": {
+        "source_unavailable": 3
+      },
+      "field_metrics": {
+        "title": {
+          "correct": 37,
+          "labeled": 37,
+          "accuracy": 1.0
+        },
+        "company": {
+          "correct": 37,
+          "labeled": 40,
+          "accuracy": 0.925
+        },
+        "location": {
+          "correct": 2,
+          "labeled": 2,
+          "accuracy": 1.0
+        },
+        "role_family": {
+          "correct": 24,
+          "labeled": 37,
+          "accuracy": 0.6486
+        }
+      },
+      "skill_metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "labeled": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      "classification": {
+        "correct": 30,
+        "labeled": 37,
+        "accuracy": 0.8108
+      },
+      "recommendation": {
+        "k": 6,
+        "predicted_relevant": 11,
+        "ground_truth_relevant": 6,
+        "hits": 4,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 0.6667,
+        "ndcg_at_k": 0.7409
+      }
+    },
+    {
+      "dataset_version": "real-job-benchmark-v1",
+      "run_id": "run-20261005T060111Z-02-snapshot-llm-demo",
+      "provider": "snapshot-llm-demo",
+      "started_at": "2026-10-05T06:01:11.966113Z",
+      "finished_at": "2026-10-05T06:01:12.678985Z",
+      "elapsed_seconds": 0.7232,
+      "cases_total": 40,
+      "source_attempts": 40,
+      "source_successes": 37,
+      "pages_visited": 37,
+      "valid_jobs": 37,
+      "failure_counts": {
+        "source_unavailable": 3
+      },
+      "field_metrics": {
+        "title": {
+          "correct": 37,
+          "labeled": 37,
+          "accuracy": 1.0
+        },
+        "company": {
+          "correct": 37,
+          "labeled": 40,
+          "accuracy": 0.925
+        },
+        "location": {
+          "correct": 2,
+          "labeled": 2,
+          "accuracy": 1.0
+        },
+        "role_family": {
+          "correct": 24,
+          "labeled": 37,
+          "accuracy": 0.6486
+        }
+      },
+      "skill_metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "labeled": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      "classification": {
+        "correct": 30,
+        "labeled": 37,
+        "accuracy": 0.8108
+      },
+      "recommendation": {
+        "k": 6,
+        "predicted_relevant": 11,
+        "ground_truth_relevant": 6,
+        "hits": 4,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 0.6667,
+        "ndcg_at_k": 0.7409
+      }
+    },
+    {
+      "dataset_version": "real-job-benchmark-v1",
+      "run_id": "run-20261005T060112Z-03-snapshot-baseline",
+      "provider": "snapshot-baseline",
+      "started_at": "2026-10-05T06:01:12.689019Z",
+      "finished_at": "2026-10-05T06:01:13.409264Z",
+      "elapsed_seconds": 0.7182,
+      "cases_total": 40,
+      "source_attempts": 40,
+      "source_successes": 37,
+      "pages_visited": 37,
+      "valid_jobs": 37,
+      "failure_counts": {
+        "source_unavailable": 3
+      },
+      "field_metrics": {
+        "title": {
+          "correct": 37,
+          "labeled": 37,
+          "accuracy": 1.0
+        },
+        "company": {
+          "correct": 37,
+          "labeled": 40,
+          "accuracy": 0.925
+        },
+        "location": {
+          "correct": 2,
+          "labeled": 2,
+          "accuracy": 1.0
+        },
+        "role_family": {
+          "correct": 24,
+          "labeled": 37,
+          "accuracy": 0.6486
+        }
+      },
+      "skill_metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "labeled": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      "classification": {
+        "correct": 30,
+        "labeled": 37,
+        "accuracy": 0.8108
+      },
+      "recommendation": {
+        "k": 6,
+        "predicted_relevant": 11,
+        "ground_truth_relevant": 6,
+        "hits": 4,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 0.6667,
+        "ndcg_at_k": 0.7409
+      }
+    },
+    {
+      "dataset_version": "real-job-benchmark-v1",
+      "run_id": "run-20261005T060113Z-03-snapshot-llm-demo",
+      "provider": "snapshot-llm-demo",
+      "started_at": "2026-10-05T06:01:13.411264Z",
+      "finished_at": "2026-10-05T06:01:14.135548Z",
+      "elapsed_seconds": 0.7244,
+      "cases_total": 40,
+      "source_attempts": 40,
+      "source_successes": 37,
+      "pages_visited": 37,
+      "valid_jobs": 37,
+      "failure_counts": {
+        "source_unavailable": 3
+      },
+      "field_metrics": {
+        "title": {
+          "correct": 37,
+          "labeled": 37,
+          "accuracy": 1.0
+        },
+        "company": {
+          "correct": 37,
+          "labeled": 40,
+          "accuracy": 0.925
+        },
+        "location": {
+          "correct": 2,
+          "labeled": 2,
+          "accuracy": 1.0
+        },
+        "role_family": {
+          "correct": 24,
+          "labeled": 37,
+          "accuracy": 0.6486
+        }
+      },
+      "skill_metrics": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "labeled": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      "classification": {
+        "correct": 30,
+        "labeled": 37,
+        "accuracy": 0.8108
+      },
+      "recommendation": {
+        "k": 6,
+        "predicted_relevant": 11,
+        "ground_truth_relevant": 6,
+        "hits": 4,
+        "precision_at_k": 0.6667,
+        "recall_at_k": 0.6667,
+        "ndcg_at_k": 0.7409
+      }
+    }
+  ]
+}

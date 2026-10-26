@@ -1,0 +1,15 @@
+Title: 边缘推理实习生
+Company: 苔原芯片
+Location: 成都
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 边缘推理 相关项目或课程基础
+- 具备 C++ 相关项目或课程基础
+- 具备 ONNX 相关项目或课程基础
+- 具备 性能分析 相关项目或课程基础
+Responsibilities:
+- 分析端侧模型推理延迟
+- 编写设备兼容性测试
+Variant focus: 检索闭环与引用核验
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-21

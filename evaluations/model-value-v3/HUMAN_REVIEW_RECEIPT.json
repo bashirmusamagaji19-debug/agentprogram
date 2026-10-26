@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "dataset_id": "model-value-v3",
+  "manifest_sha256": "c8e7bb4641e3ab7d1db1494ba19a893cba8a583b0f290deabbfd38ea8b5e41ff",
+  "reviewed_case_ids": [
+    "c3-g01-v1",
+    "c3-g02-v1",
+    "c3-g03-v1",
+    "c3-g05-v1",
+    "c3-g06-v1",
+    "c3-g09-v1",
+    "c3-g13-v1",
+    "c3-g14-v1",
+    "c3-g15-v1",
+    "c3-g16-v1",
+    "c3-g17-v1",
+    "c3-g19-v1",
+    "c3-g20-v1",
+    "c3-g21-v1"
+  ],
+  "reviewer": "用户本人（通过本对话提交核查截图）",
+  "reviewed_at": "2026-10-25T14:18:30+08:00",
+  "review_source": "docs/results/audit-fix-2026-10-25/human-review-20261025.md",
+  "proposed_label_version_sha256": "d6a7baade568694906d56dc010be3376496268c5c72ffb718fcdcdc9afee146c",
+  "changed_labels": [
+    "c3-g03-v1",
+    "c3-g06-v1"
+  ],
+  "status": "complete",
+  "attestation": "本回执根据用户提交的人工核查截图整理：14条中12条同意，g03和g06提出修改意见。未代表异议已解决，也未表示其余46条完成人工核查。"
+}

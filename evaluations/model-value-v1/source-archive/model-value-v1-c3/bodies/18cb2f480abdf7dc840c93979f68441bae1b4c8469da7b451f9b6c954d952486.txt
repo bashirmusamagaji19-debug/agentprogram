@@ -1,0 +1,14 @@
+Title: 模型安全实习生
+Company: 镜湖安全
+Location: 深圳
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 模型安全 相关项目或课程基础
+- 具备 对抗测试 相关项目或课程基础
+- 具备 Python 相关项目或课程基础
+- 具备 风险评估 相关项目或课程基础
+Responsibilities:
+- 构建提示注入回归样本
+- 记录拒答与误拒边界
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.

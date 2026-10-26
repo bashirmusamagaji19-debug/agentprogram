@@ -1,0 +1,15 @@
+Title: 机器学习平台实习生
+Company: 叠嶂计算
+Location: 深圳
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 机器学习平台 相关项目或课程基础
+- 具备 Kubernetes 相关项目或课程基础
+- 具备 Go 相关项目或课程基础
+- 具备 可观测性 相关项目或课程基础
+Responsibilities:
+- 开发训练任务状态接口
+- 补充平台日志关联测试
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-18

@@ -1,0 +1,17 @@
+Title: 招聘专员
+Company: 澄光智能
+Location: 苏州
+Job type: 实习（职能岗位）
+Requirements:
+- 具备 招聘 相关项目或课程基础
+- 具备 沟通 相关项目或课程基础
+- 具备 Excel 相关项目或课程基础
+- 具备 校园招聘 相关项目或课程基础
+Responsibilities:
+- 维护招聘面试安排
+- 整理候选人沟通记录
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+
+Company context: 澄光智能研发 AI 产品，但本页岗位属于人力资源招聘职能。
+Template: c3-template-12

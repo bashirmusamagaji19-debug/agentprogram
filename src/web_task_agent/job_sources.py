@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Protocol
 from urllib import request as url_request
 
@@ -26,6 +28,14 @@ from web_task_agent.keywords import (
     INTERN_TITLE_KEYWORDS,
     classify_company_tier,
 )
+from web_task_agent.page_reliability import (
+    PageFailure,
+    PageFailureCategory,
+    PageRemovedError,
+    classify_page_content,
+    classify_page_exception,
+)
+from web_task_agent.search_conditions import candidate_matches
 
 # 发现侧标题过滤与 verifier 共用同一口径（keywords.py）
 AI_TITLE_KEYWORDS = AI_JOB_KEYWORDS
@@ -44,6 +54,12 @@ class DiscoveredJob:
     tier: str = ""
     # 正文来源:loader 各分支/detail-probed(liser 内探测)
     content_origin: str = ""
+    source_job_id: str | None = None
+    discovery_url: str | None = None
+    query_context: dict[str, str | int] = field(default_factory=dict)
+    discovered_at: datetime | None = None
+    internship_evidence_source: str = ""
+    internship_evidence_value: str = ""
 
 
 class JobSource(Protocol):
@@ -67,20 +83,35 @@ class AggregatorRepoSource:
         source_name: 记录用来源标识。
     """
 
-    def __init__(self, source_location: str, *, source_name: str = "job-radar") -> None:
+    def __init__(
+        self, source_location: str, *, source_name: str = "job-radar", keyword: str = "", location: str = "全国"
+    ) -> None:
         self.source_location = source_location
+        self.deadline: float | None = None
         self.source_name = source_name
+        self.keyword = keyword
+        self.location = location
 
     async def discover(self, limit: int) -> list[DiscoveredJob]:
         if limit <= 0:
             return []
         payload = self._load_payload()
-        return self._parse_jobs(payload)[:limit]
+        return [
+            job for job in self._parse_jobs(payload)
+            if candidate_matches(
+                self.keyword, self.location, title=job.title, jd_text=job.jd_text, location=job.location
+            )
+        ][:limit]
 
     def _load_payload(self) -> dict:
         location = self.source_location.strip()
         if location.startswith("http://") or location.startswith("https://"):
-            with url_request.urlopen(location, timeout=30) as response:  # noqa: S310
+            from time import monotonic
+
+            timeout = 30.0 if self.deadline is None else min(30.0, self.deadline - monotonic())
+            if timeout <= 0:
+                raise TimeoutError("aggregator discovery deadline exceeded")
+            with url_request.urlopen(location, timeout=timeout) as response:  # noqa: S310
                 return json.loads(response.read().decode("utf-8"))
         return json.loads(Path(location).read_text(encoding="utf-8"))
 
@@ -111,6 +142,14 @@ class AggregatorRepoSource:
                     posted_at=str(raw.get("publish_time") or "").strip(),
                     jd_text=str(raw.get("jd_text") or "").strip(),
                     source=self.source_name,
+                    source_job_id=str(raw["id"]) if raw.get("id") is not None else None,
+                    discovery_url=(
+                        self.source_location
+                        if self.source_location.startswith(("https://", "http://"))
+                        else None
+                    ),
+                    query_context={"keyword": self.keyword, "location": self.location},
+                    discovered_at=datetime.now(UTC),
                     tags=[str(tag) for tag in raw.get("tags", []) if tag],
                     tier=classify_company_tier(str(raw.get("company_name") or "")),
                 )
@@ -134,8 +173,11 @@ def build_discovered_page(job: DiscoveredJob) -> object:
         metadata={
             "discovered_title": job.title,
             "discovered_company": job.company,
+            "discovered_location": job.location,
             "tier": job.tier,
             "content_origin": job.content_origin,
+            "internship_evidence_source": job.internship_evidence_source,
+            "internship_evidence_value": job.internship_evidence_value,
         },
     )
 
@@ -165,24 +207,32 @@ class AggregatorPageLoader:
         self._http_loader = http_loader
         self._repository = repository
         self._max_age_hours = max_age_hours
-        self.resolution_log: list[dict[str, str]] = []
+        self.resolution_log: list[dict[str, object]] = []
+        self._attempt_clocks: dict[str, tuple[datetime, float]] = {}
+        self.source_diagnostics: list[dict[str, object]] = []
 
     async def __call__(self, url: str) -> object:
         from web_task_agent.browser import PageEmptyError
+        self._attempt_clocks[url] = (datetime.now(UTC), perf_counter())
 
         job = self._jobs_by_url.get(url)
         if job is None:
             # 非 aggregator 发现的 URL 直接走普通 loader（与旧行为一致）
             if self._http_loader is None:
                 raise PageEmptyError(f"no loader for non-aggregator URL: {url}")
-            return await self._http_loader(url)
+            page = await self._http_loader(url)
+            self._check_failure(url, "http", classify_page_content(page))
+            self._record(url, "http")
+            return page
 
         # 1. 缓存（命中也过内容门槛——旧壳页缓存不生效，#25）
         if self._repository is not None:
             cached = self._repository.get_cached_page(url, max_age_hours=self._max_age_hours)
             if cached is not None and len(cached.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+                self._check_failure(url, "cache", classify_page_content(cached))
                 self._record(url, "cache")
                 return cached  # origin 已在缓存 metadata 中(storage 列透传)
+            self._record(url, "cache:miss")
 
         # 2. 官方 API（支持域名的 SPA 页优先走结构化接口）
         if self._official_api is not None:
@@ -190,10 +240,15 @@ class AggregatorPageLoader:
                 content = await self._official_api.fetch(url)
             except Exception as exc:  # noqa: BLE001
                 if type(exc).__name__ != "UnsupportedOfficialApiError":
-                    self._record(url, f"official-api-failed:{type(exc).__name__}")
+                    self._check_failure(
+                        url, f"official-api-failed:{type(exc).__name__}", classify_page_exception(exc)
+                    )
                 else:
                     self._record(url, "official-api:unsupported")
             else:
+                failure = classify_page_content(self._to_page(url, content.content, content.title, "official-api"))
+                self._check_failure(url, "official-api:too-short" if failure and
+                                    failure.category == PageFailureCategory.EMPTY_SHELL else "official-api", failure)
                 # 与 http/jd_text 路径同一门槛（#27）：短官方 API 正文既不能
                 # 进管线（100~119 字符区间绕过 extractor 的 LLM 幻觉护栏），
                 # 也不能写缓存——否则门槛检查会让该 URL 的缓存永远失效，
@@ -210,6 +265,8 @@ class AggregatorPageLoader:
                             "metadata": {
                                 **page.metadata,
                                 "content_origin": "official-api",
+                                "internship_evidence_source": getattr(content, "internship_evidence_source", ""),
+                                "internship_evidence_value": getattr(content, "internship_evidence_value", ""),
                                 **({"canonical_url": canonical} if canonical else {}),
                             }
                         }
@@ -217,15 +274,21 @@ class AggregatorPageLoader:
                     self._cache(url, page)
                     self._record(url, "official-api")
                     return page
-                self._record(url, "official-api:too-short")
+                if failure is None:
+                    self._record(url, "official-api:too-short")
 
         # 3. HttpPageLoader（服务端渲染站点可直达）
         if self._http_loader is not None:
             try:
                 page = await self._http_loader(url)
             except Exception as exc:  # noqa: BLE001
-                self._record(url, f"http-failed:{type(exc).__name__}")
+                self._check_failure(url, f"http-failed:{type(exc).__name__}", classify_page_exception(exc))
+                if job.source == "seed_urls":
+                    raise
             else:
+                failure = classify_page_content(page)
+                self._check_failure(url, "http:empty-page" if failure and
+                                    failure.category == PageFailureCategory.EMPTY_SHELL else "http", failure)
                 if len(page.content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
                     page = page.model_copy(
                         update={"metadata": {**page.metadata, "content_origin": "http"}}
@@ -233,7 +296,8 @@ class AggregatorPageLoader:
                     self._cache(url, page)
                     self._record(url, "http")
                     return page
-                self._record(url, "http:empty-page")
+                if failure is None:
+                    self._record(url, "http:empty-page")
 
         # 4. aggregator jd_text 兜底（同样要求达到有效内容门槛——
         #    job-radar 的 jd_text 多为"标题+部门+城市"标题行，无 JD 信息，
@@ -268,12 +332,41 @@ class AggregatorPageLoader:
             title=title or (job.title if job else ""),
             content=content,
             source=source,
-            metadata=({"tier": job.tier, "discovered_company": job.company} if job else {}),
+            metadata=(
+                {
+                    "tier": job.tier,
+                    "discovered_company": job.company,
+                    "discovered_location": job.location,
+                    "internship_evidence_source": job.internship_evidence_source,
+                    "internship_evidence_value": job.internship_evidence_value,
+                }
+                if job
+                else {}
+            ),
         )
 
     def _cache(self, url: str, page: object) -> None:
+        page.metadata.setdefault("observed_at", datetime.now(UTC).isoformat())
         if self._repository is not None:
             self._repository.cache_page(page)  # type: ignore[arg-type]
 
-    def _record(self, url: str, strategy: str) -> None:
-        self.resolution_log.append({"url": url, "strategy": strategy})
+    def attach_archive_references(self, page) -> None:
+        """Publish archive IDs after capture without refreshing a cache read."""
+        if self._repository is not None:
+            self._repository.cache_page(page)
+
+    def _record(self, url: str, strategy: str, **extra) -> None:
+        started_at, started = self._attempt_clocks.get(url, (datetime.now(UTC), perf_counter()))
+        ended = perf_counter()
+        self.resolution_log.append({"url": url, "strategy": strategy,
+                                    "started_at": started_at.isoformat(),
+                                    "elapsed_ms": max(0, ended - started) * 1000, **extra})
+        self._attempt_clocks[url] = (datetime.now(UTC), ended)
+
+    def _check_failure(self, url: str, strategy: str, failure: PageFailure | None) -> None:
+        if failure is None:
+            return
+        self._record(url, strategy, category=failure.category.value, detail=failure.detail,
+                     http_status=failure.http_status)
+        if failure.category == PageFailureCategory.REMOVED:
+            raise PageRemovedError(f"page_removed: {failure.detail}")

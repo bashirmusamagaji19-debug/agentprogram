@@ -1,0 +1,132 @@
+{
+  "captured_at": "2026-10-25T07:16:50.619032+00:00",
+  "list_request": "https://hr.xiaomi.com/website/api/agent/searchJobPage?keyword=Agent&pageSize=50&pageNum=1&type=3",
+  "list_item": {
+    "id": 1754602,
+    "title": "AI 开发工程师（Agent 方向）-2027届",
+    "cityZhNames": [
+      "武汉"
+    ],
+    "levelOneDeptName": "集团技术委员会",
+    "description": "1.面向产品场景设计与实现 AI Agent 能力，覆盖任务接入、上下文管理、执行编排、结果回写等完整链路。\n2. 基于开源或自研，建设并迭代多 Agent 编排框架，支持本地 daemon 与云端两种 runtime，参考 OpenClaw 等项目在 Gateway、Sessions、Skills、Sandbox 上的设计思路。\n3. 设计、开发与维护 MCP Server / Client 及相关 Tooling，完成内部系统（数据、监控、CI、知识库等）与 Agent 的信息打通。\n4. 参与 Skills / Hook / Sub-agent 设计与实现，沉淀可复用的能力组件、Prompt 模板与验证回路（verification loop）。\n5. 推动 Claude Code / Codex / Cursor 等 Coding Agent 在团队内常态化使用，沉淀规范、脚手架与最佳实践。\n6. 与产品、业务、数据、安全协作，确保 Agent 方案在可用性、合规性、稳定性、可观测性上达标。\n7. 持续优化 Agent 链路在性能、稳定性、Token 成本与可维护性上的表现。",
+    "requirement": "1. 计算机相关专业本科及以上，能保证每周 4 天及以上的实习时长（具体时长可面议）。\n2. 熟练掌握 Python，并另外熟悉至少一种编程语言（Go / Java / TypeScript / Scala）。\n3. 深度使用过 Claude Code / Codex / Cursor 中的至少一个，能清晰讲述自己在 Prompt 编排、上下文管理、子 Agent 委派、Verification Loop 上的实践与踩坑。\n4. 拆解过至少一个开源 Agent 项目的内部机制，例如：\n   OpenClaw 的 Gateway、多 Agent 路由、Skills、Sandbox 模型\n   Claude Agent SDK / Claude Code 的工具调用与上下文协议\n   MCP (Model Context Protocol) 的 Server / Client 实现\n   任意多 Agent 编排框架的 Hook、Skill、子 Agent 触发机制\n5. 写过至少一个可运行的 Agent 类 Side Project：自定义 Agent、MCP Server、Skill、Prompt 框架、Agent Benchmark 均可。\n6. 中文沟通顺畅，能写清晰的方案、设计文档与复盘。",
+    "expectedJobLevel": null,
+    "publishTime": "2026-10-21",
+    "larkJobCode": "A229860",
+    "type": 3,
+    "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7698943066581584191/detail",
+    "jobId": "7698943066581420351",
+    "jobPostId": "7698943066581584191"
+  },
+  "detail_request": "https://xiaomi.jobs.f.mioffice.cn/api/v1/job/posts/7698943066581584191",
+  "detail_response": {
+    "code": 0,
+    "data": {
+      "job_post_detail": {
+        "id": "7698943066581584191",
+        "title": "AI 开发工程师（Agent 方向）-2027届",
+        "description": "1.面向产品场景设计与实现 AI Agent 能力，覆盖任务接入、上下文管理、执行编排、结果回写等完整链路。\n2. 基于开源或自研，建设并迭代多 Agent 编排框架，支持本地 daemon 与云端两种 runtime，参考 OpenClaw 等项目在 Gateway、Sessions、Skills、Sandbox 上的设计思路。\n3. 设计、开发与维护 MCP Server / Client 及相关 Tooling，完成内部系统（数据、监控、CI、知识库等）与 Agent 的信息打通。\n4. 参与 Skills / Hook / Sub-agent 设计与实现，沉淀可复用的能力组件、Prompt 模板与验证回路（verification loop）。\n5. 推动 Claude Code / Codex / Cursor 等 Coding Agent 在团队内常态化使用，沉淀规范、脚手架与最佳实践。\n6. 与产品、业务、数据、安全协作，确保 Agent 方案在可用性、合规性、稳定性、可观测性上达标。\n7. 持续优化 Agent 链路在性能、稳定性、Token 成本与可维护性上的表现。",
+        "requirement": "1. 计算机相关专业本科及以上，能保证每周 4 天及以上的实习时长（具体时长可面议）。\n2. 熟练掌握 Python，并另外熟悉至少一种编程语言（Go / Java / TypeScript / Scala）。\n3. 深度使用过 Claude Code / Codex / Cursor 中的至少一个，能清晰讲述自己在 Prompt 编排、上下文管理、子 Agent 委派、Verification Loop 上的实践与踩坑。\n4. 拆解过至少一个开源 Agent 项目的内部机制，例如：\n   OpenClaw 的 Gateway、多 Agent 路由、Skills、Sandbox 模型\n   Claude Agent SDK / Claude Code 的工具调用与上下文协议\n   MCP (Model Context Protocol) 的 Server / Client 实现\n   任意多 Agent 编排框架的 Hook、Skill、子 Agent 触发机制\n5. 写过至少一个可运行的 Agent 类 Side Project：自定义 Agent、MCP Server、Skill、Prompt 框架、Agent Benchmark 均可。\n6. 中文沟通顺畅，能写清晰的方案、设计文档与复盘。",
+        "city_info": {
+          "code": "CT_154",
+          "name": "武汉",
+          "en_name": "Wuhan",
+          "i18n_name": "Wuhan"
+        },
+        "recruit_type": {
+          "id": "202",
+          "name": "实习",
+          "en_name": "Intern",
+          "i18n_name": "Intern",
+          "depth": 2,
+          "parent": {
+            "id": "2",
+            "name": "校招",
+            "en_name": "Campus",
+            "i18n_name": "Campus",
+            "depth": 1,
+            "children": [],
+            "active_status": 1,
+            "selectability": 1
+          },
+          "children": [],
+          "active_status": 1,
+          "selectability": 1
+        },
+        "publish_time": 1792550026635,
+        "channel_online_status": 1,
+        "job_function": {
+          "id": "7178759516879405165",
+          "name": "软件研发类",
+          "en_name": "Software R&D",
+          "i18n_name": "Software R&D"
+        },
+        "job_id": "7698943066581420351",
+        "city_list": [
+          {
+            "code": "CT_154",
+            "name": "武汉",
+            "en_name": "Wuhan",
+            "location_type": 3,
+            "i18n_name": "Wuhan",
+            "py_name": "wuhan",
+            "mdm_code": "MDCY00000216",
+            "node_status": 1
+          }
+        ],
+        "job_post_info": {
+          "recruitment_type": {
+            "id": "202",
+            "name": "实习",
+            "en_name": "Intern",
+            "i18n_name": "Intern",
+            "depth": 2,
+            "parent": {
+              "id": "2",
+              "name": "校招",
+              "en_name": "Campus",
+              "i18n_name": "Campus",
+              "depth": 1,
+              "children": [],
+              "active_status": 1,
+              "selectability": 1
+            },
+            "children": [],
+            "active_status": 1,
+            "selectability": 1
+          },
+          "HighlightList": [],
+          "JobChannelPublishList": [],
+          "job_post_object_value_map": {},
+          "address_list": [],
+          "city_list": [],
+          "correlation_job_list": [],
+          "tag_list": [],
+          "storefront_list": [],
+          "target_major_list": [],
+          "job_post_process_time_list": [],
+          "job_level_id_list": []
+        },
+        "city_info_list_for_delivery": [
+          {
+            "code": "CT_154",
+            "name": "武汉",
+            "en_name": "Wuhan",
+            "location_type": 3,
+            "i18n_name": "Wuhan",
+            "py_name": "wuhan",
+            "mdm_code": "MDCY00000216",
+            "node_status": 1
+          }
+        ],
+        "tag_list": [],
+        "storefront_mode": 1,
+        "storefront_list": [],
+        "process_type": 2
+      },
+      "recommend_job_post_List": []
+    },
+    "message": "ok",
+    "error": null
+  }
+}

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
+from urllib.error import HTTPError
 
 import pytest
 
+from web_task_agent.browser import PageHttpError
 from web_task_agent.job_sources import DiscoveredJob
 from web_task_agent.official_list_source import (
     _SPECS,
     MEITUAN_LIST_KEYWORDS,
+    DefaultTransport,
     OfficialListSource,
     _baidu_lister,
     _bing_serp_lister,
@@ -26,17 +30,168 @@ from web_task_agent.official_list_source import (
 )
 
 
+def test_tencent_campus_is_not_internship_evidence():
+    from web_task_agent.official_list_source import _is_campus_intern_ai
+    assert not _is_campus_intern_ai({'positionTitle': 'AI Agent工程师', 'projectName': '应届毕业生'})
+    assert not _is_campus_intern_ai({'positionTitle': 'AI Agent工程师', 'projectName': '青云计划'})
+    assert _is_campus_intern_ai({'positionTitle': 'AI Agent工程师', 'recruitLabelName': '日常实习'})
+
+
+@pytest.mark.asyncio
+async def test_xiaomi_official_type_survives_discovery_and_keyword_filter():
+    from pathlib import Path
+
+    from web_task_agent.official_list_source import _xiaomi_lister
+
+    record = json.loads((Path(__file__).parent / 'fixtures/xiaomi_live_20261025.json').read_text(encoding='utf-8'))
+
+    class Transport:
+        search_keyword = 'AI Agent 实习'
+        search_location = '全国'
+        calls = []
+
+        def open_json(self, method, url, **kwargs):
+            self.calls.append(url)
+            if 'pageNum=1&' in url:
+                return {'data': {'list': [record['list_item']]}}
+            return {'data': {'list': []}}
+
+    transport = Transport()
+    jobs = await _xiaomi_lister(transport, 3)
+    assert len(jobs) == 1
+    assert jobs[0].internship_evidence_value == '3'
+    assert jobs[0].internship_evidence_source == 'xiaomi:list:type'
+    assert all('type=3' in url for url in transport.calls)
+
+
+@pytest.mark.asyncio
+async def test_xiaomi_later_page_failure_keeps_earlier_candidates_and_partial_diagnostic():
+    class Transport:
+        calls = []
+
+        def open_json(self, method, url, **kwargs):
+            self.calls.append(url)
+            if 'pageNum=1&' not in url:
+                raise TimeoutError('later page timed out')
+            return {'data': {'list': [
+                {'id': index, 'title': f'AI Agent工程师 {index}', 'type': 3,
+                 'url': f'https://xiaomi.jobs.f.mioffice.cn/internship/position/{index}/detail',
+                 'cityZhNames': ['北京'], 'description': '开发 AI Agent。' * 20, 'requirement': 'Python'}
+                for index in (1, 2, 3)
+            ]}}
+
+    transport = Transport()
+    source = OfficialListSource(specs=['xiaomi'], transport=transport, keyword='AI Agent 实习')
+    jobs = await source.discover(20)
+    assert len(jobs) == 3
+    assert source.diagnostics[0]['status'] == 'partial'
+    assert source.diagnostics[0]['candidate_count'] == 3
+    assert source.diagnostics[0]['attempts'] == 1
+    assert len(transport.calls) == 2
+
+
+@pytest.mark.parametrize("status", [403, 429, 503])
+@pytest.mark.parametrize("mode", ["json", "html"])
+def test_cffi_error_status_does_not_look_like_empty_success(monkeypatch, status, mode):
+    from web_task_agent import official_list_source as module
+
+    transport = DefaultTransport()
+    transport._cffi = SimpleNamespace(
+        request=lambda *args, **kwargs: SimpleNamespace(status_code=status, content=b'{"error":"unavailable"}')
+    )
+    def urllib_fail(*args, **kwargs):
+        raise HTTPError("https://example.com", status, "unavailable", {}, None)
+
+    monkeypatch.setattr(module.url_request, "urlopen", urllib_fail)
+    if mode == "json":
+        with pytest.raises((PageHttpError, HTTPError)):
+            transport.open_json("GET", "https://example.com")
+    else:
+        with pytest.raises((PageHttpError, HTTPError)):
+            transport.fetch_html("https://example.com")
+
+
+@pytest.mark.asyncio
+async def test_source_failure_preserves_safe_http_reason(monkeypatch):
+    async def limited(transport, limit):
+        raise PageHttpError("Authorization=Bearer private", 429)
+
+    monkeypatch.setitem(_SPECS, "test-limited", limited)
+    source = OfficialListSource(specs=["test-limited"], transport=object())
+    await source.discover(1)
+    assert source.diagnostics[0]["error_detail"] == "HTTP 429"
+    assert source.diagnostics[0]["error_category"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_discovery_diagnostics_distinguish_failure_empty_and_reset(monkeypatch):
+    async def failed(transport, limit):
+        raise RuntimeError("Authorization=Bearer private-key https://user:password@example.com")
+
+    async def empty(transport, limit):
+        return []
+
+    async def healthy(transport, limit):
+        return [DiscoveredJob(url="https://example.com/1", title="AI 实习生", company="Example", jd_text="JD")]
+
+    monkeypatch.setitem(_SPECS, "test-failed", failed)
+    monkeypatch.setitem(_SPECS, "test-empty", empty)
+    monkeypatch.setitem(_SPECS, "test-healthy", healthy)
+    source = OfficialListSource(specs=["test-failed", "test-empty", "test-healthy"], transport=object())
+    assert len(await source.discover(2)) == 1
+    records = {item["source"]: item for item in source.diagnostics}
+    assert records["test-failed"]["status"] == "failed"
+    assert records["test-empty"]["status"] == "empty"
+    assert records["test-healthy"]["status"] == "healthy"
+    assert records["test-failed"]["attempts"] == 3
+    assert "private-key" not in json.dumps(records)
+    assert "password" not in json.dumps(records)
+    await source.discover(0)
+    assert source.diagnostics == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["open_json", "fetch_html"])
+async def test_transport_failure_swallowed_by_lister_is_still_visible(monkeypatch, method):
+    class Transport:
+        def open_json(self, *args, **kwargs):
+            raise TimeoutError("private network request")
+
+        fetch_html = open_json
+
+    async def lister(transport, limit):
+        try:
+            getattr(transport, method)("GET", "https://example.com/jobs")
+        except TimeoutError:
+            return []
+        return []
+
+    monkeypatch.setitem(_SPECS, "test-transport-fail", lister)
+    source = OfficialListSource(specs=["test-transport-fail"], transport=Transport())
+    await source.discover(1)
+    assert source.diagnostics[0]["status"] == "failed"
+    assert source.diagnostics[0]["error_type"] == "TimeoutError"
+
+
 class FakeTransport:
     """记录请求并按 URL/路径回放预置响应。"""
 
     def __init__(self, responders: dict) -> None:
         self.responders = responders
         self.calls: list[tuple[str, str]] = []  # (method, url)
+        self.headers_seen: list[dict[str, str]] = []
 
     def open_json(
-        self, method: str, url: str, *, body: dict | None = None, form: bool = False
+        self,
+        method: str,
+        url: str,
+        *,
+        body: dict | None = None,
+        form: bool = False,
+        headers: dict[str, str] | None = None,
     ) -> dict:
         self.calls.append((method, url))
+        self.headers_seen.append(dict(headers or {}))
         for pattern, responder in self.responders.items():
             if pattern in url:
                 return responder(url, body)
@@ -80,7 +235,7 @@ async def test_tencent_campus_lister_filters_intern_ai_and_paginates():
     jobs = await _tencent_campus_lister(transport, limit=10)
 
     titles = [j.title for j in jobs]
-    assert "AI全栈工程师" in titles
+    assert "AI全栈工程师" not in titles  # 应届项目不再冒充实习。
     assert "混元多模态-大模型数据挖掘研究（实习生 青云计划）" in titles
     assert all("高级产品经理" != t for t in titles)
     # 每条都有 careers 形式的 postId URL(详情链路按 host 路由 + canonical 修复)
@@ -141,7 +296,7 @@ async def test_composite_source_merges_specs_in_order():
         {
             "searchPosition": lambda url, body: _tencent_page_payload(
                 body.get("pageNo", 1),
-                ["AI全栈工程师"] if body.get("pageNo", 1) == 1 else [],
+                ["AI实习工程师"] if body.get("pageNo", 1) == 1 else [],
             ),
             "getJobList": lambda url, body: {
                 "status": 0,
@@ -223,6 +378,35 @@ async def test_unitree_lister_maps_fields_and_filters_non_ai():
     assert jobs[0].company == "宇树科技"
     assert jobs[0].url == "https://www.unitree.com/cn/position/2046857577249112064"
     assert "具身智能系统研发" in jobs[0].jd_text
+
+
+@pytest.mark.asyncio
+async def test_netease_lister_reads_current_work_place_name_list():
+    def responder(url, body):
+        if body.get("keyword") != "大模型" or body.get("currentPage") != 1:
+            return {"code": 0, "data": {"list": []}}
+        return {
+            "code": 0,
+            "data": {
+                "list": [
+                    {
+                        "id": 65260,
+                        "name": "大模型算法实习生",
+                        "description": "参与大模型算法研发、模型训练、评测和工程落地。" * 4,
+                        "requirement": "熟悉 Python、PyTorch、Transformer 和检索增强生成。" * 4,
+                        "workPlaceList": [1],
+                        "workPlaceNameList": ["北京市"],
+                    }
+                ]
+            },
+        }
+
+    jobs = await _SPECS["netease"](
+        FakeTransport({"position/queryPage": responder}),
+        limit=1,
+    )
+
+    assert jobs[0].location == "北京市"
 
 
 def test_registry_exposes_all_specs():
@@ -997,6 +1181,105 @@ def _geely_envelope(payload: dict) -> dict:
         "data": base64.b64encode(cipher.encrypt(pad(inner, AES.block_size))).decode("ascii"),
         "necromancer": key.decode("ascii"),
     }
+
+
+@pytest.mark.asyncio
+async def test_robotera_uses_working_hash_job_route():
+    list_payload = {
+        "code": 0,
+        "data": {
+            "jobs": [
+                {
+                    "id": "job-1",
+                    "title": "【校招】具身大模型算法工程师（VLA）",
+                    "jobDescription": "负责具身大模型算法研发、训练、评测和部署落地。" * 8,
+                    "locations": [
+                        {
+                            "provinceName": "北京市",
+                            "cityName": "海淀区",
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    detail_payload = {
+        "code": 0,
+        "data": {"job": {"jobDescription": "负责具身大模型算法研发和工程落地。" * 8}},
+    }
+    transport = FakeTransport(
+        {
+            "jobs/v2": lambda url, body: _geely_envelope(list_payload),
+            "ats-apply/website/job": lambda url, body: _geely_envelope(detail_payload),
+        }
+    )
+
+    jobs = await _SPECS["robotera"](transport, limit=1)
+
+    assert jobs[0].url == (
+        "https://app.mokahr.com/campus-recruitment/robotera/163878#/job/job-1"
+    )
+    assert jobs[0].location == "北京市-海淀区"
+
+
+@pytest.mark.asyncio
+async def test_agibot_intern_portal_filters_full_time_jobs():
+    def responder(url, body):
+        if body.get("offset", 0) > 0:
+            return {"code": 0, "data": {"job_post_list": []}}
+        return {
+            "code": 0,
+            "data": {
+                "job_post_list": [
+                    {
+                        "id": "full-time-1",
+                        "title": "导航与感知算法工程师-HK",
+                        "recruit_type": {"name": "全职"},
+                        "description": "负责机器人导航感知算法研发。",
+                        "requirement": "熟悉 Python、SLAM 与深度学习。",
+                    },
+                    {
+                        "id": "intern-1",
+                        "title": "大模型算法实习生",
+                        "recruit_type": {"name": "实习"},
+                        "description": "负责大模型算法研发。",
+                        "requirement": "熟悉 Python 与深度学习。",
+                        "city_info": None,
+                        "city_list": [{"name": "上海"}],
+                    },
+                ]
+            },
+        }
+
+    transport = FakeTransport({"search/job/posts": responder})
+    jobs = await _SPECS["agibot"](transport, limit=10)
+
+    assert [job.title for job in jobs] == ["大模型算法实习生"]
+    assert jobs[0].location == "上海"
+    assert transport.headers_seen[0]["website-path"] == "internrecruitment"
+
+
+@pytest.mark.asyncio
+async def test_xpeng_job_url_uses_detail_route():
+    def responder(url, body):
+        return {
+            "code": 0,
+            "data": {
+                "job_post_list": [
+                    {
+                        "id": "job-1",
+                        "title": "【27届校招】AI Infra工程师",
+                        "recruit_type": {"name": "正式"},
+                        "description": "负责大模型推理框架和基础设施研发。",
+                        "requirement": "熟悉 Python、CUDA 与主流推理框架。",
+                    }
+                ]
+            },
+        }
+
+    jobs = await _SPECS["xpeng"](FakeTransport({"search/job/posts": responder}), limit=1)
+
+    assert jobs[0].url == "https://xiaopeng.jobs.feishu.cn/campus/position/job-1/detail"
 
 
 @pytest.mark.asyncio

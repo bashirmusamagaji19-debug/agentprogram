@@ -19,8 +19,11 @@ OfficialApiContentFetcher.fetch(url) 返回 (content, title, company)；
 
 from __future__ import annotations
 
+import asyncio
 import json
+import re
 from dataclasses import dataclass
+from time import monotonic
 from urllib import parse as url_parse
 from urllib import request as url_request
 from urllib.error import URLError
@@ -29,6 +32,30 @@ from web_task_agent.browser import PageHttpError, PageTimeoutError
 
 # 腾讯校招库详情接口（join.qq.com，公开无鉴权）
 _TENCENT_CAMPUS_DETAIL_API = "https://join.qq.com/api/v1/jobDetails/getJobDetailsByPostId"
+
+
+@dataclass(frozen=True)
+class _FeishuDetailPortal:
+    company: str
+    website_path: str
+
+
+# Exact hosts/routes registered in official_list_source.py. The four sites are
+# backed by native-detail-probes captured on 2026-10-25; this deliberately does
+# not infer companies or API support for other Feishu hosts.
+_FEISHU_DETAIL_PORTALS = {
+    "xiaopeng.jobs.feishu.cn": _FeishuDetailPortal("小鹏汽车", "campus"),
+    "agirobot.jobs.feishu.cn": _FeishuDetailPortal("智元机器人", "internrecruitment"),
+    "vrfi1sk8a0.jobs.feishu.cn": _FeishuDetailPortal("MiniMax", "index"),
+    "shengshu.jobs.feishu.cn": _FeishuDetailPortal("生数科技", "index"),
+}
+
+_FEISHU_CHANNEL_DETAIL_PATH = re.compile(
+    r"^/(?P<website_path>[^/]+)/position/(?P<post_id>\d+)/detail/?$"
+)
+_FEISHU_INDEX_DETAIL_PATH = re.compile(
+    r"^/index/position/(?:detail/)?(?P<post_id>\d+)/?$"
+)
 
 
 class UnsupportedOfficialApiError(RuntimeError):
@@ -48,6 +75,8 @@ class OfficialApiContent:
     # 页面 404（用户实录），但内容来自 join.qq.com 校招库——此时必须把展示
     # 链接改写为校招详情页，否则"内容验证通过、链接打不开"。
     canonical_url: str = ""
+    internship_evidence_source: str = ""
+    internship_evidence_value: str = ""
 
 
 class OfficialApiContentFetcher:
@@ -58,14 +87,141 @@ class OfficialApiContentFetcher:
 
     def __init__(self, timeout_seconds: int = 20) -> None:
         self.timeout_seconds = timeout_seconds
+        self.deadline: float | None = None
 
     async def fetch(self, url: str) -> OfficialApiContent:
-        host = url_parse.urlsplit(url).netloc.lower()
+        return await asyncio.to_thread(self._fetch_sync, url)
+
+    def _fetch_sync(self, url: str) -> OfficialApiContent:
+        host = (url_parse.urlsplit(url).hostname or "").lower()
+        if host == "join.qq.com":
+            post_ids = url_parse.parse_qs(url_parse.urlsplit(url).query).get("postId") or []
+            if not post_ids or not post_ids[0].strip():
+                raise OfficialApiUnavailableError("tencent campus URL without postId")
+            return self._fetch_tencent_campus(post_ids[0].strip())
+        if host == "xiaomi.jobs.f.mioffice.cn":
+            return self._fetch_xiaomi(url)
+        if host in _FEISHU_DETAIL_PORTALS:
+            return self._fetch_registered_feishu(url)
         if host == "careers.tencent.com" or host.endswith(".careers.tencent.com"):
             return self._fetch_tencent(url)
         if host == "zhaopin.meituan.com" or host.endswith(".zhaopin.meituan.com"):
             return self._fetch_meituan(url)
         raise UnsupportedOfficialApiError(f"no official API adapter for host: {host}")
+
+    def _fetch_xiaomi(self, url: str) -> OfficialApiContent:
+        # The existing Xiaomi list adapter returns these native Feishu detail URLs.
+        path = url_parse.urlsplit(url).path
+        match = re.fullmatch(r"/(internship|campus|social|topintern)/position/(\d+)/detail/?", path)
+        if match is None:
+            raise OfficialApiUnavailableError("xiaomi URL without a supported job post ID")
+        site, post_id = match.groups()
+        req = url_request.Request(
+            f"https://xiaomi.jobs.f.mioffice.cn/api/v1/job/posts/{post_id}",
+            headers={"website-path": site, "Referer": url, "User-Agent": "Mozilla/5.0"},
+        )
+        payload = self._open_json(req)
+        data = (payload.get("data") or {}).get("job_post_detail") or {}
+        if payload.get("code") != 0 or str(data.get("id")) != post_id:
+            raise OfficialApiUnavailableError("xiaomi detail unavailable or identity mismatch")
+        if data.get("channel_online_status") == 0:
+            from web_task_agent.page_reliability import PageRemovedError
+            raise PageRemovedError("xiaomi position is no longer online")
+        title = str(data.get("title") or "").strip()
+        duties = str(data.get("description") or "").strip()
+        requirements = str(data.get("requirement") or "").strip()
+        if not title or not (duties or requirements):
+            raise OfficialApiUnavailableError("xiaomi detail has no title or JD")
+        cities = [str(city.get("name") or "").strip() for city in data.get("city_list", [])]
+        city = "、".join(dict.fromkeys(filter(None, cities))) or str(
+            (data.get("city_info") or {}).get("name") or "")
+        return OfficialApiContent(
+            title=title, company="小米", canonical_url=url_parse.urlunsplit(
+                ("https", "xiaomi.jobs.f.mioffice.cn", path.rstrip("/"), "", "")),
+            content=f"公司：小米\n工作地点：{city}\n岗位职责：\n{duties}\n任职要求：\n{requirements}",
+            internship_evidence_source="xiaomi:detail:recruit_type.id",
+            internship_evidence_value=str((data.get("recruit_type") or {}).get("id") or ""),
+        )
+
+    def _fetch_registered_feishu(self, url: str) -> OfficialApiContent:
+        """Read an exact registered Feishu portal through its native detail API.
+
+        The public detail URL is a client-rendered route and can return 404 when
+        fetched directly. The same portal's API returns the authoritative post
+        shape used by Xiaomi; ``website-path`` identifies the route namespace.
+        """
+        parsed = url_parse.urlsplit(url)
+        host = (parsed.hostname or "").lower()
+        portal = _FEISHU_DETAIL_PORTALS.get(host)
+        if portal is None:
+            raise UnsupportedOfficialApiError(f"no official API adapter for host: {host}")
+
+        match = _FEISHU_CHANNEL_DETAIL_PATH.fullmatch(parsed.path)
+        if match is not None and match.group("website_path") == portal.website_path:
+            post_id = match.group("post_id")
+        else:
+            match = _FEISHU_INDEX_DETAIL_PATH.fullmatch(parsed.path)
+            if match is None or portal.website_path != "index":
+                raise OfficialApiUnavailableError("feishu URL without a registered detail route")
+            post_id = match.group("post_id")
+
+        req = url_request.Request(
+            f"https://{host}/api/v1/job/posts/{post_id}",
+            headers={
+                "website-path": portal.website_path,
+                "Referer": url,
+                "User-Agent": "Mozilla/5.0",
+            },
+        )
+        payload = self._open_json(req)
+        raw_data = (payload.get("data") or {}).get("job_post_detail") or {}
+        data = raw_data if isinstance(raw_data, dict) else {}
+        if payload.get("code") != 0 or str(data.get("id") or "") != post_id:
+            raise OfficialApiUnavailableError("feishu detail unavailable or identity mismatch")
+
+        online_status = data.get("channel_online_status")
+        if online_status in (0, "0"):
+            from web_task_agent.page_reliability import PageRemovedError
+
+            raise PageRemovedError("feishu position is no longer online")
+        if online_status not in (1, "1"):
+            raise OfficialApiUnavailableError("feishu detail online status missing or unrecognized")
+
+        title = str(data.get("title") or "").strip()
+        duties = str(data.get("description") or "").strip()
+        requirements = str(data.get("requirement") or "").strip()
+        if not title or not (duties or requirements):
+            raise OfficialApiUnavailableError("feishu detail has no title or JD")
+        cities = [
+            str(city.get("name") or "").strip()
+            for city in (data.get("city_list") or [])
+            if isinstance(city, dict)
+        ]
+        city = "、".join(dict.fromkeys(filter(None, cities))) or str(
+            (data.get("city_info") or {}).get("name") or ""
+        )
+        recruit_type = data.get("recruit_type") or {}
+        recruit_type_name = str(recruit_type.get("name") or "").strip() if isinstance(recruit_type, dict) else ""
+        canonical_url = url_parse.urlunsplit(
+            (
+                parsed.scheme or "https",
+                parsed.netloc,
+                f"/{portal.website_path}/position/{post_id}/detail",
+                "",
+                "",
+            )
+        )
+        return OfficialApiContent(
+            title=title,
+            company=portal.company,
+            canonical_url=canonical_url,
+            content=(
+                f"公司：{portal.company}\n工作地点：{city}\n"
+                f"岗位职责：\n{duties}\n任职要求：\n{requirements}"
+            ),
+            internship_evidence_source="feishu:detail:recruit_type.name",
+            internship_evidence_value=recruit_type_name,
+        )
 
     # ── 腾讯：详情页 URL ?postId=… → ByPostId 接口 ──────────────────
 
@@ -248,7 +404,11 @@ class OfficialApiContentFetcher:
 
     def _open_json(self, req: url_request.Request) -> dict:
         try:
-            with url_request.urlopen(req, timeout=self.timeout_seconds) as response:  # noqa: S310
+            timeout = self.timeout_seconds if self.deadline is None else min(
+                self.timeout_seconds, self.deadline - monotonic())
+            if timeout <= 0:
+                raise PageTimeoutError("official API request deadline exceeded")
+            with url_request.urlopen(req, timeout=timeout) as response:  # noqa: S310
                 return json.loads(response.read().decode("utf-8"))
         except URLError as exc:
             reason = getattr(exc, "reason", None)

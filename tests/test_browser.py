@@ -187,19 +187,18 @@ async def test_browser_use_client_loads_page_with_browser_session_factory():
 
     page = await browser.open_url("https://example.com/jobs/ai-engineering-intern")
 
-    assert page == BrowserPage(
-        url="https://example.com/jobs/ai-engineering-intern",
-        title="AI Engineering Intern",
-        content="Company: Example AI\nSkills: Python, browser-use",
-        source="browser-use",
-        metadata={"timeout_seconds": 60},
-    )
-    assert events == [
-        "start",
-        "new_page:https://example.com/jobs/ai-engineering-intern",
-        "inner_text:body",
-        "close",
-    ]
+    assert page.url == "https://example.com/jobs/ai-engineering-intern"
+    assert page.title == "AI Engineering Intern"
+    assert page.content == "Company: Example AI\nSkills: Python, browser-use"
+    assert page.source == "browser-use"
+    assert page.metadata["requested_url"] == "https://example.com/jobs/ai-engineering-intern"
+    assert page.metadata["final_url"] == "https://example.com/jobs/ai-engineering-intern"
+    assert page.metadata["final_url_observed"] is False
+    assert page.metadata["timeout_seconds"] == 60
+    assert events[0] == "start"
+    assert events[1] == "new_page:https://example.com/jobs/ai-engineering-intern"
+    assert "inner_text:body" in events
+    assert events[-1] == "close"
 
 
 @pytest.mark.asyncio
@@ -230,7 +229,45 @@ async def test_browser_use_client_loads_browser_use_page_api():
 
     assert page.title == "Browser-use Search Results"
     assert page.content == "AI intern result from browser-use Page API"
-    assert events == ["() => document.body ? document.body.innerText : ''"]
+    assert "() => document.body ? document.body.innerText : ''" in events
+
+
+@pytest.mark.asyncio
+async def test_browser_use_search_parses_json_string_links_returned_by_page_evaluate():
+    job_url = "https://jobs.example.com/positions/123"
+
+    class FakePage:
+        async def get_title(self) -> str:
+            return "AI intern search results"
+
+        async def get_url(self) -> str:
+            return "https://www.google.com/search?q=AI+intern"
+
+        async def evaluate(self, script: str):
+            if "querySelectorAll('a,button" in script:
+                return "[]"
+            if "a[href]" in script:
+                return __import__("json").dumps(
+                    [job_url, "https://jobs.example.com/about"]
+                )
+            return f"AI intern search result {job_url}"
+
+    class FakeSession:
+        async def start(self) -> None:
+            pass
+
+        async def new_page(self, url: str) -> FakePage:
+            return FakePage()
+
+        async def close(self) -> None:
+            pass
+
+    pages = await BrowserUseClient(
+        session_factory=FakeSession,
+        render_wait_seconds=0.01,
+    ).search("AI intern", target_count=2)
+
+    assert job_url in pages[0].metadata["candidate_urls"]
 
 
 @pytest.mark.asyncio
@@ -261,7 +298,7 @@ async def test_browser_use_client_loads_page_title_and_body_from_browser_session
 
     assert page.title == "AI Deployment Engineer"
     assert page.content == "Company: OpenAI\nRequirements: Python, LLM"
-    assert events == ["() => document.body ? document.body.innerText : ''"]
+    assert "() => document.body ? document.body.innerText : ''" in events
 
 
 @pytest.mark.asyncio
@@ -428,3 +465,240 @@ def test_http_loader_raises_page_empty_error_on_js_shell():
         assert "empty content" in str(exc.value)
     finally:
         browser_module.request.urlopen = original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("as_json_string", [False, True])
+async def test_browser_use_client_captures_final_url_rendered_body_and_visible_apply_control(
+    as_json_string: bool,
+):
+    full_text = (
+        "AI Platform Engineer\nExample Labs - Shanghai\n"
+        "Build reliable Python services for large language model evaluation and deployment. "
+        "Own observability, incident response, and production quality."
+    )
+    body_reads = 0
+
+    class FakePage:
+        async def get_title(self) -> str:
+            return "AI Platform Engineer"
+
+        async def evaluate(self, script: str):
+            nonlocal body_reads
+            if "window.location.href" in script:
+                return "https://careers.example.com/job/123?lang=en"
+            if "querySelectorAll('a,button" in script:
+                controls = [
+                    {
+                        "tag": "button",
+                        "text": "Apply now",
+                        "visible": True,
+                        "enabled": True,
+                    }
+                ]
+                return __import__("json").dumps(controls) if as_json_string else controls
+            if "document.body" in script:
+                body_reads += 1
+                return "Loading..." if body_reads == 1 else full_text
+            return ""
+
+    class FakeSession:
+        async def start(self) -> None:
+            pass
+
+        async def new_page(self, url: str) -> FakePage:
+            return FakePage()
+
+        async def close(self) -> None:
+            pass
+
+    browser = BrowserUseClient(session_factory=FakeSession, render_wait_seconds=0.01)
+    page = await browser.open_url("https://jobs.example.com/positions/123")
+
+    assert page.url == "https://careers.example.com/job/123?lang=en"
+    assert page.metadata["requested_url"] == "https://jobs.example.com/positions/123"
+    assert page.metadata["final_url"] == page.url
+    assert page.content == full_text
+    assert body_reads >= 2
+    assert page.metadata["apply_controls"] == [
+        {
+            "tag": "button",
+            "text": "Apply now",
+            "visible": True,
+            "enabled": True,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_browser_use_client_honors_deadline_and_still_closes_session():
+    events: list[str] = []
+
+    class SlowSession:
+        async def start(self) -> None:
+            events.append("start")
+
+        async def new_page(self, url: str) -> object:
+            await __import__("asyncio").sleep(10)
+            return object()
+
+        async def close(self) -> None:
+            events.append("close")
+
+    browser = BrowserUseClient(
+        session_factory=SlowSession,
+        deadline=__import__("time").monotonic() + 0.05,
+    )
+
+    with pytest.raises(browser_module.PageTimeoutError):
+        await browser.open_url("https://jobs.example.com/positions/123")
+
+    assert events == ["start", "close"]
+
+
+@pytest.mark.asyncio
+async def test_browser_use_client_marks_url_unobserved_when_get_url_and_location_fail():
+    class FakePage:
+        async def get_title(self) -> str:
+            return "AI Platform Engineer"
+
+        async def get_url(self) -> str:
+            raise RuntimeError("target unavailable")
+
+        async def evaluate(self, script: str):
+            if "querySelectorAll('a,button" in script:
+                return ""
+            if "window.location.href" in script:
+                raise RuntimeError("navigation context unavailable")
+            return "AI Platform Engineer\n" + ("Useful job detail " * 10)
+
+    class FakeSession:
+        async def start(self) -> None:
+            pass
+
+        async def new_page(self, url: str) -> FakePage:
+            return FakePage()
+
+        async def close(self) -> None:
+            pass
+
+    browser = BrowserUseClient(session_factory=FakeSession, render_wait_seconds=0.01)
+    page = await browser.open_url("https://jobs.example.com/positions/123")
+
+    assert page.url == "https://jobs.example.com/positions/123"
+    assert page.metadata["final_url_observed"] is False
+
+
+@pytest.mark.asyncio
+async def test_http_page_loader_records_final_url_status_and_only_visible_enabled_apply_controls():
+    html = """
+    <html>
+      <head><title>AI Platform Engineer</title></head>
+      <body>
+        <h1>AI Platform Engineer</h1>
+        <p>Build reliable Python services for large language model evaluation and deployment.</p>
+        <button disabled>Apply now</button>
+        <button hidden>Apply now</button>
+        <div hidden><button>Apply now</button></div>
+        <div class="hidden"><button>Apply now</button></div>
+        <a href="/apply/123">Apply now</a>
+        <script>const fake = '<button>Apply now</button>';</script>
+      </body>
+    </html>
+    """
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def geturl(self) -> str:
+            return "https://careers.example.com/job/123?lang=en"
+
+        def read(self) -> bytes:
+            return html.encode("utf-8")
+
+    original = browser_module.request.urlopen
+    browser_module.request.urlopen = lambda req, timeout=None: Response()
+    try:
+        page = await HttpPageLoader(timeout_seconds=1)("https://jobs.example.com/positions/123")
+    finally:
+        browser_module.request.urlopen = original
+
+    assert page.url == "https://careers.example.com/job/123?lang=en"
+    assert page.metadata["requested_url"] == "https://jobs.example.com/positions/123"
+    assert page.metadata["final_url"] == page.url
+    assert page.metadata["final_url_observed"] is True
+    assert page.metadata["status_code"] == 200
+    assert page.metadata["apply_controls"] == [
+        {
+            "tag": "a",
+            "text": "Apply now",
+            "visible": True,
+            "enabled": True,
+            "href": "https://careers.example.com/apply/123",
+        }
+    ]
+    assert "fake" not in page.content
+
+
+@pytest.mark.asyncio
+async def test_http_parser_keeps_hidden_skip_and_void_scopes_independent():
+    html = """
+    <html><body>
+      <input type="hidden" value="not-visible">
+      <input hidden value="also-not-visible">
+      <br hidden>
+      <img hidden alt="placeholder">
+      <div hidden>
+        hidden-parent
+        <script>document.body.innerHTML = 'fake';</script>
+        <span>hidden-after-script</span>
+        <input type="hidden" value="hidden-input">
+        <br><img alt="hidden-image">
+      </div>
+      <div hidden><p>malformed-hidden-child</div>
+      <p>Visible job details</p>
+      <button>Apply now</button>
+    </body></html>
+    """
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def geturl(self) -> str:
+            return "https://jobs.example.com/positions/123"
+
+        def read(self) -> bytes:
+            return html.encode("utf-8")
+
+    original = browser_module.request.urlopen
+    browser_module.request.urlopen = lambda req, timeout=None: Response()
+    try:
+        page = await HttpPageLoader(timeout_seconds=1)("https://jobs.example.com/positions/123")
+    finally:
+        browser_module.request.urlopen = original
+
+    assert "Visible job details" in page.content
+    assert "hidden-parent" not in page.content
+    assert "hidden-after-script" not in page.content
+    assert "hidden-input" not in page.content
+    assert "fake" not in page.content
+    assert page.metadata["apply_controls"] == [
+        {
+            "tag": "button",
+            "text": "Apply now",
+            "visible": True,
+            "enabled": True,
+        }
+    ]

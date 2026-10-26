@@ -1,0 +1,9 @@
+Title: 东篱人才 2027 届 AI 招聘合集
+Company: 东篱人才
+Location: 上海/北京
+Notice:
+1. AI Agent 实习生：构建检索增强应用，要求 Python 与 LangGraph。
+2. 视频生成实习生：训练扩散模型，要求 PyTorch 与多模态经验。
+这是两套不同职责和工作地的岗位，不是一个可合并保存的岗位。
+Variant focus: 检索闭环与引用核验
+Template: c3-template-09

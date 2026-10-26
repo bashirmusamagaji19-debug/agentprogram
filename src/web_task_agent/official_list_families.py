@@ -17,9 +17,11 @@ from __future__ import annotations
 import base64
 import json
 import re
+from datetime import UTC, datetime
 from urllib import parse as url_parse
 
 from web_task_agent.job_sources import AI_TITLE_KEYWORDS, DiscoveredJob
+from web_task_agent.search_conditions import candidate_matches
 
 _PAGE_CAP = 15  # 每家翻页上限,防失控
 
@@ -38,6 +40,7 @@ def make_feishu_hire_lister(
     extra_body: dict | None = None,
     require_intern_type: bool = False,
     company: str | None = None,
+    website_path: str | None = None,
 ):
     """飞书招聘 POST /api/v1/search/job/posts 适配器工厂。
 
@@ -49,12 +52,26 @@ def make_feishu_hire_lister(
     async def lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
         jobs: list[DiscoveredJob] = []
         offset = 0
-        while len(jobs) < limit and (offset // 100) < _PAGE_CAP:
-            body = {"keyword": "", "limit": 100, "offset": offset}
+        keyword = str(getattr(transport, "search_keyword", ""))
+        for _ in range(_PAGE_CAP):
+            if len(jobs) >= limit:
+                break
+            body = {"keyword": keyword, "limit": 100, "offset": offset}
             body.update(extra_body or {})
-            payload = transport.open_json("POST", api_url, body=body)
+            payload = transport.open_json(
+                "POST",
+                api_url,
+                body=body,
+                headers=({"website-path": website_path} if website_path else None),
+            )
             posts = (payload.get("data") or {}).get("job_post_list") or []
             if not posts:
+                if keyword:
+                    # Site keyword semantics can be exact-title rather than AND
+                    # across JD. Broaden candidates once; source/final filters
+                    # still enforce all user conditions.
+                    keyword, offset = "", 0
+                    continue
                 break
             for item in posts:
                 title = str(item.get("title") or "").strip()
@@ -77,9 +94,16 @@ def make_feishu_hire_lister(
                     if isinstance(c, dict) and c.get("name")
                 ]
                 location = (
-                    "、".join(dict.fromkeys([city, *city_list]))
+                    "、".join(dict.fromkeys(part for part in [city, *city_list] if part))
                     or str(item.get("sub_title") or "").strip()
                 )
+                jd_text = f"岗位职责：\n{description}\n任职要求：\n{requirement}".strip()
+                if not candidate_matches(
+                    str(getattr(transport, "search_keyword", "")),
+                    str(getattr(transport, "search_location", "全国")),
+                    title=title, jd_text=jd_text, location=location,
+                ):
+                    continue
                 jobs.append(
                     DiscoveredJob(
                         url=url_tmpl.format(id=job_id),
@@ -90,8 +114,12 @@ def make_feishu_hire_lister(
                             or _company_of(url_tmpl)
                         ),
                         location=location,
-                        jd_text=(f"岗位职责：\n{description}\n任职要求：\n{requirement}".strip()),
+                        jd_text=jd_text,
                         source="feishu-hire",
+                        source_job_id=job_id,
+                        discovery_url=api_url,
+                        query_context={"keyword": keyword, "offset": offset, "limit": 100},
+                        discovered_at=datetime.now(UTC),
                     )
                 )
                 if len(jobs) >= limit:
@@ -159,6 +187,7 @@ def make_moka_lister(
         jobs: list[DiscoveredJob] = []
         page = 1
         offset = 0
+        keyword = str(getattr(transport, "search_keyword", "")) if paging == "page" else ""
         for _ in range(_PAGE_CAP):
             if paging == "page":
                 body = {
@@ -166,7 +195,7 @@ def make_moka_lister(
                     "pageSize": 10,
                     "orgId": org_id,
                     "siteId": site_id,
-                    "keyword": "",
+                    "keyword": keyword,
                     "locale": "zh-CN",
                 }
                 page += 1
@@ -187,6 +216,9 @@ def make_moka_lister(
             decrypted = decrypt_moka_envelope(envelope["data"], envelope["necromancer"])
             items = (decrypted.get("data") or {}).get("jobs") or []
             if not items:
+                if keyword:
+                    keyword, page = "", 1
+                    continue
                 break
             for item in items:
                 title = str(item.get("title") or item.get("jobName") or "").strip()
@@ -264,14 +296,19 @@ def make_moka_lister(
                         plain = ""
                 if len(plain) < 80:  # 无可验证正文的岗位不进管线
                     continue
+                location = _moka_location(item)
+                if not candidate_matches(
+                    str(getattr(transport, "search_keyword", "")),
+                    str(getattr(transport, "search_location", "全国")),
+                    title=title, jd_text=plain, location=location,
+                ):
+                    continue
                 jobs.append(
                     DiscoveredJob(
                         url=url_tmpl.format(id=job_id),
                         title=title,
                         company=company,
-                        location=str(
-                            item.get("locationNames") or item.get("cityName") or ""
-                        ).strip(),
+                        location=location,
                         jd_text=plain,
                         source="moka",
                         content_origin=origin,
@@ -288,6 +325,26 @@ def make_moka_lister(
 
 def _moka_detail_url(list_api_url: str) -> str:
     return list_api_url.rsplit("/jobs/", 1)[0] + "/job"
+
+
+def _moka_location(item: dict) -> str:
+    labeled = item.get("locationNames") or item.get("cityName")
+    if isinstance(labeled, list):
+        return "、".join(dict.fromkeys(str(value).strip() for value in labeled if str(value).strip()))
+    if str(labeled or "").strip():
+        return str(labeled).strip()
+
+    locations: list[str] = []
+    for location in item.get("locations") or []:
+        if not isinstance(location, dict):
+            continue
+        value = "-".join(dict.fromkeys(
+            str(location.get(field) or "").strip()
+            for field in ("provinceName", "cityName") if str(location.get(field) or "").strip()
+        ))
+        if value:
+            locations.append(value)
+    return "、".join(dict.fromkeys(locations))
 
 
 def _strip_html(text: str) -> str:

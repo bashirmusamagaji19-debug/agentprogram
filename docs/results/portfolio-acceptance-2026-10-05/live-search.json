@@ -1,0 +1,477 @@
+{
+  "scope": "two official sources, bounded sampling, no LLM",
+  "runs": [
+    {
+      "checked_at": "2026-10-05T06:12:02.371837+00:00",
+      "run_id": "run-68a43859",
+      "keyword": "大模型",
+      "location": "北京",
+      "target_count": 2,
+      "elapsed_seconds": 14.0,
+      "metrics": {
+        "run_id": "run-68a43859",
+        "started_at": "2026-10-05T06:11:50.257043Z",
+        "finished_at": "2026-10-05T06:12:02.355688Z",
+        "pages_visited": 12,
+        "jobs_found": 12,
+        "valid_jobs": 2,
+        "duplicate_jobs": 0,
+        "failed_pages": 8,
+        "avg_steps_per_job": 6.0,
+        "estimated_token_cost": 0.0
+      },
+      "jobs": [
+        {
+          "title": "AI全栈工程师",
+          "company": "腾讯",
+          "location": "深圳总部、北京、上海、广州、成都、杭州",
+          "source": "official-api",
+          "url": "https://join.qq.com/post_detail.html?postId=1282707398326592512",
+          "requirements": "1、熟练掌握主流前后端技术栈，具备扎实的计算机基础知识和全栈工程能力，能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具，能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式，熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等），有相关实践经验； 4、 具备系统设计能力，了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣，愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力，有较强的责任心，能高效配合团队完成项目交付。",
+          "responsibilities": "1、负责产品业务系统的全栈开发，涵盖前端交互、后端服务、数据存储等，参与需求分析、架构设计、开发交付与迭代优化； 2、构建基于大模型的全链路应用系统，包括AI能力接入、Agent架构设计、RAG系统搭建、业务知识库建设等，实现端到端的AI应用落地； 3、跟踪AI与全栈技术的前沿发展，关注行业前沿动态，并结合业务场景进行落地实践。",
+          "skills": [
+            "1、熟练掌握主流前后端技术栈",
+            "具备扎实的计算机基础知识和全栈工程能力",
+            "能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具",
+            "能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式",
+            "熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等）",
+            "有相关实践经验； 4、 具备系统设计能力",
+            "了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣",
+            "愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力",
+            "有较强的责任心",
+            "能高效配合团队完成项目交付。"
+          ],
+          "posted_at": "",
+          "confidence": 1.0,
+          "tier": "大厂",
+          "category": "工程",
+          "url_verification": "api-verified"
+        },
+        {
+          "title": "Agent开发工程师",
+          "company": "腾讯",
+          "location": "深圳总部、北京、上海、广州、成都",
+          "source": "official-api",
+          "url": "https://join.qq.com/post_detail.html?postId=1282707395466077184",
+          "requirements": "1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等），具备扎实的数据结构与算法基础，代码质量意识强； 2、深入理解Agent原理与架构，包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等），有实际搭建经验； 4、了解大模型基本原理，熟悉Prompt Engineering技巧，能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣，关注行业动态，具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力，能在复杂场景中设计可靠的Agent方案。",
+          "responsibilities": "1、负责智能Agent系统的架构设计与开发，包括多Agent协作框架、任务规划与调度、工具调用与执行引擎等核心模块建设； 2、设计并实现Agent的记忆系统、推理链路和决策机制，提升Agent在复杂业务场景下的自主性与可靠性； 3、搭建Agent应用的评测与质量保障体系，建立系统性的效果评估、持续优化与性能、成本管控机制； 4、跟踪Agent技术前沿发展，结合业务需求进行技术预研与落地实践。",
+          "skills": [
+            "1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等）",
+            "具备扎实的数据结构与算法基础",
+            "代码质量意识强； 2、深入理解Agent原理与架构",
+            "包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等）",
+            "有实际搭建经验； 4、了解大模型基本原理",
+            "熟悉Prompt Engineering技巧",
+            "能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣",
+            "关注行业动态",
+            "具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力",
+            "能在复杂场景中设计可靠的Agent方案。"
+          ],
+          "posted_at": "",
+          "confidence": 1.0,
+          "tier": "大厂",
+          "category": "工程",
+          "url_verification": "api-verified"
+        }
+      ],
+      "source_diagnostics": [
+        {
+          "source": "tencent-campus",
+          "status": "healthy",
+          "count": 30,
+          "attempts": 2,
+          "candidate_count": 30
+        },
+        {
+          "source": "xiaomi",
+          "status": "healthy",
+          "count": 30,
+          "attempts": 2,
+          "candidate_count": 22
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "xiaomi",
+          "error": "search_filtered: 8 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7506408110258176108/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/topintern/position/7651906295088810276/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7686713909067483418/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7646703858689870107/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7613691394993752362/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662576803874064694/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7341222975850954860/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7538315525098389613/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707390126745600",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707393989682176",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707403120699392",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707403120699393",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707405033302016",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707405033302017",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        }
+      ],
+      "condition_violations": [],
+      "positive_acceptance_passed": true,
+      "raw_json": "portfolio-artifacts/acceptance-2026-10-05/live/run-68a43859/result.json"
+    },
+    {
+      "checked_at": "2026-10-05T06:12:11.016248+00:00",
+      "run_id": "run-eeb00e96",
+      "keyword": "大模型",
+      "location": "上海",
+      "target_count": 2,
+      "elapsed_seconds": 8.65,
+      "metrics": {
+        "run_id": "run-eeb00e96",
+        "started_at": "2026-10-05T06:12:07.078839Z",
+        "finished_at": "2026-10-05T06:12:11.007395Z",
+        "pages_visited": 13,
+        "jobs_found": 13,
+        "valid_jobs": 2,
+        "duplicate_jobs": 0,
+        "failed_pages": 2,
+        "avg_steps_per_job": 6.5,
+        "estimated_token_cost": 0.0
+      },
+      "jobs": [
+        {
+          "title": "AI全栈工程师",
+          "company": "腾讯",
+          "location": "深圳总部、北京、上海、广州、成都、杭州",
+          "source": "official-api",
+          "url": "https://join.qq.com/post_detail.html?postId=1282707398326592512",
+          "requirements": "1、熟练掌握主流前后端技术栈，具备扎实的计算机基础知识和全栈工程能力，能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具，能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式，熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等），有相关实践经验； 4、 具备系统设计能力，了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣，愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力，有较强的责任心，能高效配合团队完成项目交付。",
+          "responsibilities": "1、负责产品业务系统的全栈开发，涵盖前端交互、后端服务、数据存储等，参与需求分析、架构设计、开发交付与迭代优化； 2、构建基于大模型的全链路应用系统，包括AI能力接入、Agent架构设计、RAG系统搭建、业务知识库建设等，实现端到端的AI应用落地； 3、跟踪AI与全栈技术的前沿发展，关注行业前沿动态，并结合业务场景进行落地实践。",
+          "skills": [
+            "1、熟练掌握主流前后端技术栈",
+            "具备扎实的计算机基础知识和全栈工程能力",
+            "能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具",
+            "能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式",
+            "熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等）",
+            "有相关实践经验； 4、 具备系统设计能力",
+            "了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣",
+            "愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力",
+            "有较强的责任心",
+            "能高效配合团队完成项目交付。"
+          ],
+          "posted_at": "",
+          "confidence": 1.0,
+          "tier": "大厂",
+          "category": "工程",
+          "url_verification": "api-verified"
+        },
+        {
+          "title": "Agent开发工程师",
+          "company": "腾讯",
+          "location": "深圳总部、北京、上海、广州、成都",
+          "source": "official-api",
+          "url": "https://join.qq.com/post_detail.html?postId=1282707395466077184",
+          "requirements": "1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等），具备扎实的数据结构与算法基础，代码质量意识强； 2、深入理解Agent原理与架构，包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等），有实际搭建经验； 4、了解大模型基本原理，熟悉Prompt Engineering技巧，能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣，关注行业动态，具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力，能在复杂场景中设计可靠的Agent方案。",
+          "responsibilities": "1、负责智能Agent系统的架构设计与开发，包括多Agent协作框架、任务规划与调度、工具调用与执行引擎等核心模块建设； 2、设计并实现Agent的记忆系统、推理链路和决策机制，提升Agent在复杂业务场景下的自主性与可靠性； 3、搭建Agent应用的评测与质量保障体系，建立系统性的效果评估、持续优化与性能、成本管控机制； 4、跟踪Agent技术前沿发展，结合业务需求进行技术预研与落地实践。",
+          "skills": [
+            "1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等）",
+            "具备扎实的数据结构与算法基础",
+            "代码质量意识强； 2、深入理解Agent原理与架构",
+            "包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等）",
+            "有实际搭建经验； 4、了解大模型基本原理",
+            "熟悉Prompt Engineering技巧",
+            "能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣",
+            "关注行业动态",
+            "具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力",
+            "能在复杂场景中设计可靠的Agent方案。"
+          ],
+          "posted_at": "",
+          "confidence": 1.0,
+          "tier": "大厂",
+          "category": "工程",
+          "url_verification": "api-verified"
+        }
+      ],
+      "source_diagnostics": [
+        {
+          "source": "tencent-campus",
+          "status": "healthy",
+          "count": 90,
+          "attempts": 3,
+          "candidate_count": 84
+        },
+        {
+          "source": "xiaomi",
+          "status": "healthy",
+          "count": 90,
+          "attempts": 3,
+          "candidate_count": 2
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "tencent-campus",
+          "error": "search_filtered: 6 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "xiaomi",
+          "error": "search_filtered: 88 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7497036607830655085/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7685966940888467739/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707390126745600",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707393989682176",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707403120699392",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707403120699393",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707405033302016",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707405033302017",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1283126465243980800",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        }
+      ],
+      "condition_violations": [],
+      "positive_acceptance_passed": true,
+      "raw_json": "portfolio-artifacts/acceptance-2026-10-05/live/run-eeb00e96/result.json"
+    },
+    {
+      "checked_at": "2026-10-05T06:12:20.976101+00:00",
+      "run_id": "run-45ce93b7",
+      "keyword": "大模型",
+      "location": "北京、上海",
+      "target_count": 2,
+      "elapsed_seconds": 9.96,
+      "metrics": {
+        "run_id": "run-45ce93b7",
+        "started_at": "2026-10-05T06:12:12.795422Z",
+        "finished_at": "2026-10-05T06:12:20.955800Z",
+        "pages_visited": 12,
+        "jobs_found": 12,
+        "valid_jobs": 2,
+        "duplicate_jobs": 0,
+        "failed_pages": 8,
+        "avg_steps_per_job": 6.0,
+        "estimated_token_cost": 0.0
+      },
+      "jobs": [
+        {
+          "title": "AI全栈工程师",
+          "company": "腾讯",
+          "location": "深圳总部、北京、上海、广州、成都、杭州",
+          "source": "official-api",
+          "url": "https://join.qq.com/post_detail.html?postId=1282707398326592512",
+          "requirements": "1、熟练掌握主流前后端技术栈，具备扎实的计算机基础知识和全栈工程能力，能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具，能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式，熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等），有相关实践经验； 4、 具备系统设计能力，了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣，愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力，有较强的责任心，能高效配合团队完成项目交付。",
+          "responsibilities": "1、负责产品业务系统的全栈开发，涵盖前端交互、后端服务、数据存储等，参与需求分析、架构设计、开发交付与迭代优化； 2、构建基于大模型的全链路应用系统，包括AI能力接入、Agent架构设计、RAG系统搭建、业务知识库建设等，实现端到端的AI应用落地； 3、跟踪AI与全栈技术的前沿发展，关注行业前沿动态，并结合业务场景进行落地实践。",
+          "skills": [
+            "1、熟练掌握主流前后端技术栈",
+            "具备扎实的计算机基础知识和全栈工程能力",
+            "能够完成需求分析、方案设计、开发交付及迭代优化的完整流程； 2、熟练使用 AI 编程工具",
+            "能通过 AI 完成业务开发与应用搭建； 3、了解大模型基本原理与推理部署方式",
+            "熟悉RAG技术、Agent原理（包括 Tool Use、Planning、Memory 等）",
+            "有相关实践经验； 4、 具备系统设计能力",
+            "了解分布式系统、微服务架构、消息队列、缓存等后端核心技术； 5、 对 AI 前沿技术有浓厚兴趣",
+            "愿意主动探索AI在业务场景的创新应用； 6、具备良好的沟通协作与问题解决能力",
+            "有较强的责任心",
+            "能高效配合团队完成项目交付。"
+          ],
+          "posted_at": "",
+          "confidence": 1.0,
+          "tier": "大厂",
+          "category": "工程",
+          "url_verification": "api-verified"
+        },
+        {
+          "title": "Agent开发工程师",
+          "company": "腾讯",
+          "location": "深圳总部、北京、上海、广州、成都",
+          "source": "official-api",
+          "url": "https://join.qq.com/post_detail.html?postId=1282707395466077184",
+          "requirements": "1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等），具备扎实的数据结构与算法基础，代码质量意识强； 2、深入理解Agent原理与架构，包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等），有实际搭建经验； 4、了解大模型基本原理，熟悉Prompt Engineering技巧，能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣，关注行业动态，具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力，能在复杂场景中设计可靠的Agent方案。",
+          "responsibilities": "1、负责智能Agent系统的架构设计与开发，包括多Agent协作框架、任务规划与调度、工具调用与执行引擎等核心模块建设； 2、设计并实现Agent的记忆系统、推理链路和决策机制，提升Agent在复杂业务场景下的自主性与可靠性； 3、搭建Agent应用的评测与质量保障体系，建立系统性的效果评估、持续优化与性能、成本管控机制； 4、跟踪Agent技术前沿发展，结合业务需求进行技术预研与落地实践。",
+          "skills": [
+            "1、熟练掌握至少一门主流编程语言（Python/TypeScript/Go 等）",
+            "具备扎实的数据结构与算法基础",
+            "代码质量意识强； 2、深入理解Agent原理与架构",
+            "包括 Planning、Memory、Tool Use、Reflection等核心机制； 3、 熟悉主流Agent开发框架（如 LangGraph、AutoGen、CrewAI、MetaGPT 等）",
+            "有实际搭建经验； 4、了解大模型基本原理",
+            "熟悉Prompt Engineering技巧",
+            "能设计高质量的系统提示词与工具描述； 5、对AI Agent技术有强烈兴趣",
+            "关注行业动态",
+            "具备独立调研与技术选型能力； 6、 具备良好的系统思维和问题解决能力",
+            "能在复杂场景中设计可靠的Agent方案。"
+          ],
+          "posted_at": "",
+          "confidence": 1.0,
+          "tier": "大厂",
+          "category": "工程",
+          "url_verification": "api-verified"
+        }
+      ],
+      "source_diagnostics": [
+        {
+          "source": "tencent-campus",
+          "status": "healthy",
+          "count": 30,
+          "attempts": 2,
+          "candidate_count": 30
+        },
+        {
+          "source": "xiaomi",
+          "status": "healthy",
+          "count": 30,
+          "attempts": 2,
+          "candidate_count": 23
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "xiaomi",
+          "error": "search_filtered: 7 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7506408110258176108/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/topintern/position/7651906295088810276/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7686713909067483418/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7646703858689870107/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7613691394993752362/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662576803874064694/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7341222975850954860/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7538315525098389613/detail",
+          "error": "page_removed: HTTP 404"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707390126745600",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707393989682176",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707403120699392",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707403120699393",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707405033302016",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://join.qq.com/post_detail.html?postId=1282707405033302017",
+          "error": "verification_filtered: keyword mismatch: missing 大模型",
+          "kind": "search_filter"
+        }
+      ],
+      "condition_violations": [],
+      "positive_acceptance_passed": true,
+      "raw_json": "portfolio-artifacts/acceptance-2026-10-05/live/run-45ce93b7/result.json"
+    }
+  ]
+}

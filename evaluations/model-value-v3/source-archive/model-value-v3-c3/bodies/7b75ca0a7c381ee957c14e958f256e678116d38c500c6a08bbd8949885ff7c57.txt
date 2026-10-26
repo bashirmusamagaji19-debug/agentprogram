@@ -1,0 +1,17 @@
+Title: 算法平台实习生
+Company: 西陵云
+Location: 成都
+Work address: 上海
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 算法平台 相关项目或课程基础
+- 具备 Kubernetes 相关项目或课程基础
+- 具备 Python 相关项目或课程基础
+- 具备 调度 相关项目或课程基础
+Location note: 工作地址正文写上海，与页头成都冲突。
+Responsibilities:
+- 维护训练任务调度接口
+- 排查实验资源配置冲突
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-10

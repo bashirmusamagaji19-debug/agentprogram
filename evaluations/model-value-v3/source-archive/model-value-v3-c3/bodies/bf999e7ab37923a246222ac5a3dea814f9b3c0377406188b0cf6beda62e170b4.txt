@@ -1,0 +1,15 @@
+Title: 数据标注质量实习生
+Company: 砚山数据
+Location: 上海
+Job type: 实习（每周至少四天）
+Requirements:
+- 具备 数据标注 相关项目或课程基础
+- 具备 质量标准 相关项目或课程基础
+- 具备 Python 相关项目或课程基础
+- 具备 抽样审计 相关项目或课程基础
+Responsibilities:
+- 核对标注抽样规则
+- 撰写质量偏差复盘
+Variant focus: 离线评估与失败复盘
+Source note: A controlled synthetic cross-source mirror; it is not evidence of two openings.
+Template: c3-template-15

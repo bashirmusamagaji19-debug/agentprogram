@@ -1,0 +1,36 @@
+{
+  "benchmark_version": "hybrid-agent-hitl-v1",
+  "scope": "deterministic checkpoint and persistence scenarios",
+  "cases": [
+    {
+      "case_id": "approve",
+      "paused": true,
+      "approved": true,
+      "rejected": false,
+      "saved_effects": 1,
+      "replayed": false,
+      "terminal_reason": "target_reached"
+    },
+    {
+      "case_id": "reject",
+      "paused": true,
+      "approved": false,
+      "rejected": true,
+      "saved_effects": 0,
+      "replayed": false,
+      "terminal_reason": "human_denied"
+    },
+    {
+      "case_id": "replay",
+      "paused": true,
+      "approved": true,
+      "rejected": false,
+      "saved_effects": 1,
+      "replayed": true,
+      "terminal_reason": "target_reached"
+    }
+  ],
+  "pause_rate": 1.0,
+  "rejected_effects": 0,
+  "duplicate_effects": 0
+}

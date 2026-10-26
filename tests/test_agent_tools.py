@@ -199,6 +199,7 @@ async def test_visual_verify_match_save_and_finish_tools_share_state():
             "visual_available": True,
         }
     )
+    state.user = state.user.model_copy(update={"target_count": 1})
     visual = await ExtractVisualTool(DemoVisualJobExtractor()).execute(state, {})
     verified = await VerifyJobTool(JobVerifier()).execute(state, {})
     matched = await ScoreMatchTool(JobMatcher()).execute(state, {})

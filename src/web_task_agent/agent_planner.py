@@ -1,18 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import re
 from time import perf_counter
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from web_task_agent.agent_models import AgentAction, AgentDecision, DecisionAgentState
+from web_task_agent.agent_action_space import build_action_space
+from web_task_agent.agent_models import AgentDecision, DecisionAgentState
+from web_task_agent.agent_policy import DeterministicAgentPolicy
 from web_task_agent.llm_extractor import (
     PROVIDER_DEFAULTS,
     LlmTransport,
     build_llm_provider_config,
 )
+from web_task_agent.planner_routing import ModelCallBudget
 
 
 class PlannerTelemetry(BaseModel):
@@ -23,12 +29,16 @@ class PlannerTelemetry(BaseModel):
     prompt_tokens: int = Field(default=0, ge=0)
     completion_tokens: int = Field(default=0, ge=0)
     total_tokens: int = Field(default=0, ge=0)
+    usage_missing: int = Field(default=0, ge=0)
+    requests: list[dict[str, Any]] = Field(default_factory=list)
 
 
 def build_configured_agent_planner(
     *,
     provider: str,
     model: str | None = None,
+    budget: ModelCallBudget | None = None,
+    timeout_seconds: int = 20,
 ) -> OpenAiCompatibleAgentPlanner:
     config = build_llm_provider_config(provider=provider, model=model)
     return OpenAiCompatibleAgentPlanner(
@@ -36,6 +46,8 @@ def build_configured_agent_planner(
         model=config.model,
         api_key=config.api_key,
         base_url=config.base_url,
+        budget=budget,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -49,6 +61,7 @@ class OpenAiCompatibleAgentPlanner:
         base_url: str | None = None,
         timeout_seconds: int = 60,
         transport: LlmTransport | None = None,
+        budget: ModelCallBudget | None = None,
     ) -> None:
         self.provider = provider
         self.model = model
@@ -57,28 +70,58 @@ class OpenAiCompatibleAgentPlanner:
         self.timeout_seconds = timeout_seconds
         self.transport = transport or self._urllib_transport
         self.telemetry = PlannerTelemetry()
+        self.budget = budget or ModelCallBudget()
 
     async def decide(self, state: DecisionAgentState) -> AgentDecision:
+        payload = self._payload(state)
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        reservation = self.budget.reserve(estimated_tokens=len(encoded) + payload["max_tokens"])
         self.telemetry.calls += 1
         started = perf_counter()
+        usage = None
+        record = {"request_id": uuid4().hex, "provider": self.provider, "model": self.model,
+                  "prompt_hash": hashlib.sha256(encoded).hexdigest(),
+                  "input_hash": hashlib.sha256(payload["messages"][1]["content"].encode()).hexdigest(),
+                  "usage_complete": False, "prompt_tokens": None, "completion_tokens": None,
+                  "total_tokens": None, "status": "error"}
         try:
-            response = self.transport(
+            response = await asyncio.to_thread(self.transport,
                 f"{self.base_url}/chat/completions",
                 self._headers(),
-                self._payload(state),
+                payload,
                 self.timeout_seconds,
             )
+            usage = response.get("usage")
+            if isinstance(usage, dict):
+                self._record_usage(response)
+                for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                    value = usage.get(key)
+                    record[key] = (
+                        value
+                        if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+                        else None
+                    )
+                record["usage_complete"] = all(record[key] is not None
+                                                for key in ("prompt_tokens", "completion_tokens", "total_tokens"))
+            record["response_model"] = response.get("model", self.model)
             content = self._response_content(response)
             decision = AgentDecision.model_validate(json.loads(self._strip_code_fence(content)))
-        except Exception:
+        except (Exception, asyncio.CancelledError) as error:
             self.telemetry.failed_calls += 1
+            record["error_type"] = type(error).__name__
+            record["timeout"] = isinstance(error, (TimeoutError, asyncio.CancelledError))
             raise
         else:
             self.telemetry.successful_calls += 1
-            self._record_usage(response)
+            record["status"] = "ok"
             return decision
         finally:
-            self.telemetry.total_latency_ms += (perf_counter() - started) * 1000
+            record["elapsed_ms"] = (perf_counter() - started) * 1000
+            self.telemetry.total_latency_ms += record["elapsed_ms"]
+            if not record["usage_complete"]:
+                self.telemetry.usage_missing += 1
+            self.telemetry.requests.append(record)
+            self.budget.finish(reservation, usage=usage)
 
     def _record_usage(self, response: dict[str, Any]) -> None:
         usage = response.get("usage", {})
@@ -102,6 +145,10 @@ class OpenAiCompatibleAgentPlanner:
         }
 
     def _payload(self, state: DecisionAgentState) -> dict[str, Any]:
+        space = build_action_space(state, DeterministicAgentPolicy())
+        allowed_actions = state.allowed_actions or [action.value for action in space.actions]
+        allowed_targets = state.allowed_targets or space.targets_by_action
+        visible_urls = list(dict.fromkeys(url for targets in allowed_targets.values() for url in targets))[:10]
         summary = {
             "goal": {
                 "keyword": state.user.keyword,
@@ -109,7 +156,9 @@ class OpenAiCompatibleAgentPlanner:
                 "target_count": state.user.target_count,
                 "skills": state.user.skills,
             },
-            "candidate_urls": state.candidate_urls[:10],
+            "candidate_urls": visible_urls,
+            "candidate_summaries": {url: state.candidate_summaries.get(url, {}) for url in visible_urls},
+            "allowed_targets": allowed_targets,
             "visited_urls": sorted(state.visited_urls)[:10],
             "current_page": (
                 {
@@ -133,7 +182,7 @@ class OpenAiCompatibleAgentPlanner:
             ),
             "retry_counts": state.retry_counts,
             "remaining_steps": state.budget.remaining_steps,
-            "allowed_actions": [action.value for action in AgentAction],
+            "allowed_actions": allowed_actions,
         }
         return {
             "model": self.model,
@@ -143,7 +192,9 @@ class OpenAiCompatibleAgentPlanner:
                     "content": (
                         "Choose exactly one next action for a bounded recruiting Agent. "
                         "Return only a JSON object matching the requested schema. "
-                        "Never invent tools outside allowed_actions."
+                        "Never invent tools outside allowed_actions. When allowed_targets lists targets for the "
+                        "action, target must be exactly one listed URL. Never override target with arguments.url. "
+                        "Select candidates using the goal and source-grounded summaries, not invented page content."
                     ),
                 },
                 {
@@ -156,6 +207,7 @@ class OpenAiCompatibleAgentPlanner:
                 },
             ],
             "temperature": 0,
+            "max_tokens": 600,
             "response_format": {"type": "json_object"},
         }
 

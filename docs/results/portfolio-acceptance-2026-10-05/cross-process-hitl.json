@@ -1,0 +1,400 @@
+{
+  "independent_cli_processes": true,
+  "cases": [
+    {
+      "outcome": "approve",
+      "thread_id": "acceptance-approve-f7ff6c45",
+      "paused_before_save": true,
+      "start_exit": 0,
+      "resume_exit": 0,
+      "saved_effects": 1,
+      "terminal_reason": "target_reached",
+      "duplicate_resume_exit": 2,
+      "duplicate_effects": 0,
+      "trace": [
+        {
+          "step": 1,
+          "action": "search_jobs",
+          "source": "policy",
+          "reason": "No candidate URLs are available, so job search must run first.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "search_jobs",
+            "success": true,
+            "summary": "Discovered 1 candidate URLs.",
+            "payload": {
+              "candidate_urls": [
+                "https://example.com/jobs/ai-engineering-intern"
+              ],
+              "query": "AI intern Remote"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.028300099074840546,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 2,
+          "action": "open_page",
+          "source": "policy",
+          "reason": "Open the next unvisited candidate job URL.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "open_page",
+            "success": true,
+            "summary": "Opened https://example.com/jobs/ai-engineering-intern.",
+            "payload": {
+              "url": "https://example.com/jobs/ai-engineering-intern",
+              "title": "AI Engineering Intern at Example AI"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.01880002673715353,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 3,
+          "action": "extract_text",
+          "source": "policy",
+          "reason": "The current page has not been converted into a structured job.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "extract_text",
+            "success": true,
+            "summary": "Extracted AI Engineering Intern with confidence 1.00.",
+            "payload": {
+              "job": {
+                "title": "AI Engineering Intern",
+                "company": "Example AI",
+                "location": "Remote",
+                "source": "demo",
+                "url": "https://example.com/jobs/ai-engineering-intern",
+                "requirements": "Python, LangGraph, LLM",
+                "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM"
+                ],
+                "posted_at": "2026-06-07",
+                "confidence": 1.0,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              },
+              "confidence": 1.0
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.14549994375556707,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 4,
+          "action": "verify_job",
+          "source": "policy",
+          "reason": "Extracted job candidates require quality verification.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "verify_job",
+            "success": true,
+            "summary": "Verifier accepted AI Engineering Intern.",
+            "payload": {
+              "job": {
+                "title": "AI Engineering Intern",
+                "company": "Example AI",
+                "location": "Remote",
+                "source": "demo",
+                "url": "https://example.com/jobs/ai-engineering-intern",
+                "requirements": "Python, LangGraph, LLM",
+                "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM"
+                ],
+                "posted_at": "2026-06-07",
+                "confidence": 1.0,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              }
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.027399975806474686,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 5,
+          "action": "score_match",
+          "source": "policy",
+          "reason": "The verified target is ready for profile matching.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "score_match",
+            "success": true,
+            "summary": "Scored 1 verified jobs.",
+            "payload": {
+              "matches": [
+                {
+                  "job_id": "https://example.com/jobs/ai-engineering-intern",
+                  "score": 0.33,
+                  "matched_skills": [
+                    "Python"
+                  ],
+                  "missing_skills": [
+                    "LangGraph",
+                    "LLM"
+                  ],
+                  "reason": "匹配 1/3 个岗位技能：Python。",
+                  "priority": "low",
+                  "suggested_actions": [
+                    "补强或准备相关经历：LangGraph",
+                    "补强或准备相关经历：LLM"
+                  ]
+                }
+              ]
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 1.7299000173807144,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 6,
+          "action": "save_results",
+          "source": "policy",
+          "reason": "Matched target results are ready for persistence.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "save_results",
+            "success": true,
+            "summary": "Persisted 1 verified jobs.",
+            "payload": {
+              "saved_jobs": 1,
+              "reused": false
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 4.6987999230623245,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 7,
+          "action": "finish",
+          "source": "policy",
+          "reason": "The requested results were verified, matched, and saved.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "finish",
+            "success": true,
+            "summary": "Agent finished with status completed: target_reached.",
+            "payload": {
+              "terminal_status": "completed",
+              "terminal_reason": "target_reached"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.016900012269616127,
+            "recoverable": false
+          }
+        }
+      ]
+    },
+    {
+      "outcome": "reject",
+      "thread_id": "acceptance-reject-ee1a8570",
+      "paused_before_save": true,
+      "start_exit": 0,
+      "resume_exit": 0,
+      "saved_effects": 0,
+      "terminal_reason": "human_denied",
+      "duplicate_resume_exit": 2,
+      "duplicate_effects": 0,
+      "trace": [
+        {
+          "step": 1,
+          "action": "search_jobs",
+          "source": "policy",
+          "reason": "No candidate URLs are available, so job search must run first.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "search_jobs",
+            "success": true,
+            "summary": "Discovered 1 candidate URLs.",
+            "payload": {
+              "candidate_urls": [
+                "https://example.com/jobs/ai-engineering-intern"
+              ],
+              "query": "AI intern Remote"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.028699985705316067,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 2,
+          "action": "open_page",
+          "source": "policy",
+          "reason": "Open the next unvisited candidate job URL.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "open_page",
+            "success": true,
+            "summary": "Opened https://example.com/jobs/ai-engineering-intern.",
+            "payload": {
+              "url": "https://example.com/jobs/ai-engineering-intern",
+              "title": "AI Engineering Intern at Example AI"
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.02150004729628563,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 3,
+          "action": "extract_text",
+          "source": "policy",
+          "reason": "The current page has not been converted into a structured job.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "extract_text",
+            "success": true,
+            "summary": "Extracted AI Engineering Intern with confidence 1.00.",
+            "payload": {
+              "job": {
+                "title": "AI Engineering Intern",
+                "company": "Example AI",
+                "location": "Remote",
+                "source": "demo",
+                "url": "https://example.com/jobs/ai-engineering-intern",
+                "requirements": "Python, LangGraph, LLM",
+                "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM"
+                ],
+                "posted_at": "2026-06-07",
+                "confidence": 1.0,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              },
+              "confidence": 1.0
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.15390000771731138,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 4,
+          "action": "verify_job",
+          "source": "policy",
+          "reason": "Extracted job candidates require quality verification.",
+          "target": "https://example.com/jobs/ai-engineering-intern",
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "verify_job",
+            "success": true,
+            "summary": "Verifier accepted AI Engineering Intern.",
+            "payload": {
+              "job": {
+                "title": "AI Engineering Intern",
+                "company": "Example AI",
+                "location": "Remote",
+                "source": "demo",
+                "url": "https://example.com/jobs/ai-engineering-intern",
+                "requirements": "Python, LangGraph, LLM",
+                "responsibilities": "Build browser agents and evaluation tools. Requirements include Python, LangGraph, and LLM application development.",
+                "skills": [
+                  "Python",
+                  "LangGraph",
+                  "LLM"
+                ],
+                "posted_at": "2026-06-07",
+                "confidence": 1.0,
+                "tier": "",
+                "category": "其他",
+                "url_verification": "unverified"
+              }
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 0.021600048057734966,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 5,
+          "action": "score_match",
+          "source": "policy",
+          "reason": "The verified target is ready for profile matching.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": {
+            "tool_name": "score_match",
+            "success": true,
+            "summary": "Scored 1 verified jobs.",
+            "payload": {
+              "matches": [
+                {
+                  "job_id": "https://example.com/jobs/ai-engineering-intern",
+                  "score": 0.33,
+                  "matched_skills": [
+                    "Python"
+                  ],
+                  "missing_skills": [
+                    "LangGraph",
+                    "LLM"
+                  ],
+                  "reason": "匹配 1/3 个岗位技能：Python。",
+                  "priority": "low",
+                  "suggested_actions": [
+                    "补强或准备相关经历：LangGraph",
+                    "补强或准备相关经历：LLM"
+                  ]
+                }
+              ]
+            },
+            "error_category": "",
+            "error_message": "",
+            "latency_ms": 1.7353000584989786,
+            "recoverable": false
+          }
+        },
+        {
+          "step": 6,
+          "action": "save_results",
+          "source": "policy",
+          "reason": "Matched target results are ready for persistence.",
+          "target": null,
+          "confidence": 1.0,
+          "observation": null
+        }
+      ]
+    }
+  ]
+}

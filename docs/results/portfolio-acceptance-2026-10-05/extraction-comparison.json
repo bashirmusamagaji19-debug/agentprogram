@@ -1,0 +1,366 @@
+{
+  "seed_urls": [
+    "https://example.com/jobs/unstructured-ai-agent-intern",
+    "https://example.com/jobs/ai-engineering-intern",
+    "https://example.com/jobs/visual-ai-intern"
+  ],
+  "report_path": "portfolio-artifacts/acceptance-2026-10-05/extraction/llm-extractor-comparison.md",
+  "extractors": {
+    "baseline": {
+      "total_tasks": 3,
+      "completed_tasks": 2,
+      "success_rate": 0.67,
+      "total_valid_jobs": 2,
+      "average_pages_visited": 1.0,
+      "failure_counts": {
+        "verification_filtered": 1
+      },
+      "task_results": [
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 0,
+          "success": false,
+          "failure_reason": "no valid jobs",
+          "failure_category": "verification_filtered",
+          "failure_details": "Careers @ Unknown Company -> confidence below 0.5, missing requirements and responsibilities, not relevant to AI job direction"
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        }
+      ],
+      "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+    },
+    "llm_demo": {
+      "total_tasks": 3,
+      "completed_tasks": 3,
+      "success_rate": 1.0,
+      "total_valid_jobs": 3,
+      "average_pages_visited": 1.0,
+      "failure_counts": {},
+      "task_results": [
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        }
+      ],
+      "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+    },
+    "visual_demo": {
+      "total_tasks": 3,
+      "completed_tasks": 3,
+      "success_rate": 1.0,
+      "total_valid_jobs": 3,
+      "average_pages_visited": 1.0,
+      "failure_counts": {},
+      "task_results": [
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        }
+      ],
+      "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+    },
+    "qwen": {
+      "total_tasks": 3,
+      "completed_tasks": 3,
+      "success_rate": 1.0,
+      "total_valid_jobs": 3,
+      "average_pages_visited": 1.0,
+      "failure_counts": {},
+      "task_results": [
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        },
+        {
+          "case_id": "",
+          "keyword": "AI intern",
+          "location": "Remote",
+          "pages_visited": 1,
+          "valid_jobs": 1,
+          "success": true,
+          "failure_reason": "",
+          "failure_category": "",
+          "failure_details": ""
+        }
+      ],
+      "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+    }
+  },
+  "baseline": {
+    "total_tasks": 3,
+    "completed_tasks": 2,
+    "success_rate": 0.67,
+    "total_valid_jobs": 2,
+    "average_pages_visited": 1.0,
+    "failure_counts": {
+      "verification_filtered": 1
+    },
+    "task_results": [
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 0,
+        "success": false,
+        "failure_reason": "no valid jobs",
+        "failure_category": "verification_filtered",
+        "failure_details": "Careers @ Unknown Company -> confidence below 0.5, missing requirements and responsibilities, not relevant to AI job direction"
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      }
+    ],
+    "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+  },
+  "llm_demo": {
+    "total_tasks": 3,
+    "completed_tasks": 3,
+    "success_rate": 1.0,
+    "total_valid_jobs": 3,
+    "average_pages_visited": 1.0,
+    "failure_counts": {},
+    "task_results": [
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      }
+    ],
+    "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+  },
+  "qwen": {
+    "total_tasks": 3,
+    "completed_tasks": 3,
+    "success_rate": 1.0,
+    "total_valid_jobs": 3,
+    "average_pages_visited": 1.0,
+    "failure_counts": {},
+    "task_results": [
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      }
+    ],
+    "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+  },
+  "visual_demo": {
+    "total_tasks": 3,
+    "completed_tasks": 3,
+    "success_rate": 1.0,
+    "total_valid_jobs": 3,
+    "average_pages_visited": 1.0,
+    "failure_counts": {},
+    "task_results": [
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      },
+      {
+        "case_id": "",
+        "keyword": "AI intern",
+        "location": "Remote",
+        "pages_visited": 1,
+        "valid_jobs": 1,
+        "success": true,
+        "failure_reason": "",
+        "failure_category": "",
+        "failure_details": ""
+      }
+    ],
+    "report_path": "portfolio-artifacts\\acceptance-2026-10-05\\extraction\\evaluation-report.md"
+  }
+}

@@ -1,0 +1,5 @@
+[
+  {"url":"https://example.com/jobs/ai-intern-1","title":"AI Agent Intern","source":"fixture","content":"Title: AI Agent Intern\nCompany: Example One\nLocation: Remote\nRequirements: Python, LangGraph, LLM and AI application development. Internship candidates should be comfortable writing tests.\nResponsibilities: Build and evaluate reliable AI agents."},
+  {"url":"https://example.com/jobs/ai-intern-2","title":"AI Application Intern","source":"fixture","content":"Title: AI Application Intern\nCompany: Example Two\nLocation: Remote\nRequirements: Python, RAG, LLM and AI application development. Internship candidates should be comfortable writing tests.\nResponsibilities: Build and evaluate reliable AI applications."},
+  {"url":"https://example.com/jobs/ai-intern-3","title":"AI Engineering Intern","source":"fixture","content":"Title: AI Engineering Intern\nCompany: Example Three\nLocation: Remote\nRequirements: Python, tools, LLM and AI engineering. Internship candidates should be comfortable writing tests and reviewing traces.\nResponsibilities: Build and evaluate reliable AI workflows."}
+]

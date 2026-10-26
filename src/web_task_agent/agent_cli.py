@@ -2,52 +2,21 @@ from __future__ import annotations
 
 import html
 import json
+from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
 
 from web_task_agent.agent_approval import ApprovalStatus
+from web_task_agent.agent_components import build_hybrid_runtime as build_hybrid_runtime
 from web_task_agent.agent_models import DecisionAgentState
-from web_task_agent.agent_policy import DeterministicAgentPolicy
-from web_task_agent.agent_runtime import HybridAgentRuntime
-from web_task_agent.agent_tools import (
-    AgentToolRegistry,
-    ExtractTextTool,
-    ExtractVisualTool,
-    FinishTool,
-    OpenPageTool,
-    SaveResultsTool,
-    ScoreMatchTool,
-    SearchJobsTool,
-    VerifyJobTool,
-)
-
-
-def build_hybrid_runtime(
-    workflow,
-    *,
-    planner=None,
-    checkpointer=None,
-) -> HybridAgentRuntime:
-    tools = [
-        SearchJobsTool(workflow.browser),
-        OpenPageTool(workflow.browser),
-        ExtractTextTool(workflow.extractor),
-        VerifyJobTool(workflow.verifier),
-        ScoreMatchTool(workflow.matcher),
-        SaveResultsTool(workflow.repository),
-        FinishTool(),
-    ]
-    if workflow.visual_extractor is not None:
-        tools.append(ExtractVisualTool(workflow.visual_extractor))
-    return HybridAgentRuntime(
-        registry=AgentToolRegistry(tools),
-        policy=DeterministicAgentPolicy(),
-        planner=planner,
-        checkpointer=checkpointer,
-    )
 
 
 def hybrid_state_payload(state: DecisionAgentState) -> dict:
+    from web_task_agent.agent_service import project_hybrid_state
+
+    # Reuse the service projection so CLI exports keep the same action budgets,
+    # usage slices and open/latency semantics as the UI and canonical report.
+    view = project_hybrid_state(state, run_id=state.execution_id, started_at=datetime.now(UTC))
+    details = view.metadata
     trace = []
     for index, decision in enumerate(state.decision_history):
         observation = (
@@ -62,6 +31,8 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
                 "target": decision.target,
                 "confidence": decision.confidence,
                 "observation": (observation.model_dump(mode="json") if observation else None),
+                "remaining_budget": details["agent_trace"][index]["remaining_budget"],
+                "planner_usage": details["agent_trace"][index]["planner_usage"],
             }
         )
     metrics = state.metrics
@@ -72,6 +43,7 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
     ):
         hitl_status = "awaiting_approval"
     return {
+        "run_id": state.execution_id,
         "orchestration_mode": "hybrid-agent",
         "thread_id": state.thread_id or None,
         "hitl_status": hitl_status,
@@ -87,12 +59,14 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
         },
         "terminal_status": state.terminal_status,
         "terminal_reason": state.terminal_reason,
+        "pending_jobs": [job.model_dump(mode="json") for job in view.pending_jobs],
         "budget": {
             "max_steps": state.budget.max_steps,
             "consumed_steps": state.budget.consumed_steps,
             "remaining_steps": state.budget.remaining_steps,
         },
         "metrics": {
+            **view.metrics.model_dump(mode="json"),
             "tool_calls": metrics.tool_calls,
             "tool_success_rate": round(metrics.tool_success_rate, 4),
             "recovery_attempts": metrics.recovery_attempts,
@@ -103,12 +77,24 @@ def hybrid_state_payload(state: DecisionAgentState) -> dict:
             "fallback_rate": round(metrics.fallback_rate, 4),
             "invalid_actions": metrics.invalid_actions,
             "average_tool_latency_ms": round(metrics.average_tool_latency_ms, 2),
+            "estimated_token_cost": view.metrics.estimated_token_cost,
         },
         "candidate_urls": state.candidate_urls,
         "visited_urls": sorted(state.visited_urls),
-        "jobs": [job.model_dump(mode="json") for job in state.verified_jobs],
-        "matches": [match.model_dump(mode="json") for match in state.matches],
+        "jobs": [job.model_dump(mode="json") for job in view.jobs],
+        "matches": [match.model_dump(mode="json") for match in view.matches],
         "trace": trace,
+        "agent_trace": details["agent_trace"],
+        "planner_routes": state.planner_routes,
+        "model_usage": state.model_usage,
+        "model_usage_complete": not state.unmetered_model_roles and all(
+            record.get("usage_complete", False) for record in state.model_usage
+        ),
+        "unmetered_model_roles": state.unmetered_model_roles,
+        **{key: details[key] for key in (
+            "unique_candidates", "open_successes", "open_failures", "tool_latency_ms",
+            "runtime_latency_ms", "approval_wait_ms",
+        )},
     }
 
 
@@ -230,13 +216,20 @@ def write_hybrid_artifacts(
     dashboard_dir: str,
     write_dashboard: bool,
     json_output: str | None,
+    run_id: str | None = None,
+    report_path: str | Path | None = None,
 ) -> dict[str, Path]:
-    run_id = f"hybrid-agent-{uuid4().hex[:8]}"
+    run_id = run_id or state.execution_id
     artifacts: dict[str, Path] = {}
 
-    report_path = Path(report_dir) / f"{run_id}.md"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(render_hybrid_markdown(state), encoding="utf-8")
+    if report_path is None:
+        report_path = Path(report_dir) / f"{run_id}.md"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(render_hybrid_markdown(state), encoding="utf-8")
+    else:
+        report_path = Path(report_path)
+        if not report_path.is_file():
+            raise ValueError("canonical service report is missing")
     artifacts["report"] = report_path
 
     if write_dashboard:

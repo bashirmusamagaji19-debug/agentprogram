@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY,
     owner_id TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'partial', 'failed')),
+    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'awaiting_approval', 'succeeded', 'partial', 'failed', 'rejected')),
     data_mode TEXT NOT NULL,
     request_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
     metrics JSONB NOT NULL DEFAULT '{}'::jsonb,

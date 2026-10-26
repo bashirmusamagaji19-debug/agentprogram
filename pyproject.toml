@@ -17,6 +17,7 @@ dependencies = [
   "pycryptodome>=3.20",
   "curl_cffi>=0.16",
   "streamlit>=1.41,<2",
+  "pypdf>=6,<7",
 ]
 
 [project.optional-dependencies]

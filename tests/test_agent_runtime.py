@@ -186,6 +186,7 @@ async def test_runtime_falls_back_after_invalid_planner_action():
     state = DecisionAgentState(
         user=UserProfile(keyword="AI intern"),
         budget=AgentBudget(max_steps=1),
+        candidate_urls=["https://example.com/jobs/working"],
     )
     runtime = HybridAgentRuntime(
         registry=_registry(browser),

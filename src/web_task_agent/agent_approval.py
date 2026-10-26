@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
@@ -34,6 +36,7 @@ class ApprovalRequest(BaseModel):
     job_count: int = Field(ge=0)
     summary: str = Field(min_length=1, max_length=200)
     status: ApprovalStatus = ApprovalStatus.PENDING
+    payload_hash: str = ""
 
     @field_validator("approval_id", "thread_id")
     @classmethod
@@ -49,7 +52,10 @@ class ApprovalRequest(BaseModel):
         return _normalize_datetime(value)
 
     def public_payload(self) -> dict[str, object]:
-        return self.model_dump(mode="json")
+        payload = self.model_dump(mode="json")
+        if not self.payload_hash:
+            payload.pop("payload_hash")
+        return payload
 
 
 class ApprovalDecision(BaseModel):
@@ -110,3 +116,10 @@ class HitlRunStatus(StrEnum):
 
 class HitlRuntimeError(RuntimeError):
     pass
+
+
+def approval_batch_hash(jobs, matches) -> str:
+    payload = {"jobs": [job.model_dump(mode="json") for job in jobs],
+               "matches": [match.model_dump(mode="json") for match in matches]}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":")).encode("utf-8")).hexdigest()

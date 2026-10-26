@@ -1,0 +1,4 @@
+Title: 多模态算法实习生
+Status: This job posting has been removed.
+Variant focus: 检索闭环与引用核验
+Template: c3-template-06

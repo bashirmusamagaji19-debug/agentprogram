@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "dataset_id": "model-value-v4",
+  "manifest_sha256": "1911b1208285295331c8a57727954863ce234453c0374ffb9dc6a6879a042733",
+  "reviewed_case_ids": [
+    "c3-g01-v1",
+    "c3-g02-v1",
+    "c3-g03-v1",
+    "c3-g05-v1",
+    "c3-g06-v1",
+    "c3-g09-v1",
+    "c3-g13-v1",
+    "c3-g14-v1",
+    "c3-g15-v1",
+    "c3-g16-v1",
+    "c3-g17-v1",
+    "c3-g19-v1",
+    "c3-g20-v1",
+    "c3-g21-v1"
+  ],
+  "reviewer": "用户本人（通过本对话提交核查截图）",
+  "reviewed_at": "2026-10-25T06:23:23.543112+00:00",
+  "review_source": "docs/results/audit-fix-2026-10-25/human-review-resolution-20261025.md",
+  "proposed_label_version_sha256": "47fddf93c32822fc9cc1c5b90855052c6428f2ae1c92493cc1d124203a16d567",
+  "changed_labels": [],
+  "status": "complete",
+  "attestation": "依据用户已提交的14条人工核查结果及随后对修订口径的明确同意迁移回执：g03相关岗位待确认且不自动交付，g06区分访问错误与明确移除。原文未变，其余46条仍未人工复核。"
+}

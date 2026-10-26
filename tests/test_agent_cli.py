@@ -126,6 +126,142 @@ def test_build_hybrid_runtime_injects_checkpointer():
     assert runtime.checkpointer is checkpointer
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["demo", "seed_urls", "search", "aggregator"])
+async def test_hybrid_cli_uses_shared_builder_with_original_source_choice(tmp_path, monkeypatch, mode):
+    import web_task_agent.agent_components as components
+    import web_task_agent.official_list_source as official
+    from tests.fixtures.link_receipts import VerifiedLinkStub
+    from web_task_agent.browser import FakeBrowserClient
+    from web_task_agent.job_sources import DiscoveredJob
+
+    from .test_agent_multitarget import make_workflow
+
+    _, pages = make_workflow(tmp_path / "fixtures", count=2)
+    calls, discovery = [], []
+    real_builder = components.build_browser_components
+
+    async def builder(request, **kwargs):
+        calls.append((request, kwargs))
+        return await real_builder(request, **kwargs)
+
+    class Source:
+        diagnostics = [{"source": "aggregator", "status": "healthy", "attempts": 1}]
+
+        def __init__(self, source_location, **kwargs):
+            discovery.append((source_location, kwargs))
+
+        async def discover(self, *, limit):
+            discovery.append(limit)
+            return [DiscoveredJob(url=page.url, title=page.title) for page in pages[:limit]]
+
+    def unexpected_official(*args, **kwargs):
+        pytest.fail("aggregator/search flags must not select an official list source")
+
+    monkeypatch.setattr(components, "build_browser_components", builder)
+    monkeypatch.setattr("web_task_agent.link_verification.JobLinkVerifier",
+                        lambda **kwargs: VerifiedLinkStub())
+    monkeypatch.setattr(official, "OfficialListSource", unexpected_official)
+    monkeypatch.setattr(cli_module, "AggregatorRepoSource", Source)
+    monkeypatch.setattr(cli_module, "BrowserUseClient", lambda **kwargs: FakeBrowserClient(pages))
+    arguments = ["--hybrid-agent", "--keyword", "AI intern", "--location", "Remote", "--target-count", "1",
+                 "--db-path", str(tmp_path / "jobs.sqlite"), "--report-dir", str(tmp_path / "reports")]
+    if mode == "demo":
+        arguments += ["--demo"]
+    elif mode == "seed_urls":
+        arguments += ["--seed-url", pages[0].url]
+    elif mode == "aggregator":
+        arguments += ["--from-aggregator", "local-jobs.json", "--aggregator-limit", "1"]
+    assert await cli_module._run(build_parser().parse_args(arguments)) == 0
+    assert len(calls) == 1
+    request, kwargs = calls[0]
+    assert request.data_mode == ("seed_urls" if mode == "search" else mode)
+    assert request.official_specs is None
+    assert kwargs["repository"].db_path == tmp_path / "jobs.sqlite"
+    assert kwargs["factories"]["fake"] is cli_module.FakeBrowserClient
+    if mode == "aggregator":
+        assert discovery[0] == ("local-jobs.json", {"keyword": "AI intern", "location": "Remote"})
+        assert discovery[1] == 1
+
+
+@pytest.mark.asyncio
+async def test_baseline_cli_keeps_legacy_browser_factory(tmp_path, monkeypatch):
+    import web_task_agent.agent_components as components
+    from web_task_agent.browser import FakeBrowserClient
+
+    from .test_agent_multitarget import make_workflow
+
+    _, pages = make_workflow(tmp_path / "fixtures", count=1)
+    calls = []
+
+    def browser(*, demo):
+        calls.append(demo)
+        return FakeBrowserClient(pages)
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("baseline CLI source construction must stay compatible")
+
+    monkeypatch.setattr(cli_module, "build_browser", browser)
+    monkeypatch.setattr(components, "build_browser_components", forbidden)
+    args = build_parser().parse_args(["--demo", "--keyword", "AI intern", "--target-count", "1",
+        "--db-path", str(tmp_path / "jobs.sqlite"), "--report-dir", str(tmp_path / "reports")])
+    assert await cli_module._run(args) == 0
+    assert calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_shared_cli_builder_preserves_explicit_aggregator_limit_and_seed_order(tmp_path, monkeypatch):
+    from web_task_agent.job_sources import DiscoveredJob
+    from web_task_agent.storage import JobRepository
+
+    calls = []
+
+    class Source:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def discover(self, *, limit):
+            calls.append(limit)
+            return [DiscoveredJob(url=f"https://example.com/jobs/{index}") for index in range(limit)]
+
+    monkeypatch.setattr(cli_module, "AggregatorRepoSource", Source)
+    args = build_parser().parse_args([
+        "--hybrid-agent", "--keyword", "AI intern", "--target-count", "1",
+        "--from-aggregator", "local.json", "--aggregator-limit", "25",
+        "--seed-url", "https://example.com/jobs/0", "--seed-url", "https://example.com/manual",
+    ])
+    repository = JobRepository(tmp_path / "jobs.sqlite")
+    repository.initialize()
+    browser, seeds = await cli_module._build_hybrid_cli_browser(args, repository=repository)
+    assert calls == [25]
+    assert len(seeds) == 26
+    assert seeds[:2] == ["https://example.com/jobs/0", "https://example.com/manual"]
+    assert browser.discovery_only is True
+
+
+@pytest.mark.asyncio
+async def test_hybrid_source_failure_closes_initialized_visual_adapter(tmp_path, monkeypatch):
+    import web_task_agent.agent_components as components
+
+    closed = []
+
+    class Visual:
+        async def close(self):
+            closed.append(True)
+
+    async def unavailable(*args, **kwargs):
+        raise OSError("source unavailable")
+
+    monkeypatch.setattr(cli_module, "build_cli_visual_extractor", lambda args: Visual())
+    monkeypatch.setattr(components, "build_browser_components", unavailable)
+    args = build_parser().parse_args([
+        "--demo", "--hybrid-agent", "--keyword", "AI intern",
+        "--db-path", str(tmp_path / "jobs.sqlite"), "--report-dir", str(tmp_path / "reports"),
+    ])
+    assert await cli_module._run(args) == 2
+    assert closed == [True]
+
+
 def test_parser_accepts_planner_benchmark_flags():
     args = build_parser().parse_args(
         [
@@ -442,6 +578,12 @@ async def test_cli_approve_resumes_checkpoint_to_completion(monkeypatch, tmp_pat
 
     assert await cli_module._run(start_args) == 0
     approval_id = states[-1].pending_approval.approval_id
+
+    async def no_source_reconstruction(*args, **kwargs):
+        pytest.fail("approval resume must use only its checkpoint")
+
+    import web_task_agent.agent_components as components
+    monkeypatch.setattr(components, "build_browser_components", no_source_reconstruction)
     resume_args = build_parser().parse_args(
         [
             "--hybrid-agent",

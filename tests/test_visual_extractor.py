@@ -41,6 +41,15 @@ def test_job_from_visual_fields_maps_to_job_posting():
     assert job.confidence == 0.83
 
 
+def test_visual_job_preserves_canonical_detail_url():
+    page = BrowserPage(url="https://careers.example/job/123?utm_source=test", content="",
+                       metadata={"canonical_url": "https://jobs.example/detail/123"})
+    job = job_from_visual_fields(page=page, fields=VisualJobFields(
+        title="AI Intern", company="Example", location="Remote", confidence=0.9,
+    ))
+    assert job.url == "https://jobs.example/detail/123"
+
+
 def test_job_from_visual_fields_fills_safe_unknowns():
     """Empty fields fall back to page title, 'Unknown Company', or derived skills."""
     page = BrowserPage(

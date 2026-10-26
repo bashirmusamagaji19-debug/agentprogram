@@ -243,6 +243,35 @@ def test_dashboard_renders_agent_execution_trace():
     assert "visited 2 pages" in html
 
 
+def test_dashboard_renders_source_quality_and_evidence():
+    dashboard = HtmlDashboard()
+    user = UserProfile(keyword="AI intern")
+    metrics = RunMetrics(run_id="run-source", valid_jobs=1)
+    html = dashboard.render(
+        user=user,
+        jobs=[make_job()],
+        matches=[],
+        metrics=metrics,
+        source_metrics={
+            "source_callable": {"numerator": 1, "denominator": 1, "value": 1.0},
+            "detail_body_fetch": {"numerator": 1, "denominator": 1, "value": 1.0},
+        },
+        source_evidence={
+            "https://example.com/jobs/1": {
+                "evidence_level": "detail",
+                "content_origin": "http",
+                "availability": "observed",
+            }
+        },
+    )
+
+    assert "来源质量" in html
+    assert "来源可调用率" in html
+    assert "详情正文获取率" in html
+    assert "detail" in html
+    assert "http" in html
+
+
 def test_dashboard_escapes_html_content():
     dashboard = HtmlDashboard()
     user = UserProfile(keyword="<script>alert(1)</script>")

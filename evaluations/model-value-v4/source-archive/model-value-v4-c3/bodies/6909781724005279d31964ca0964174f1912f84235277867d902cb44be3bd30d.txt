@@ -1,0 +1,15 @@
+Title: Java 后端开发实习生
+Company: 松塔软件
+Location: 杭州
+Job type: 实习
+Requirements:
+- 具备 Java 相关项目或课程基础
+- 具备 Spring Boot 相关项目或课程基础
+- 具备 MySQL 相关项目或课程基础
+- 具备 Redis 相关项目或课程基础
+Responsibilities:
+- 维护订单服务接口
+- 编写后端集成测试
+Variant focus: 离线评估与失败复盘
+Source note: This is a controlled synthetic job page for offline evaluation.
+Template: c3-template-02
