@@ -1,6 +1,8 @@
 # Web 自动任务 Agent
 
-最新验收（2026-10-25）：完整 release-check 六项通过，全量 pytest/coverage 阶段通过，覆盖率 **87.99%**。Windows 日志编码的小修复另经 17 项定向测试验证。已完成14条人工复核及 v4 的720个正式配对单元，维持 rules 默认；真实来源10条任务均无交付。报告见 [正式对照结果](docs/results/formal-model-value-v4-20261025/DECISION.md)。后续说明见 [人工任务说明](docs/HUMAN_REVIEW.md)。
+当前主目录使用 `master`，完整源码和测试均保留。2026-10-26全量回归为 **1145通过、1跳过，覆盖率88.03%**；真实来源最近一次审计为9个来源交付20条浏览器核验岗位。工作树已收尾，详见[复盘与恢复索引](docs/work-log/2026-10-26-worktree-cleanup.md)和[来源验收报告](docs/results/source-validation-20261026/ACCEPTANCE.md)。
+
+历史模型验收（2026-10-25）：完整 release-check 六项通过，全量 pytest/coverage 阶段通过，覆盖率 **87.99%**。Windows 日志编码的小修复另经 17 项定向测试验证。已完成14条人工复核及 v4 的720个正式配对单元，维持 rules 默认；真实来源10条任务均无交付。报告见 [正式对照结果](docs/results/formal-model-value-v4-20261025/DECISION.md)。后续说明见 [人工任务说明](docs/HUMAN_REVIEW.md)。
 
 这是一个面向 AI 工程 / AI 应用实习的 Agent 项目。当前版本在 `browser-use` 与 `LangGraph` 工作流之上增加了 Hybrid Decision Agent：可选 DeepSeek/Qwen 结构化规划器负责语义选择，确定性策略负责安全、预算、重试和降级；Agent 根据观察结果动态选择工具，并输出可审计的决策与恢复轨迹。
 
