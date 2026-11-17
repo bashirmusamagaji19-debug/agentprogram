@@ -91,7 +91,7 @@ async def test_job_ready_wait_ignores_a_long_navigation_shell(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_job_ready_wait_stops_at_eight_seconds_and_reports_unready_content(monkeypatch):
+async def test_job_ready_wait_stops_at_twenty_seconds_and_reports_unready_content(monkeypatch):
     elapsed = [0.0]
 
     async def advance(seconds):
@@ -115,7 +115,7 @@ async def test_job_ready_wait_stops_at_eight_seconds_and_reports_unready_content
     content = await browser._read_body_until_useful(Page())
 
     assert content == NAVIGATION_SHELL
-    assert elapsed[0] == pytest.approx(8.0)
+    assert elapsed[0] == pytest.approx(20.0)
     assert not job_ready(job, content, "Careers")
 
 
@@ -168,7 +168,8 @@ async def test_generic_render_wait_keeps_the_existing_length_threshold(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_default_verifier_waits_for_the_expected_job_before_verifying(monkeypatch):
+@pytest.mark.parametrize("render_after", [1.25, 6.25, 11.25])
+async def test_default_verifier_waits_for_the_expected_job_before_verifying(monkeypatch, render_after):
     elapsed = [0.0]
 
     async def advance(seconds):
@@ -176,16 +177,16 @@ async def test_default_verifier_waits_for_the_expected_job_before_verifying(monk
 
     class Page:
         async def get_title(self):
-            return "Careers" if elapsed[0] < 1.25 else JOB_TITLE
+            return "Careers" if elapsed[0] < render_after else JOB_TITLE
 
         async def get_url(self):
             return JOB_URL
 
         async def evaluate(self, script):
             if "document.body" in script:
-                return NAVIGATION_SHELL if elapsed[0] < 1.25 else RENDERED_JOB
+                return NAVIGATION_SHELL if elapsed[0] < render_after else RENDERED_JOB
             if "querySelectorAll('a,button" in script:
-                if elapsed[0] < 1.25:
+                if elapsed[0] < render_after:
                     return []
                 return [{"tag": "button", "text": "Apply now", "visible": True, "enabled": True}]
             if "window.location.href" in script:
@@ -228,4 +229,4 @@ async def test_default_verifier_waits_for_the_expected_job_before_verifying(monk
     assert receipt["method"] == "browser"
     assert receipt["title_matched"] is True
     assert receipt["jd_matched"] is True
-    assert elapsed[0] >= 1.25
+    assert elapsed[0] >= render_after

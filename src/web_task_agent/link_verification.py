@@ -14,7 +14,7 @@ from time import monotonic
 from typing import Any
 from urllib.parse import parse_qsl, unquote, urlparse
 
-from web_task_agent.browser import BrowserUseClient, HttpPageLoader
+from web_task_agent.browser import MAX_JOB_RENDER_WAIT_SECONDS, BrowserUseClient, HttpPageLoader
 
 RECEIPT_KEYS = frozenset(
     {
@@ -131,7 +131,7 @@ class JobLinkVerifier:
             self.browser_loader = BrowserUseClient(
                 default_timeout_seconds=max(1, int(timeout_seconds)),
                 deadline=deadline,
-                render_wait_seconds=min(5.0, max(0.75, float(timeout_seconds))),
+                render_wait_seconds=min(MAX_JOB_RENDER_WAIT_SECONDS, max(0.0, float(timeout_seconds))),
             )
         else:
             self.browser_loader = browser_loader

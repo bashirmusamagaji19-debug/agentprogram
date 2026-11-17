@@ -601,7 +601,7 @@ def test_production_default_constructs_the_browser_renderer_without_opening_it()
     verifier = JobLinkVerifier()
 
     assert isinstance(verifier.browser_loader, BrowserUseClient)
-    assert verifier.browser_loader.render_wait_seconds == 5.0
+    assert verifier.browser_loader.render_wait_seconds == 20.0
 
 
 def test_browser_fallback_can_be_disabled_explicitly():

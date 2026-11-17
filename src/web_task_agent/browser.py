@@ -40,7 +40,8 @@ class _SearchCursor:
 # 缓存命中路径（CachedPageLoader / AggregatorPageLoader）同样要过这道门槛，
 # 否则门槛收紧前写入的旧壳页会在 TTL 内继续生效（#25）。
 MIN_USEFUL_CONTENT_CHARS = 120
-MAX_JOB_RENDER_WAIT_SECONDS = 8.0
+# 云端冷启动时动态招聘页可能十余秒才出现正文；仍由单页和整轮截止时间兜底。
+MAX_JOB_RENDER_WAIT_SECONDS = 20.0
 
 
 class BrowserConfigurationError(RuntimeError):
