@@ -307,6 +307,7 @@ class BrowserUseClient:
                 data = await self._call(
                     page.evaluate,
                     "() => ({readyState: document.readyState, title: document.title, "
+                    "visibility: document.visibilityState, focused: document.hasFocus(), "
                     "body_chars: (document.body?.innerText || '').length, "
                     "resources: performance.getEntriesByType('resource').slice(-20).map(r => "
                     "({url: r.name.split('?')[0], duration: Math.round(r.duration), "
@@ -353,6 +354,9 @@ class BrowserUseClient:
             is_local=True,
             cloud_browser=False,
             use_cloud=False,
+            # Force Background Tab keeps Linux headless pages hidden and stalls
+            # visibility-dependent SPA rendering despite successful API responses.
+            enable_default_extensions=False,
         )
 
     async def _read_title(self, page: Any) -> str:

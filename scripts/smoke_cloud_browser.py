@@ -19,7 +19,7 @@ async def main() -> None:
     # Exercise a cold SPA as well: its body appears after the old 5/8-second limits.
     html = (
         f"<html><head><title>{title}</title></head><body><script>"
-        f"setTimeout(() => {{document.body.innerText = {json.dumps(content)};}}, 10000);"
+        f"setTimeout(() => requestAnimationFrame(() => {{document.body.innerText = {json.dumps(content)};}}), 10000);"
         "</script></body></html>"
     )
     page = await BrowserUseClient(

@@ -81,6 +81,7 @@ def test_browser_use_client_default_session_uses_local_browser(monkeypatch):
     assert captured_kwargs["use_cloud"] is False
     assert captured_kwargs["cloud_browser"] is False
     assert captured_kwargs["is_local"] is True
+    assert captured_kwargs["enable_default_extensions"] is False
 
 
 @pytest.mark.asyncio
