@@ -126,6 +126,7 @@ class BrowserUseClient:
         self.max_search_pages = max_search_pages
         self._search_cursors: dict[str, _SearchCursor] = {}
         self.search_diagnostics: dict[str, Any] = {}
+        self.last_read_diagnostics: dict[str, Any] = {}
 
     @property
     def source_diagnostics(self) -> list[dict[str, object]]:
@@ -259,10 +260,22 @@ class BrowserUseClient:
 
     async def _read_browser_page(self, session: Any, url: str) -> BrowserPage:
         # 在同一页面上读正文、标题、最终地址和申请控件，后面的提取与核验可共用这些数据。
+        started = monotonic()
+        self.last_read_diagnostics = {"stage": "starting_browser"}
         await self._call(session.start)
+        self.last_read_diagnostics.update(
+            stage="opening_page", session_started_after=round(monotonic() - started, 3),
+        )
         page = await self._call(session.new_page, url)
+        self.last_read_diagnostics.update(
+            stage="rendering", page_created_after=round(monotonic() - started, 3),
+        )
         # 动态站点初次渲染可能只有加载提示。正文读取可在限时内等待内容就绪。
-        content = await self._read_body_until_useful(page)
+        try:
+            content = await self._read_body_until_useful(page)
+        finally:
+            self.last_read_diagnostics["body_wait_finished_after"] = round(monotonic() - started, 3)
+            await self._capture_render_diagnostics(page)
         title = await self._read_title(page)
         final_url, final_url_observed = await self._read_current_url(page, url)
         apply_controls = await self._read_apply_controls(page)
@@ -274,6 +287,7 @@ class BrowserUseClient:
             "final_url_observed": final_url_observed,
             "timeout_seconds": self.default_timeout_seconds,
             "apply_controls": apply_controls,
+            "browser_diagnostics": dict(self.last_read_diagnostics),
         }
         if raw_links:
             metadata["raw_links"] = raw_links
@@ -284,6 +298,27 @@ class BrowserUseClient:
             source="browser-use",
             metadata=metadata,
         )
+
+    async def _capture_render_diagnostics(self, page: Any) -> None:
+        if not hasattr(page, "evaluate"):
+            return
+        try:
+            async with asyncio.timeout(0.75):
+                data = await self._call(
+                    page.evaluate,
+                    "() => ({readyState: document.readyState, title: document.title, "
+                    "body_chars: (document.body?.innerText || '').length, "
+                    "resources: performance.getEntriesByType('resource').slice(-20).map(r => "
+                    "({url: r.name.split('?')[0], duration: Math.round(r.duration), "
+                    "status: r.responseStatus, size: r.decodedBodySize}))})",
+                )
+            if isinstance(data, str):
+                data = json.loads(data)
+            if isinstance(data, dict):
+                self.last_read_diagnostics["page"] = data
+        except Exception:
+            # Diagnostics must not replace a timeout/cancellation or block cleanup.
+            pass
 
     def _remaining_seconds(self) -> float | None:
         # 没有共享截止时间时按单页默认值计时，有截止时间时取本次运行实际剩余量。

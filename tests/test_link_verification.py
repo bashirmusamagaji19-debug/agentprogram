@@ -637,6 +637,27 @@ async def test_total_deadline_bounds_a_hanging_loader():
 
 
 @pytest.mark.asyncio
+async def test_browser_timeout_retains_progress_in_downloadable_evidence(tmp_path):
+    class SlowBrowser:
+        last_read_diagnostics = {"stage": "rendering", "session_started_after": 1.2}
+
+        async def open_url(self, url):
+            await asyncio.sleep(10)
+
+    async def http_loader(url):
+        return make_page(url=url, content="Loading...")
+
+    receipt = await JobLinkVerifier(
+        http_loader=http_loader, browser_loader=SlowBrowser(),
+        timeout_seconds=0.05, evidence_dir=tmp_path,
+    ).verify(make_job(), run_id="run-1")
+
+    payload = json.loads((tmp_path / f"{receipt['evidence_sha256']}.json").read_text())
+    assert receipt["status"] == "pending"
+    assert payload["browser_diagnostics"]["stage"] == "rendering"
+
+
+@pytest.mark.asyncio
 async def test_expired_total_deadline_skips_network_access():
     calls: list[str] = []
 

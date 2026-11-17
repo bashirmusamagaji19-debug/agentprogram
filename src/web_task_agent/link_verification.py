@@ -273,7 +273,10 @@ class JobLinkVerifier:
                 method="browser",
                 reason=f"{gone_prefix}verification deadline exceeded during SPA browser visit",
                 status="pending",
-                evidence={"http_probe": http_gone_evidence},
+                evidence={
+                    "http_probe": http_gone_evidence,
+                    "browser_diagnostics": getattr(self.browser_loader, "last_read_diagnostics", {}),
+                },
             )
         except Exception as exc:
             gone_prefix = (
@@ -291,6 +294,7 @@ class JobLinkVerifier:
                 evidence={
                     "http_probe": http_probe_evidence,
                     "browser_error": str(exc),
+                    "browser_diagnostics": getattr(self.browser_loader, "last_read_diagnostics", {}),
                 },
             )
         finally:
@@ -378,6 +382,9 @@ class JobLinkVerifier:
             "content": content,
             "apply_controls": controls,
         }
+        metadata = _field(page, "metadata", {})
+        if isinstance(metadata, Mapping) and metadata.get("browser_diagnostics"):
+            evidence["browser_diagnostics"] = metadata["browser_diagnostics"]
 
         if method == "http" and status_code is None:
             return _page_result(

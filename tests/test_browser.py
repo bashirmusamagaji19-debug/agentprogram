@@ -554,6 +554,8 @@ async def test_browser_use_client_honors_deadline_and_still_closes_session():
         await browser.open_url("https://jobs.example.com/positions/123")
 
     assert events == ["start", "close"]
+    assert browser.last_read_diagnostics["stage"] == "opening_page"
+    assert "session_started_after" in browser.last_read_diagnostics
 
 
 @pytest.mark.asyncio
