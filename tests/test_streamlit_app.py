@@ -389,6 +389,65 @@ def test_default_ui_uses_xiaomi_three_targets_and_empty_skills(tmp_path, monkeyp
     assert toggles["启用模型选择候选"] is False
 
 
+def test_model_selectors_only_offer_configured_providers(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    app = AppTest.from_file(str(REPO_ROOT / "streamlit_app.py"), default_timeout=30).run()
+    for toggle in app.toggle:
+        if toggle.label in {"启用 LLM 抽取", "启用 LLM 匹配", "启用模型选择候选"}:
+            toggle.set_value(True)
+    app.run()
+
+    assert not app.exception
+    for label in ["抽取模型", "匹配模型", "规划模型"]:
+        selector = next(item for item in app.selectbox if item.label == label)
+        assert selector.options == ["deepseek"]
+        assert selector.value == "deepseek"
+
+
+def test_model_toggles_are_disabled_without_credentials(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    app = AppTest.from_file(str(REPO_ROOT / "streamlit_app.py"), default_timeout=30).run()
+
+    assert not app.exception
+    model_toggles = [t for t in app.toggle if t.label in {
+        "启用 LLM 抽取", "启用 LLM 匹配", "启用模型选择候选",
+    }]
+    assert len(model_toggles) == 3
+    assert all(toggle.disabled for toggle in model_toggles)
+
+
+def test_health_button_runs_synthetic_probe_and_shows_both_results(tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    from web_task_agent import streamlit_app as ui
+
+    calls = []
+
+    def probe():
+        calls.append(True)
+        return {"text": {"ok": True, "elapsed_seconds": 0.5},
+                "vision": {"ok": True, "elapsed_seconds": 0.8}}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(ui, "check_deepseek_capabilities", probe)
+    app = AppTest.from_file(str(REPO_ROOT / "streamlit_app.py"), default_timeout=30).run()
+    next(b for b in app.button if b.label == "检测 DeepSeek 文本与视觉").click().run()
+
+    assert not app.exception
+    assert calls == [True]
+    assert any("文本推理通过" in item.value for item in app.success)
+    assert any("图片识别通过" in item.value for item in app.success)
+
+
 @pytest.mark.parametrize("target_count, expected_deadline", [(1, 90), (3, 150), (6, 240), (50, 360)])
 def test_ui_run_deadline_scales_with_target_count(tmp_path, monkeypatch, target_count, expected_deadline):
     from streamlit.testing.v1 import AppTest

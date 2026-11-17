@@ -17,9 +17,11 @@ from web_task_agent.artifact_store import (
     S3ArtifactStore,
 )
 from web_task_agent.models import RunMetrics
+from web_task_agent.provider_health import check_deepseek_capabilities
 from web_task_agent.run_store import FileRunStore, PostgresRunStore, RunRecord, RunStore
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
+    PROVIDER_API_KEY_ENV,
     UiRequestError,
     UiRunRequest,
     UiRunResult,
@@ -671,17 +673,11 @@ def app_styles() -> str:
 .stApp { background: var(--ui-canvas); color: var(--ui-ink); }
 [data-testid="stHeader"] { background: transparent; }
 .block-container { max-width: 1440px; padding-top: 2.4rem; padding-bottom: 4rem; }
-[data-testid="stSidebar"] { background: #14231d; border-right: 1px solid #243b30; }
+[data-testid="stSidebar"] { background: #f8faf9; border-right: 1px solid #d5e0da; }
 [data-testid="stSidebar"] > div:first-child { padding: 1.4rem 1rem 2rem; }
-[data-testid="stSidebar"] * { color: #e9f2ec; }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
-[data-testid="stSidebar"] .ui-sidebar-caption { color: #a9bbb0 !important; }
-[data-testid="stSidebar"] [data-baseweb="select"],
-[data-testid="stSidebar"] [data-baseweb="input"],
-[data-testid="stSidebar"] [data-testid="stTextInputRootElement"],
-[data-testid="stSidebar"] [data-testid="stNumberInputContainer"] { background: #20362b; border-color: #365545; }
-[data-testid="stSidebar"] [data-baseweb="select"] *,
-[data-testid="stSidebar"] input { color: #f2f8f3 !important; }
+[data-testid="stSidebar"] .ui-sidebar-caption { color: #4c6057 !important; }
+[data-testid="stSidebar"] [data-testid="stExpander"] { background: #fff; border-color: #d5e0da; }
 .ui-brand { display:flex; align-items:flex-start; justify-content:space-between; gap:1.5rem; margin-bottom:2rem; }
 .ui-brand-mark { display:flex; align-items:center; gap:.7rem; }
 .ui-brand-dot { width:13px; height:13px; border-radius:4px; background:var(--ui-green); box-shadow:0 0 0 5px #d8efe1; }
@@ -693,11 +689,11 @@ def app_styles() -> str:
 .ui-status-dot { width:8px; height:8px; border-radius:50%; background:#9ca8a1; }
 .ui-status-success .ui-status-dot { background:var(--ui-green); }
 .ui-status-warning .ui-status-dot { background:#d68b2b; }
-.ui-sidebar-brand { padding:.3rem .3rem 1.3rem; border-bottom:1px solid #2b4637; margin-bottom:1.2rem; }
-.ui-sidebar-brand strong { display:block; color:#fff; font-size:1.1rem; letter-spacing:-.02em; }
-.ui-sidebar-brand span { color:#9eb5a7; font-size:.78rem; }
-.ui-sidebar-label { color:#8faa9b; font-size:.67rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin:1.2rem .2rem .55rem; }
-.ui-mode-hint { border:1px solid rgba(148, 191, 164, .26); background:rgba(103, 157, 119, .12); border-radius:10px; padding:.65rem .7rem; color:#c7dbcd; font-size:.78rem; line-height:1.45; margin:.55rem 0 1rem; }
+.ui-sidebar-brand { padding:.3rem .3rem 1.3rem; border-bottom:1px solid #d5e0da; margin-bottom:1.2rem; }
+.ui-sidebar-brand strong { display:block; color:#163b2b; font-size:1.15rem; letter-spacing:-.02em; }
+.ui-sidebar-brand span { color:#4e6559; font-size:.82rem; }
+.ui-sidebar-label { color:#426453; font-size:.75rem; font-weight:750; letter-spacing:.06em; margin:1.2rem .2rem .55rem; }
+.ui-mode-hint { border:1px solid #c7d9ce; background:#eaf3ed; border-radius:10px; padding:.7rem .75rem; color:#274b38; font-size:.82rem; line-height:1.55; margin:.55rem 0 1rem; }
 [data-testid="stForm"] { border:1px solid var(--ui-border); border-radius:16px; background:var(--ui-surface); box-shadow:var(--ui-shadow); padding:1.35rem 1.45rem 1.5rem; }
 .ui-form-title { color:var(--ui-ink); font-size:1.05rem; font-weight:750; margin-bottom:.15rem; }
 .ui-form-caption { color:var(--ui-muted); font-size:.84rem; margin-bottom:1.1rem; }
@@ -1100,14 +1096,20 @@ def main() -> None:
             )
         st.markdown('<div class="ui-sidebar-label">模型与执行</div>', unsafe_allow_html=True)
         with st.expander("高级设置（模型与执行）", expanded=False):
-            use_llm_extractor = st.toggle("启用 LLM 抽取", value=False)
+            model_providers = [provider for provider, env_name in PROVIDER_API_KEY_ENV.items()
+                               if str(os.environ.get(env_name, "")).strip()]
+            if not model_providers:
+                st.caption("未配置模型服务，当前可使用规则抽取与匹配。")
+            use_llm_extractor = bool(st.toggle("启用 LLM 抽取", value=False,
+                                              disabled=not model_providers) and model_providers)
             extractor_provider = (
-                st.selectbox("抽取模型", ["qwen", "deepseek"])
+                st.selectbox("抽取模型", model_providers)
                 if use_llm_extractor else None
             )
-            use_llm_match = st.toggle("启用 LLM 匹配", value=False)
+            use_llm_match = bool(st.toggle("启用 LLM 匹配", value=False,
+                                          disabled=not model_providers) and model_providers)
             match_provider = (
-                st.selectbox("匹配模型", ["qwen", "deepseek"])
+                st.selectbox("匹配模型", model_providers)
                 if use_llm_match else None
             )
             if use_llm_match:
@@ -1115,11 +1117,34 @@ def main() -> None:
             execution_mode = st.selectbox("执行方式", ["Agent", "固定流程（对照）"])
             engine = "hybrid" if execution_mode == "Agent" else "workflow"
             hitl = st.toggle("保存前确认", value=False, disabled=engine != "hybrid")
-            use_planner = st.toggle("启用模型选择候选", value=False, disabled=engine != "hybrid")
+            use_planner = bool(st.toggle("启用模型选择候选", value=False,
+                                         disabled=engine != "hybrid" or not model_providers)
+                               and model_providers and engine == "hybrid")
             planner_provider = (
-                st.selectbox("规划模型", ["qwen", "deepseek"])
+                st.selectbox("规划模型", model_providers)
                 if use_planner else None
             )
+            if "deepseek" in model_providers:
+                st.divider()
+                st.caption("用合成文字和测试图检查模型，不使用简历；会产生少量 API 用量。")
+                if st.button("检测 DeepSeek 文本与视觉", width="stretch"):
+                    try:
+                        consume_llm_budget(st.session_state.setdefault(f"llm_budget-{owner_id}", {}))
+                    except UiRequestError as exc:
+                        st.error(str(exc))
+                    else:
+                        with st.spinner("正在检查文本与图片识别…"):
+                            st.session_state["deepseek_health"] = check_deepseek_capabilities()
+                health = st.session_state.get("deepseek_health")
+                if health:
+                    for kind, label in [("text", "文本推理"), ("vision", "图片识别")]:
+                        outcome = health[kind]
+                        if outcome["ok"]:
+                            st.success(f"{label}通过 · {outcome['elapsed_seconds']} 秒")
+                        else:
+                            status = outcome.get("http_status")
+                            reason = f"HTTP {status}" if status else "未得到正确识别结果或连接失败"
+                            st.error(f"{label}未通过：{reason}")
 
     st.markdown('<div class="ui-section-label">简历</div>', unsafe_allow_html=True)
     resume_upload = st.file_uploader(
