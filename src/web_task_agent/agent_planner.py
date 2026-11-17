@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import re
-from time import perf_counter
+from time import monotonic, perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -19,6 +18,13 @@ from web_task_agent.llm_extractor import (
     build_llm_provider_config,
 )
 from web_task_agent.planner_routing import ModelCallBudget
+from web_task_agent.structured_output import (
+    PlannerOutput,
+    StructuredOutputError,
+    constrain_payload,
+    parse_output,
+    repair_payload,
+)
 
 
 class PlannerTelemetry(BaseModel):
@@ -62,6 +68,7 @@ class OpenAiCompatibleAgentPlanner:
         timeout_seconds: int = 60,
         transport: LlmTransport | None = None,
         budget: ModelCallBudget | None = None,
+        schema_mode: str = "auto",
     ) -> None:
         self.provider = provider
         self.model = model
@@ -71,9 +78,21 @@ class OpenAiCompatibleAgentPlanner:
         self.transport = transport or self._urllib_transport
         self.telemetry = PlannerTelemetry()
         self.budget = budget or ModelCallBudget()
+        self.schema_mode = schema_mode
 
     async def decide(self, state: DecisionAgentState) -> AgentDecision:
-        payload = self._payload(state)
+        payload = constrain_payload(self._payload(state), PlannerOutput, provider=self.provider, mode=self.schema_mode)
+        deadline = min(monotonic() + self.timeout_seconds, self.budget.deadline)
+        for attempt in range(2):
+            try:
+                return await self._decide_once(payload, deadline=deadline, repair_attempt=attempt)
+            except StructuredOutputError as exc:
+                if attempt or not exc.repairable:
+                    raise
+                payload = repair_payload(payload, exc)
+        raise AssertionError("unreachable")
+
+    async def _decide_once(self, payload: dict[str, Any], *, deadline: float, repair_attempt: int) -> AgentDecision:
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
         reservation = self.budget.reserve(estimated_tokens=len(encoded) + payload["max_tokens"])
         self.telemetry.calls += 1
@@ -84,14 +103,18 @@ class OpenAiCompatibleAgentPlanner:
                   "input_hash": hashlib.sha256(payload["messages"][1]["content"].encode()).hexdigest(),
                   "usage_complete": False, "prompt_tokens": None, "completion_tokens": None,
                   "total_tokens": None, "status": "error"}
+        record.update(repair_attempt=repair_attempt, output_mode=payload["response_format"]["type"])
         try:
-            response = await asyncio.to_thread(self.transport,
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise TimeoutError("planner deadline exceeded")
+            response = await asyncio.wait_for(asyncio.to_thread(self.transport,
                 f"{self.base_url}/chat/completions",
                 self._headers(),
                 payload,
-                self.timeout_seconds,
-            )
-            usage = response.get("usage")
+                remaining,
+            ), timeout=remaining)
+            usage = response.get("usage") if isinstance(response, dict) else None
             if isinstance(usage, dict):
                 self._record_usage(response)
                 for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
@@ -103,12 +126,15 @@ class OpenAiCompatibleAgentPlanner:
                     )
                 record["usage_complete"] = all(record[key] is not None
                                                 for key in ("prompt_tokens", "completion_tokens", "total_tokens"))
-            record["response_model"] = response.get("model", self.model)
-            content = self._response_content(response)
-            decision = AgentDecision.model_validate(json.loads(self._strip_code_fence(content)))
+            record["response_model"] = response.get("model", self.model) if isinstance(response, dict) else self.model
+            output = parse_output(response, PlannerOutput)
+            decision = AgentDecision.model_validate(output.model_dump())
         except (Exception, asyncio.CancelledError) as error:
             self.telemetry.failed_calls += 1
             record["error_type"] = type(error).__name__
+            if isinstance(error, StructuredOutputError):
+                record["error_category"] = error.category
+                record["error_paths"] = error.paths
             record["timeout"] = isinstance(error, (TimeoutError, asyncio.CancelledError))
             raise
         else:
@@ -200,7 +226,7 @@ class OpenAiCompatibleAgentPlanner:
                 {
                     "role": "user",
                     "content": (
-                        "Return JSON with action, reason, optional target, optional arguments, "
+                        "Return JSON with action, reason, target (URL or null), arguments (empty object), "
                         "and confidence from 0 to 1. State summary:\n"
                         + json.dumps(summary, ensure_ascii=False)
                     ),
@@ -210,22 +236,6 @@ class OpenAiCompatibleAgentPlanner:
             "max_tokens": 600,
             "response_format": {"type": "json_object"},
         }
-
-    @staticmethod
-    def _response_content(response: dict[str, Any]) -> str:
-        choices = response.get("choices", [])
-        if not choices:
-            raise ValueError("Planner response did not include choices.")
-        content = choices[0].get("message", {}).get("content", "")
-        if not isinstance(content, str) or not content.strip():
-            raise ValueError("Planner response did not include message content.")
-        return content.strip()
-
-    @staticmethod
-    def _strip_code_fence(content: str) -> str:
-        pattern = r"\x60\x60\x60(?:json)?\s*([\s\S]*?)\s*\x60\x60\x60"
-        match = re.fullmatch(pattern, content.strip())
-        return match.group(1) if match else content
 
     @staticmethod
     def _urllib_transport(

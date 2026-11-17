@@ -15,17 +15,19 @@ from web_task_agent.llm_extractor import LlmProviderConfig, LlmTransport, OpenAi
 from web_task_agent.location_filter import location_matches
 from web_task_agent.models import BrowserPage, JobPosting
 from web_task_agent.search_conditions import missing_keywords
+from web_task_agent.structured_output import OutputLimitError as OutputLimitError
+from web_task_agent.structured_output import call_with_repair, constrain_payload
 from web_task_agent.verifier import JobVerifier
 
 
 class QuotedField(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
     value: str = ""
     quote: str = ""
 
 
 class GroundedJob(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
     title: QuotedField = Field(default_factory=QuotedField)
     company: QuotedField = Field(default_factory=QuotedField)
     location: QuotedField = Field(default_factory=QuotedField)
@@ -41,15 +43,11 @@ class GroundedJob(BaseModel):
 
 
 class PageReading(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
     page_type: Literal["single_job", "job_list", "recruitment_notice", "not_job", "insufficient"]
     jobs: list[GroundedJob] = Field(default_factory=list, max_length=10)
     detail_links: list[str] = Field(default_factory=list, max_length=30)
     notes: list[str] = Field(default_factory=list, max_length=10)
-
-
-class OutputLimitError(ValueError):
-    """The response budget ended before a complete structured answer."""
 
 
 def _normalized(text: str) -> str:
@@ -120,9 +118,11 @@ def assess_reading(reading: PageReading, page: BrowserPage, *, keyword: str, loc
 
 
 class EvidenceJobReader:
-    def __init__(self, config: LlmProviderConfig, *, transport: LlmTransport | None = None, timeout_seconds: int = 60):
+    def __init__(self, config: LlmProviderConfig, *, transport: LlmTransport | None = None,
+                 timeout_seconds: int = 60, schema_mode: str = "auto"):
         self.config = config
         self.timeout_seconds = timeout_seconds
+        self.schema_mode = schema_mode
         self.transport = transport or OpenAiCompatibleLlmFieldExtractor(
             provider=config.provider, model=config.model, api_key=config.api_key, base_url=config.base_url,
         ).transport
@@ -131,38 +131,46 @@ class EvidenceJobReader:
         started = perf_counter()
         usage: dict[str, Any] = {}
         diagnostics: dict[str, Any] = {}
+        repair_diagnostics: dict[str, Any] = {}
+
+        def record_response(response):
+            if not isinstance(response, dict):
+                return
+            raw_usage = response.get("usage", {})
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                value = raw_usage.get(key) if isinstance(raw_usage, dict) else None
+                if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                    usage[key] = usage.get(key, 0) + value
+            details = raw_usage.get("completion_tokens_details", {}) if isinstance(raw_usage, dict) else {}
+            if isinstance(details, dict) and isinstance(details.get("reasoning_tokens"), int):
+                diagnostics["reasoning_tokens"] = diagnostics.get("reasoning_tokens", 0) + details["reasoning_tokens"]
+            choices = response.get("choices")
+            if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                finish = choices[0].get("finish_reason")
+                if finish in ("stop", "length", "content_filter"):
+                    diagnostics["finish_reason"] = finish
+
         try:
             if len(page.content) > 20000:
                 raise ValueError("Snapshot exceeds reader input budget; no truncation")
-            payload = self._payload(page)
+            payload = constrain_payload(self._payload(page), PageReading,
+                                        provider=self.config.provider, mode=self.schema_mode)
             diagnostics["prompt_sha256"] = hashlib.sha256(
                 json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
             ).hexdigest()
             diagnostics["thinking_mode"] = "disabled" if self.config.provider == "deepseek" else "provider_default"
-            response = self.transport(
-                self.config.base_url.rstrip("/") + "/chat/completions",
-                {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"},
-                payload, self.timeout_seconds,
+            reading = call_with_repair(
+                transport=self.transport, url=self.config.base_url.rstrip("/") + "/chat/completions",
+                headers={"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"},
+                payload=payload, timeout_seconds=self.timeout_seconds, model=PageReading,
+                diagnostics=repair_diagnostics, on_response=record_response,
             )
-            raw_usage = response.get("usage", {})
-            usage = {key: raw_usage[key] for key in ("prompt_tokens", "completion_tokens", "total_tokens")
-                     if isinstance(raw_usage, dict) and isinstance(raw_usage.get(key), int) and raw_usage[key] >= 0}
-            details = raw_usage.get("completion_tokens_details", {}) if isinstance(raw_usage, dict) else {}
-            if isinstance(details, dict) and isinstance(details.get("reasoning_tokens"), int):
-                diagnostics["reasoning_tokens"] = details["reasoning_tokens"]
-            choice = response["choices"][0]
-            finish = choice.get("finish_reason")
-            if finish in ("stop", "length", "content_filter"):
-                diagnostics["finish_reason"] = finish
-            if finish == "length":
-                raise OutputLimitError()
-            text = choice["message"]["content"]
-            reading = PageReading.model_validate(json.loads(text))
         except Exception as error:
-            return {"status": "error", "error_type": type(error).__name__, "usage": usage,
-                    "elapsed_seconds": round(perf_counter() - started, 3), **diagnostics}
+            return {"status": "error", "error_type": type(error).__name__,
+                    "error_category": getattr(error, "category", "reader_error"), "usage": usage,
+                    "elapsed_seconds": round(perf_counter() - started, 3), **diagnostics, **repair_diagnostics}
         return {"status": "ok", "reading": reading.model_dump(mode="json"), "usage": usage,
-                "elapsed_seconds": round(perf_counter() - started, 3), **diagnostics}
+                "elapsed_seconds": round(perf_counter() - started, 3), **diagnostics, **repair_diagnostics}
 
     def _payload(self, page: BrowserPage) -> dict[str, Any]:
         instructions = (
@@ -182,8 +190,7 @@ class EvidenceJobReader:
             "公司不能填薪资。location只填岗位工作地，不以公司总部/分支机构/招聘学校所在地代替。"
             "若头部工作地和正文工作地址冲突，设置location_conflict=true并提供两处conflict_quotes，"
             "不要选择看起来更合适的城市。缺字乱码、无法区分章节或任何实质不确定性写入uncertainties。"
-            "输出原文能证明的信息，允许拒绝或无法确认。不要给置信度分数。\nSchema:\n"
-            + json.dumps(PageReading.model_json_schema(), ensure_ascii=False)
+            "输出原文能证明的信息，允许拒绝或无法确认。不要给置信度分数。"
         )
         payload = {
             "model": self.config.model, "temperature": 0, "response_format": {"type": "json_object"},

@@ -28,7 +28,7 @@ def test_deepseek_extractor_posts_openai_compatible_json_request():
                             '{"title":"AI Agent Intern","company":"Example Robotics",'
                             '"location":"Remote","requirements":"Python, LangGraph",'
                             '"responsibilities":"Build browser agents",'
-                            '"posted_at":"2026-06-10"}'
+                            '"posted_at":"2026-06-10","skills":[]}'
                         )
                     }
                 }
@@ -73,8 +73,6 @@ def test_extractor_prompt_mentions_skills_and_bilingual_content():
         api_key="test-key",
         transport=fake_transport,
     )
-    extractor(BrowserPage(url="https://example.com/x", title="t", content="c", source="s"))
-
     # fake_transport 重新定义拿不到 payload——直接调 _payload 断言
     payload = extractor._payload(
         BrowserPage(url="https://example.com/x", title="t", content="c", source="s")
@@ -96,7 +94,7 @@ def test_extractor_returns_normalized_skills_list():
                         "content": (
                             '{"title":"大模型算法实习生","company":"美团",'
                             '"location":"北京市","requirements":"熟悉LLM与PyTorch",'
-                            '"responsibilities":"参与大模型训练",'
+                            '"responsibilities":"参与大模型训练","posted_at":"",'
                             '"skills":["Python", "大模型", "PyTorch", "Python", "", "RAG"]}'
                         )
                     }
@@ -118,7 +116,7 @@ def test_extractor_returns_normalized_skills_list():
     assert fields["skills"] == ["Python", "大模型", "PyTorch", "RAG"]  # 去空去重保序
 
 
-def test_extractor_ignores_non_list_skills():
+def test_extractor_rejects_non_list_skills():
     def fake_transport(url, headers, payload, timeout_seconds):  # noqa: ANN001
         return {
             "choices": [
@@ -126,7 +124,7 @@ def test_extractor_ignores_non_list_skills():
                     "message": {
                         "content": (
                             '{"title":"t","company":"c","location":"l",'
-                            '"requirements":"r","responsibilities":"d",'
+                            '"requirements":"r","responsibilities":"d","posted_at":"",'
                             '"skills":"Python, PyTorch"}'
                         )
                     }
@@ -141,9 +139,8 @@ def test_extractor_ignores_non_list_skills():
         transport=fake_transport,
     )
 
-    fields = extractor(BrowserPage(url="https://example.com/x", title="t", content="c", source="s"))
-
-    assert fields["skills"] == []
+    with pytest.raises(ValueError, match="schema_validation: skills"):
+        extractor(BrowserPage(url="https://example.com/x", title="t", content="c", source="s"))
 
 
 def test_qwen_config_uses_dashscope_key_and_openai_compatible_base_url(monkeypatch):

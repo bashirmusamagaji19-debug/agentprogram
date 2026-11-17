@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 from web_task_agent.agent_models import AgentAction, AgentBudget, DecisionAgentState
 from web_task_agent.agent_planner import OpenAiCompatibleAgentPlanner
@@ -64,7 +63,7 @@ async def test_openai_compatible_planner_returns_validated_decision():
 
 
 @pytest.mark.asyncio
-async def test_planner_accepts_json_code_fence():
+async def test_planner_rejects_json_code_fence_after_bounded_repair():
     def transport(url, headers, payload, timeout_seconds):
         return {
             "choices": [
@@ -88,13 +87,17 @@ async def test_planner_accepts_json_code_fence():
         transport=transport,
     )
 
-    assert (await planner.decide(_state())).action is AgentAction.OPEN_PAGE
+    with pytest.raises(ValueError, match="invalid_json"):
+        await planner.decide(_state())
+    assert planner.telemetry.failed_calls == 2
 
 
 @pytest.mark.asyncio
 async def test_planner_rejects_unknown_action():
     def transport(url, headers, payload, timeout_seconds):
-        return {"choices": [{"message": {"content": '{"action":"delete_files","reason":"bad"}'}}]}
+        return {"choices": [{"message": {"content": (
+            '{"action":"delete_files","reason":"bad","target":null,"arguments":{},"confidence":1}'
+        )}}]}
 
     planner = OpenAiCompatibleAgentPlanner(
         provider="deepseek",
@@ -103,7 +106,7 @@ async def test_planner_rejects_unknown_action():
         transport=transport,
     )
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError, match="schema_validation: action"):
         await planner.decide(_state())
 
 
@@ -115,7 +118,8 @@ async def test_planner_sends_compact_state_without_resume_or_page_body():
         captured.update(payload)
         return {
             "choices": [
-                {"message": {"content": '{"action":"extract_text","reason":"Page ready."}'}}
+                {"message": {"content": '{"action":"extract_text","reason":"Page ready.",'
+                                         '"target":null,"arguments":{},"confidence":1}'}}
             ]
         }
 
@@ -140,7 +144,8 @@ async def test_planner_sends_compact_state_without_resume_or_page_body():
 async def test_planner_records_successful_call_telemetry_and_usage():
     def transport(url, headers, payload, timeout_seconds):
         return {
-            "choices": [{"message": {"content": '{"action":"extract_text","reason":"Ready."}'}}],
+            "choices": [{"message": {"content": '{"action":"extract_text","reason":"Ready.",'
+                                                '"target":null,"arguments":{},"confidence":1}'}}],
             "usage": {
                 "prompt_tokens": 11,
                 "completion_tokens": 4,

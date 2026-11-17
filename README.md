@@ -43,6 +43,7 @@ Portfolio 产物包括 Hybrid 决策 JSON/Markdown/HTML、HITL approve/reject/re
 - Hybrid Agent 提供 8 个类型化工具：搜索、打开页面、文本抽取、视觉抽取、验证、匹配、保存和结束。
 - LangGraph 使用 `decide -> execute_tool -> observe -> guard` 条件循环；步数预算、URL 重试上限和终止条件由代码策略强制执行。
 - 搜索结果会解析为真实候选 JD 链接，不再把 Google 搜索页误当作岗位页。
+- 浏览器搜索支持自动翻页和跨页去重，同一查询续搜会沿用游标；达到候选数量、连续两页无新增、空页无后续链接、累计十页或运行截止时停止。后页失败仍保留前页候选，诊断记录实际缺口与停止原因。候选数量不等于验证通过的岗位数量。
 - 规划器输出无效、页面打开失败、低置信度抽取或 verifier 拒绝时，自动走确定性 fallback、换 URL 或 text-to-visual 恢复。
 
 ## Showcase — 一次完整运行的演示
@@ -171,6 +172,12 @@ $env:DEEPSEEK_API_KEY="..."
 
 使用 `--llm-extractor-provider deepseek|qwen` 可以启用真实 OpenAI-compatible LLM 抽取边界；DeepSeek 默认模型为 `deepseek-v4-flash`，读取 `DEEPSEEK_API_KEY`，Qwen 默认模型为 `qwen-plus`，读取 `DASHSCOPE_API_KEY`。也可以用 `--llm-extractor-model` 覆盖模型名。规则抽取仍然先执行，只有低置信度页面才会调用 LLM；CLI 会在 JSON metadata 中记录 `extractor_mode`、`llm_provider` 和 `llm_model`。
 
+文本模型输出统一经过 `structured_output.py` 的严格 Schema 校验，覆盖岗位抽取、语义匹配、Planner 和证据阅读器：字段必须齐全，禁止额外字段、错误类型、重复 JSON 键及非有限数值，分数限制在 0–1，优先级和动作限制为枚举。Planner 的 `arguments` 必须为空对象，执行参数由策略提供，动作和 URL 继续由 runtime 白名单核验。阅读器的原文证据核验仍独立执行；结构合法不代表事实正确。
+
+请求端按实际模型能力选择格式：已知支持原生 Schema 的 Qwen 模型使用 `json_schema` / `strict: true`；默认 DeepSeek Chat 和旧 Qwen 模型使用 `json_object` 加完整 Schema 提示，并执行相同的本地严格校验。适配器构造参数 `schema_mode="json_schema"|"json_object"|"auto"` 可显式选择，默认 `auto`；不支持的原生 Schema 请求失败后不会自动放宽约束。能力依据：[DeepSeek Chat API](https://api-docs.deepseek.com/api/create-chat-completion/)、[Qwen structured output](https://help.aliyun.com/en/model-studio/qwen-structured-output)。
+
+输出异常按 `invalid_json`、`schema_validation`、`empty_content`、`invalid_response`、`output_limit`、`refusal` 分类。可修复异常最多补偿一次，修复提示只含错误类别和字段路径；截断时在上限内增加输出预算，拒绝和传输错误直接交由上层处理。两次请求共享超时窗口，Planner 每次实际请求分别计入调用预算、Token 和遥测。仍失败时，Planner 回退确定性策略，岗位抽取保留原规则结果和置信度，语义匹配保留规则评分，证据阅读器返回明确错误。诊断不保存原始模型输出。外部视觉包 `visual-web-agent` 保持独立协议。
+
 使用 `--list-fixture-urls` 可以列出内置 Greenhouse/Lever 风格 fixture URL，便于快速复制到 `--seed-url` 演示或评测命令。
 
 使用 `--doctor` 可以检查当前 Python 路径、虚拟环境状态、关键依赖和输出目录可写性。
@@ -184,6 +191,8 @@ $env:DEEPSEEK_API_KEY="..."
 ## Hybrid Decision Agent
 
 Hybrid 模式不是让 LLM 直接控制浏览器。LLM 只能从白名单动作中提出结构化决策；`DeterministicAgentPolicy` 对目标数量、剩余步数、每 URL 重试次数和终止原因拥有最终控制权。未配置 API key 时仍可完整运行确定性策略；配置 `--agent-planner-provider deepseek|qwen` 后才启用语义规划。
+
+首批候选处理完而有效岗位不足时，策略会在搜索次数和剩余步数允许的范围内续搜；适配器明确报告候选耗尽时停止续搜。补充搜索无结果或失败后，已验证的部分结果仍进入评分、保存和交付。来源耗尽、页数上限和执行预算可能导致最终数量不足，系统会保留真实数量，不用未经验证的候选补数。种子 URL、官网列表和聚合来源仍按各自来源适配器发现候选，浏览器翻页只作用于 Google 搜索路径。
 
 两条可演示的恢复链：
 

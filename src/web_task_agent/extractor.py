@@ -42,6 +42,8 @@ def _url_verification_of(page: BrowserPage) -> str:
 
 
 class PageExtractor:
+    # 将 BrowserPage 转成统一的 JobPosting。先走可复现的规则，
+    # 规则抽取不够完整且正文满足条件时，再用配置的字段提取模型补齐。
     _LABELS = {
         "title": {"title", "job title", "position", "职位名称", "职位", "岗位名称", "岗位"},
         "company": {"company", "employer", "公司名称", "公司", "招聘单位"},
@@ -83,11 +85,15 @@ class PageExtractor:
         self.llm_min_rule_confidence = llm_min_rule_confidence
 
     def extract(self, page: BrowserPage) -> JobPosting:
+        # 当多个候选共享同一详情页时，先要求人工确认身份，避免把字段归给错误的岗位。
         if page.metadata.get("candidate_binding") == "shared_page_requires_review":
             raise ValueError("shared_page_requires_review: multiple native candidates share this page")
+        # 同时支持带字段标签的页面和常见公开岗位页布局。可明确识别的标签优先。
         fields = self._parse_labeled_lines(page.content)
         inferred_fields = self._infer_public_job_fields(page)
 
+        # 标题回退到网页标题，公司和地点优先参考来源侧发现的结构化字段。
+        # 例如页面第一行像岗位标题时，使用发现层的公司名可减少启发式误判。
         title = fields.get("title") or inferred_fields.get("title") or page.title or "Unknown Title"
         # discovered_company(发现层结构化数据)优先于启发式推断 —
         # 无标签式 JD 的第一行会被 _infer_company_location 误判为公司(2026-09-09 实录)
@@ -103,11 +109,13 @@ class PageExtractor:
             or inferred_fields.get("location")
             or "Unknown Location"
         )
+        # 要求和职责保留原文片段。规则技能从要求文本提取，供后续匹配器处理。
         requirements = fields.get("requirements") or inferred_fields.get("requirements", "")
         responsibilities = fields.get("responsibilities") or inferred_fields.get(
             "responsibilities", ""
         )
 
+        # 把正文解析出的字段与发现层的来源信息放进同一个岗位模型，交给后续校验。
         job = JobPosting(
             title=title,
             company=company,
@@ -131,13 +139,24 @@ class PageExtractor:
                 responsibilities=responsibilities,
             ),
         )
+        # 只有同时满足已配置模型、规则置信度低、正文足够长时才调用模型。
+        # 空页面或加载提示缺少岗位依据，即使置信度低也跳过模型抽取。
         if (
             self.llm_field_extractor
             and job.confidence < self.llm_min_rule_confidence
             # 内容护栏：短于阈值的正文无 JD 信息可抽，调 LLM 只会得到幻觉
             and len(page.content.strip()) >= self._MIN_CONTENT_FOR_LLM_CHARS
         ):
-            llm_fields = self.llm_field_extractor(page)
+            # 模型结果用来补齐或修正规则提取。缺少的字段继续使用已有值。
+            try:
+                llm_fields = self.llm_field_extractor(page)
+            except Exception as exc:
+                # Output repair has its own bound. Preserve the original rule extraction
+                # and confidence so verification/visual recovery can still proceed.
+                page.metadata["llm_extraction_error"] = {
+                    "error_type": type(exc).__name__, "category": getattr(exc, "category", "model_error"),
+                }
+                return job
             return self._job_from_fields(
                 page=page,
                 fields={
@@ -156,6 +175,8 @@ class PageExtractor:
         return job
 
     def _job_from_fields(self, *, page: BrowserPage, fields: dict[str, Any]) -> JobPosting:
+        # 规则字段和模型补齐字段合并后重新建模，沿用当前页面的 URL、来源和身份线索。
+        # 置信度仍按最终字段完整度计算，模型输出本身不会直接成为提取置信度。
         title = fields.get("title") or page.title or "Unknown Title"
         company = fields.get("company") or "Unknown Company"
         location = fields.get("location") or "Unknown Location"
@@ -193,6 +214,7 @@ class PageExtractor:
         )
 
     def _parse_labeled_lines(self, content: str) -> dict[str, str]:
+        # 先把中英文标签映射到统一字段。扫描时跳过未识别的行，保留明确的岗位字段。
         parsed: dict[str, str] = {}
         label_map = {label: field for field, labels in self._LABELS.items() for label in labels}
         lines = content.splitlines()
@@ -243,6 +265,8 @@ class PageExtractor:
         return label, separator, value
 
     def _infer_public_job_fields(self, page: BrowserPage) -> dict[str, str]:
+        # 这个分支专门处理无标准标签的公开页面。根据首行、网页标题、公司地点和章节边界推断。
+        # 页面已有可识别标签时，交给上面的标签解析流程。
         lines = [line.strip() for line in page.content.splitlines() if line.strip()]
         inferred: dict[str, str] = {}
         if not lines or self._has_labeled_lines(lines):
@@ -307,6 +331,7 @@ class PageExtractor:
         return inferred
 
     def _infer_title(self, lines: list[str], page_title: str) -> str:
+        # 首行若是岗位职责之类的章节标题，就用网页标题，避免把正文标题当岗位名。
         first_line = lines[0]
         section_openers = {
             "about the role",
@@ -442,6 +467,7 @@ class PageExtractor:
         requirements: str,
         responsibilities: str,
     ) -> float:
+        # 五项等权，每项提供 0.2。这个分数用于衡量字段是否齐全，岗位相关性由校验器判断。
         values = [
             title.strip() != "Unknown Title",
             company.strip() != "Unknown Company",

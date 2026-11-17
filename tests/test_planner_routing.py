@@ -54,7 +54,7 @@ async def test_planner_transport_does_not_block_async_heartbeat():
         if not released.wait(0.5):
             raise RuntimeError("event loop was blocked")
         return {"choices": [{"message": {"content": '{"action":"open_page","reason":"open",'
-                     '"target":"https://example.com/jobs/1"}'}}],
+                     '"target":"https://example.com/jobs/1","arguments":{},"confidence":1}'}}],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}
 
     planner = OpenAiCompatibleAgentPlanner(provider="qwen", model="fixture", api_key="fixture", transport=transport)

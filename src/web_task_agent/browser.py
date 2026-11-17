@@ -6,19 +6,32 @@ import json
 import re
 import socket
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from time import monotonic
 from typing import Any, Protocol
 from urllib import request
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote_plus, urljoin
+from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 
 from web_task_agent.models import BrowserPage
-from web_task_agent.search_discovery import discover_job_links
+from web_task_agent.search_discovery import discover_job_links, next_search_url
 
 PageLoader = Callable[[str], Awaitable[BrowserPage]]
 SessionFactory = Callable[[], Any]
 ContentReady = Callable[[str, str], bool | Awaitable[bool]]
+
+
+@dataclass
+class _SearchCursor:
+    next_url: str
+    seen: set[str] = field(default_factory=set)
+    pages_read: int = 0
+    stagnant_pages: int = 0
+    exhausted: bool = False
+    buffered: list[str] = field(default_factory=list)
+    buffered_page: BrowserPage | None = None
+    stop_reason: str = ""
 
 # 低于该长度的正文视为"无有效内容"（美团/腾讯 SPA 返回 4~11 字符的壳；
 # 实测 job-radar 的 jd_text 中位数仅 46 字符——基本全是"标题+部门+城市"，
@@ -85,6 +98,8 @@ class FakeBrowserClient:
 
 
 class BrowserUseClient:
+    # 浏览器适配器提供搜索和打开页面两种能力。输出统一为 BrowserPage，
+    # 这样工具层无需关心正文来自实际浏览器会话还是来源专用的页面加载器。
     def __init__(
         self,
         default_timeout_seconds: int = 60,
@@ -94,6 +109,7 @@ class BrowserUseClient:
         deadline: float | None = None,
         render_wait_seconds: float = 8.0,
         content_ready: ContentReady | None = None,
+        max_search_pages: int = 10,
     ) -> None:
         self.default_timeout_seconds = default_timeout_seconds
         self._page_loader = page_loader
@@ -104,6 +120,11 @@ class BrowserUseClient:
         # Job verification uses this callback to distinguish a long navigation
         # shell from the detail content that is expected for a specific job.
         self.content_ready = content_ready
+        if max_search_pages < 1:
+            raise ValueError("max_search_pages must be positive")
+        self.max_search_pages = max_search_pages
+        self._search_cursors: dict[str, _SearchCursor] = {}
+        self.search_diagnostics: dict[str, Any] = {}
 
     @property
     def source_diagnostics(self) -> list[dict[str, object]]:
@@ -114,36 +135,99 @@ class BrowserUseClient:
         return getattr(self._page_loader, "resolution_log", [])
 
     async def search(self, query: str, target_count: int) -> list[BrowserPage]:
+        # discovery_only 表示候选已由来源层发现，只用这个适配器加载详情。
         if target_count <= 0 or self.discovery_only:
             return []
 
-        search_url = f"https://www.google.com/search?q={quote_plus(query)}"
-        page = await self.open_url(search_url)
-        raw_links = page.metadata.get("raw_links", [])
-        candidate_urls = discover_job_links(
-            page.content,
-            base_url=search_url,
-            raw_links=raw_links if isinstance(raw_links, list) else [],
-        )
-        return [
-            page.model_copy(
-                update={
-                    "metadata": {
-                        **page.metadata,
-                        "candidate_urls": candidate_urls[:target_count],
+        query = query.strip()
+        base_url = f"https://www.google.com/search?q={quote_plus(query)}"
+        cursor = self._search_cursors.setdefault(query, _SearchCursor(next_url=base_url))
+        pages: list[BrowserPage] = []
+        count = 0
+        reason = cursor.stop_reason or "no_more_results"
+        while count < target_count:
+            remaining = self._remaining_seconds()
+            if remaining is not None and remaining <= 0:
+                if not pages:
+                    raise PageTimeoutError("search deadline exceeded")
+                reason = "deadline_exceeded"
+                break
+            if cursor.buffered:
+                page = cursor.buffered_page
+                candidates = cursor.buffered
+                cursor.buffered = []
+            else:
+                if cursor.exhausted:
+                    break
+                if cursor.pages_read >= self.max_search_pages:
+                    reason = "page_limit"
+                    cursor.exhausted = True
+                    break
+                search_url = cursor.next_url
+                try:
+                    page = await asyncio.wait_for(self.open_url(search_url), timeout=remaining)
+                except Exception as exc:
+                    if not pages:
+                        raise
+                    from web_task_agent.page_reliability import PageFailureCategory, classify_page_exception
+
+                    timed_out = self.deadline is not None and (
+                        isinstance(exc, TimeoutError) or monotonic() >= self.deadline
+                    )
+                    reason = "deadline_exceeded" if timed_out else "page_error"
+                    failure = classify_page_exception(exc)
+                    self.search_diagnostics = {
+                        "error_type": type(exc).__name__, "error_category": failure.category.value,
+                        "recoverable": failure.category in {PageFailureCategory.TRANSIENT, PageFailureCategory.BLOCKED},
                     }
-                }
-            )
-        ]
+                    break
+                cursor.pages_read += 1
+                raw_links = page.metadata.get("raw_links", [])
+                raw_links = [link for link in raw_links if isinstance(link, str)] if isinstance(raw_links, list) else []
+                discovered = discover_job_links(page.content, base_url=search_url, raw_links=raw_links)
+                candidates = [url for url in discovered if url not in cursor.seen]
+                cursor.seen.update(candidates)
+                cursor.stagnant_pages = 0 if candidates else cursor.stagnant_pages + 1
+                next_url = next_search_url(page.content, base_url=search_url, raw_links=raw_links, query=query)
+                has_next_link = next_url is not None
+                # Without explicit controls, Google uses ten-result offsets.
+                if next_url is None:
+                    offset = int(parse_qs(urlsplit(search_url).query).get("start", [0])[0])
+                    next_url = f"{base_url}&start={offset + 10}"
+                cursor.next_url = next_url
+                if not discovered and not has_next_link:
+                    reason, cursor.exhausted = "no_more_results", True
+                elif cursor.stagnant_pages >= 2:
+                    reason, cursor.exhausted = "no_progress", True
+            selected, overflow = candidates[:target_count - count], candidates[target_count - count:]
+            if overflow:
+                cursor.buffered, cursor.buffered_page = overflow, page
+            pages.append(page.model_copy(update={"metadata": {**page.metadata, "candidate_urls": selected}}))
+            count += len(selected)
+            if count >= target_count:
+                reason = "target_reached"
+                break
+        if cursor.exhausted and reason != "target_reached":
+            cursor.stop_reason = reason
+        self.search_diagnostics = {
+            **(self.search_diagnostics if reason == "page_error" else {}),
+            "query": query, "pages_read": cursor.pages_read, "candidate_count": count,
+            "requested_count": target_count, "shortfall": max(0, target_count - count),
+            "stop_reason": reason, "has_more": bool(cursor.buffered) or not cursor.exhausted,
+        }
+        return [page.model_copy(update={"metadata": {**page.metadata, "search_diagnostics": self.search_diagnostics}})
+                for page in pages]
 
     async def open_url(self, url: str) -> BrowserPage:
         try:
+            # 优先使用配置的加载器，例如来源专用适配器。否则由 browser-use 创建会话加载页面。
             if self._page_loader is not None:
                 return await self._page_loader(url)
             return await self._load_with_browser_use(url)
         except BrowserConfigurationError:
             raise  # pass through specific subtypes (PageTimeoutError, etc.)
         except Exception as exc:
+            # 统一包装未知的底层异常，同时保留原异常链，供工具层分类和排查。
             raise BrowserConfigurationError(
                 f"browser-use failed while opening {url}: {exc}"
             ) from exc
@@ -151,6 +235,7 @@ class BrowserUseClient:
     async def _load_with_browser_use(self, url: str) -> BrowserPage:
         session = self._create_session()
         try:
+            # 导航和读取正文共用本次运行的剩余时间，避免每次开页都重新获得完整的等待额度。
             remaining = self._remaining_seconds()
             if remaining is not None:
                 if remaining <= 0:
@@ -168,16 +253,20 @@ class BrowserUseClient:
                 f"browser-use failed while opening {url}: {exc}"
             ) from exc
         finally:
+            # 超时、取消或读取失败时也释放浏览器会话。
             await self._close_session(session)
 
     async def _read_browser_page(self, session: Any, url: str) -> BrowserPage:
+        # 在同一页面上读正文、标题、最终地址和申请控件，后面的提取与核验可共用这些数据。
         await self._call(session.start)
         page = await self._call(session.new_page, url)
+        # 动态站点初次渲染可能只有加载提示。正文读取可在限时内等待内容就绪。
         content = await self._read_body_until_useful(page)
         title = await self._read_title(page)
         final_url, final_url_observed = await self._read_current_url(page, url)
         apply_controls = await self._read_apply_controls(page)
         raw_links = await self._read_links(page) if "google.com/search" in url else []
+        # 申请控件用于链接校验。区分实际观测的最终地址和回退值，供下游判断重定向身份。
         metadata: dict[str, Any] = {
             "requested_url": url,
             "final_url": final_url,
@@ -196,6 +285,7 @@ class BrowserUseClient:
         )
 
     def _remaining_seconds(self) -> float | None:
+        # 没有共享截止时间时按单页默认值计时，有截止时间时取本次运行实际剩余量。
         if self.deadline is None:
             return float(self.default_timeout_seconds)
         return self.deadline - monotonic()
@@ -237,6 +327,8 @@ class BrowserUseClient:
         return ""
 
     async def _read_body_text(self, page: Any) -> str:
+        # 适配不同页面对象。优先用它的正文 API，其次在页面执行脚本读可见文字。
+        # body 没有内容时试整份文档的可见文字。
         if hasattr(page, "inner_text"):
             return str(await self._call(page.inner_text, "body"))
         if hasattr(page, "evaluate"):
@@ -258,6 +350,8 @@ class BrowserUseClient:
         return ""
 
     async def _read_body_until_useful(self, page: Any) -> str:
+        # 默认以正文长度判断页面是否已渲染。严格核验可提供专门的就绪条件，
+        # 比如等正文中出现与当前岗位匹配的描述片段。
         content = await self._read_body_text(page)
         if not hasattr(page, "evaluate"):
             return content
@@ -266,6 +360,7 @@ class BrowserUseClient:
         if content_ready is None and len(content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
             return content
 
+        # 轮询受渲染等待和整轮截止约束。到点后返回最后读到的内容，交给下游判断质量。
         wait_seconds = self.render_wait_seconds
         if content_ready is not None:
             wait_seconds = min(wait_seconds, MAX_JOB_RENDER_WAIT_SECONDS)
@@ -291,6 +386,8 @@ class BrowserUseClient:
             content = await self._read_body_text(page)
 
     async def _read_current_url(self, page: Any, requested_url: str) -> tuple[str, bool]:
+        # 先用页面对象的接口，再尝试读 window.location。都读不到时回传请求地址和 False，
+        # 让严格核验知道这次没有真实观察到最终 URL。
         for name in ("get_url", "url"):
             value = getattr(page, name, None)
             if value is None:
@@ -320,6 +417,7 @@ class BrowserUseClient:
         return requested_url, False
 
     async def _read_apply_controls(self, page: Any) -> list[dict[str, Any]]:
+        # 在已渲染 DOM 中收集链接、按钮等申请控件及其状态。后续用这些信息判断是否仍可申请。
         if not hasattr(page, "evaluate"):
             return []
         try:

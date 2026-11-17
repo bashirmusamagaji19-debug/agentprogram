@@ -19,8 +19,11 @@ def fixture():
         "requirements": ["熟悉 Python，每周实习四天。"],
         "is_ai_role": True, "role_evidence": ["开发大模型推理和训练系统。"],
         "is_internship": True, "internship_evidence": ["大模型算法实习生"],
+        "location_conflict": False, "conflict_quotes": [], "uncertainties": [],
     }
-    return BrowserPage(url="https://example.org/jobs/1", content=content), {"page_type": "single_job", "jobs": [job]}
+    return BrowserPage(url="https://example.org/jobs/1", content=content), {
+        "page_type": "single_job", "jobs": [job], "detail_links": [], "notes": [],
+    }
 
 
 def test_supported_job_is_accepted_with_literal_source_fields():
@@ -118,7 +121,9 @@ def test_malformed_model_output_is_an_error_not_a_rule_fallback():
     )
     result = reader.read(page)
     assert result["status"] == "error"
-    assert result["error_type"] == "JSONDecodeError"
+    assert result["error_type"] == "StructuredOutputError"
+    assert result["error_category"] == "invalid_json"
+    assert result["attempts"] == 2
     assert "secret" not in json.dumps(result)
 
 
@@ -151,5 +156,6 @@ def test_truncated_response_is_recorded_without_publishing_reasoning():
     result = reader.read(page)
     assert result["error_type"] == "OutputLimitError"
     assert result["finish_reason"] == "length"
-    assert result["reasoning_tokens"] == 5000
+    assert result["reasoning_tokens"] == 10000
+    assert result["attempts"] == 2
     assert "secret" not in json.dumps(result)

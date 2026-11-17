@@ -30,6 +30,30 @@ class _LinkExtractor(HTMLParser):
                 self.links.append(str(value))
 
 
+def next_search_url(html: str, *, base_url: str, raw_links: list[str], query: str) -> str | None:
+    """Only follow forward pagination on the same Google query."""
+    parser = _LinkExtractor()
+    parser.feed(html)
+    current = int(parse_qs(urlparse(base_url).query).get("start", ["0"])[0])
+    options = []
+    for link in [*parser.links, *raw_links]:
+        if not isinstance(link, str):
+            continue
+        absolute = urljoin(base_url, link)
+        parsed = urlparse(absolute)
+        params = parse_qs(parsed.query)
+        if (parsed.scheme != "https" or parsed.hostname != "www.google.com" or parsed.path != "/search"
+                or params.get("q") != [query]):
+            continue
+        try:
+            offset = int(params.get("start", ["0"])[0])
+        except ValueError:
+            continue
+        if offset > current:
+            options.append((offset, absolute))
+    return min(options)[1] if options else None
+
+
 def discover_job_links(
     html: str,
     *,

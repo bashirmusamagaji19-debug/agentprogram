@@ -9,8 +9,14 @@ from typing import Any
 from urllib import request
 
 from web_task_agent.models import BrowserPage
+from web_task_agent.structured_output import (
+    JobFieldsOutput,
+    SemanticMatchOutput,
+    call_with_repair,
+    constrain_payload,
+)
 
-LlmTransport = Callable[[str, dict[str, str], dict[str, Any], int], dict[str, Any]]
+LlmTransport = Callable[[str, dict[str, str], dict[str, Any], float], dict[str, Any]]
 
 
 class LlmExtractorConfigurationError(RuntimeError):
@@ -105,6 +111,7 @@ class OpenAiCompatibleLlmFieldExtractor:
         base_url: str | None = None,
         timeout_seconds: int = 60,
         transport: LlmTransport | None = None,
+        schema_mode: str = "auto",
     ) -> None:
         self.provider = provider
         self.model = model
@@ -112,39 +119,25 @@ class OpenAiCompatibleLlmFieldExtractor:
         self.base_url = (base_url or PROVIDER_DEFAULTS[provider]["base_url"]).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.transport = transport or self._urllib_transport
+        self.schema_mode = schema_mode
+        self.last_diagnostics: dict[str, Any] = {}
 
     def __call__(self, page: BrowserPage) -> dict[str, Any]:
-        response = self.transport(
-            f"{self.base_url}/chat/completions",
-            self._headers(),
-            self._payload(page),
-            self.timeout_seconds,
+        result = call_with_repair(
+            transport=self.transport, url=f"{self.base_url}/chat/completions", headers=self._headers(),
+            payload=constrain_payload(self._payload(page), JobFieldsOutput,
+                                      provider=self.provider, mode=self.schema_mode),
+            timeout_seconds=self.timeout_seconds, model=JobFieldsOutput, diagnostics=self.last_diagnostics,
         )
-        content = self._response_content(response)
-        parsed = json.loads(content)
-        return {
-            "title": str(parsed.get("title", "")).strip(),
-            "company": str(parsed.get("company", "")).strip(),
-            "location": str(parsed.get("location", "")).strip(),
-            "requirements": self._string_or_join(parsed.get("requirements", "")),
-            "responsibilities": self._string_or_join(parsed.get("responsibilities", "")),
-            "posted_at": str(parsed.get("posted_at", "")).strip(),
-            "skills": self._skill_list(parsed.get("skills", [])),
-        }
+        parsed = result.model_dump()
+        parsed["skills"] = self._skill_list(parsed["skills"])
+        return parsed
 
-    def _skill_list(self, value: Any) -> list[str]:
-        """规范化 skills 输出：短名列表，去空去重保序；非 list 输入忽略。
-
-        与 _string_or_join 的区别：skills 必须保持 list[str]——
-        join 成句子会退化为阶段 1 实测的"1、2026 届获得本科及以上学历"垃圾。
-        """
-        if not isinstance(value, list):
-            return []
+    def _skill_list(self, value: list[str]) -> list[str]:
+        """Schema 校验后的技能列表仅做去空、去重，保持原始顺序。"""
         seen: set[str] = set()
         skills: list[str] = []
         for item in value:
-            if not isinstance(item, str):
-                continue
             skill = item.strip()
             key = skill.casefold()
             if skill and key not in seen:
@@ -192,21 +185,6 @@ class OpenAiCompatibleLlmFieldExtractor:
             "response_format": {"type": "json_object"},
         }
 
-    def _response_content(self, response: dict[str, Any]) -> str:
-        choices = response.get("choices", [])
-        if not choices:
-            raise ValueError("LLM response did not include choices.")
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
-        if not isinstance(content, str) or not content.strip():
-            raise ValueError("LLM response did not include message content.")
-        return content
-
-    def _string_or_join(self, value: Any) -> str:
-        if isinstance(value, list):
-            return ", ".join(str(item).strip() for item in value if str(item).strip())
-        return str(value).strip()
-
     def _urllib_transport(
         self,
         url: str,
@@ -249,6 +227,7 @@ class OpenAiCompatibleSemanticMatcher:
         base_url: str | None = None,
         timeout_seconds: int = 60,
         transport: LlmTransport | None = None,
+        schema_mode: str = "auto",
     ) -> None:
         self.provider = provider
         self.model = model
@@ -256,24 +235,17 @@ class OpenAiCompatibleSemanticMatcher:
         self.base_url = (base_url or PROVIDER_DEFAULTS[provider]["base_url"]).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.transport = transport or self._urllib_transport
+        self.schema_mode = schema_mode
+        self.last_diagnostics: dict[str, Any] = {}
 
     def __call__(self, payload: dict[str, str]) -> dict[str, object]:
-        response = self.transport(
-            f"{self.base_url}/chat/completions",
-            self._headers(),
-            self._match_payload(payload),
-            self.timeout_seconds,
+        result = call_with_repair(
+            transport=self.transport, url=f"{self.base_url}/chat/completions", headers=self._headers(),
+            payload=constrain_payload(self._match_payload(payload), SemanticMatchOutput,
+                                      provider=self.provider, mode=self.schema_mode),
+            timeout_seconds=self.timeout_seconds, model=SemanticMatchOutput, diagnostics=self.last_diagnostics,
         )
-        content = self._response_content(response)
-        parsed = json.loads(content)
-        return {
-            "score": float(parsed.get("score", 0)),
-            "matched_skills": self._string_list(parsed.get("matched_skills", [])),
-            "missing_skills": self._string_list(parsed.get("missing_skills", [])),
-            "reason": str(parsed.get("reason", "")).strip(),
-            "priority": str(parsed.get("priority", "medium")).strip(),
-            "suggested_actions": self._string_list(parsed.get("suggested_actions", [])),
-        }
+        return result.model_dump()
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -317,21 +289,6 @@ class OpenAiCompatibleSemanticMatcher:
             "temperature": 0,
             "response_format": {"type": "json_object"},
         }
-
-    def _response_content(self, response: dict[str, Any]) -> str:
-        choices = response.get("choices", [])
-        if not choices:
-            raise ValueError("LLM response did not include choices.")
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
-        if not isinstance(content, str) or not content.strip():
-            raise ValueError("LLM response did not include message content.")
-        return content
-
-    def _string_list(self, value: Any) -> list[str]:
-        if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
-        return []
 
     def _urllib_transport(
         self,
