@@ -1,7 +1,7 @@
-# Minimal deps for cloud deployment (Streamlit Community Cloud etc.).
-# browser-use is intentionally excluded: the browser path is lazy-loaded in
-# browser.py and not needed for Demo / aggregator-JSON / HTTP fetching or LLM
-# extraction & matching. Keep this file ASCII-only for locale-safe pip parsing.
+# Cloud runtime, including browser fallback for live job-link verification.
+# packages.txt installs Chromium; browser-use discovers /usr/bin/chromium.
+# Keep the BrowserSession-compatible version and ASCII-only configuration.
+browser-use==0.12.9
 streamlit>=1.41,<2
 pypdf>=6,<7
 langgraph>=0.2.60

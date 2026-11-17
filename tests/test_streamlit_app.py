@@ -172,7 +172,7 @@ def test_artifact_cards_html_lists_available_downloads(tmp_path: Path) -> None:
     assert "report.md" in html
 
 
-def test_cloud_requirements_cover_runtime_deps_without_browser_use() -> None:
+def test_cloud_requirements_cover_live_link_verification_runtime() -> None:
     lines = (REPO_ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
     names = {
         part.strip().lower()
@@ -182,7 +182,16 @@ def test_cloud_requirements_cover_runtime_deps_without_browser_use() -> None:
     }
 
     assert {"streamlit", "langgraph", "pydantic", "python-dotenv"} <= names
-    assert not any("browser-use" in name or "browser_use" in name for name in names)
+    assert "browser-use" in names
+    assert "browser-use==0.12.9" in lines
+
+
+def test_cloud_system_packages_provide_chromium() -> None:
+    package_file = REPO_ROOT / "packages.txt"
+    assert package_file.is_file(), "Cloud link verification requires a system browser"
+    packages = package_file.read_text(encoding="ascii").splitlines()
+
+    assert "chromium" in packages
 
 
 def test_root_entry_injects_src_into_sys_path(monkeypatch) -> None:
