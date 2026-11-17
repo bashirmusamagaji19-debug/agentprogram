@@ -310,6 +310,8 @@ Relevance 的缺失标签不进入分母，也不填 0。该结果不是全网�
 
 ## 真实 browser-use adapter 状态
 
+浏览器适配器当前依赖已验收的 `browser-use>=0.12.9,<0.13`，使用 `BrowserSession` API；不自动升级到接口不兼容的 1.x，迁移边界见 [browser-use MIGRATING.md](https://github.com/browser-use/browser-use/blob/main/MIGRATING.md)。Streamlit Cloud 的最小依赖仍不安装浏览器组件。
+
 非 `--demo` 模式会走 `BrowserUseClient`，通过 `browser_use.BrowserSession` 打开搜索页并读取页面标题和正文。这个路径用于下一阶段真实网页接入；当前推荐演示和评测仍使用 `--demo`，因为它不依赖登录、验证码、反爬策略或外部网页结构变化。
 
 ## Visual extractor demo

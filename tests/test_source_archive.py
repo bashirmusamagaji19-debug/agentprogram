@@ -76,6 +76,8 @@ def new_archive(tmp_path, *, root=None):
 
 def test_atomic_snapshot_write_supports_long_windows_archive_paths(tmp_path):
     archive_root = tmp_path / ("a" * 60) / ("b" * 60)
+    while len(str(archive_root / "bodies" / f"{'x' * 64}.txt")) <= 260:
+        archive_root /= "nested-archive-segment"
     final_body_length = len(
         str(archive_root / "bodies" / f"{'x' * 64}.txt")
     )

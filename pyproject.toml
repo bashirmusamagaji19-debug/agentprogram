@@ -9,7 +9,7 @@ description = "A browser-use and LangGraph based Web task agent for AI internshi
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "browser-use>=0.1.40",
+  "browser-use>=0.12.9,<0.13",
   "langgraph>=0.2.60",
   "langgraph-checkpoint-sqlite>=3.1,<4",
   "pydantic>=2.7",

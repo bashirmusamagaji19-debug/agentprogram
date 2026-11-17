@@ -171,5 +171,5 @@ def test_app_bad_pdf_blocks_start_even_after_previous_preview(
     app.run()
 
     assert not app.exception
-    assert "latest_run_id" not in app.session_state.filtered_state
+    assert "latest_run_id" not in app.session_state
     assert any("本次运行未启动" in item.value for item in app.error)

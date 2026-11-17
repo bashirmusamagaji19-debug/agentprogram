@@ -29,7 +29,7 @@ def test_browser_ui_can_pause_and_approve_without_runtime_in_session(tmp_path, m
             control.set_value(True)
     next(button for button in app.button if button.label == "开始运行岗位 Agent").click().run()
     assert not app.exception
-    assert "latest_ui_result" not in app.session_state.filtered_state
+    assert "latest_ui_result" not in app.session_state
     run_id = app.session_state["latest_run_id"]
     stores = build_configured_persistence("streamlit-persistence")
     pending = load_persisted_ui_result(*stores, "demo", run_id)
@@ -37,10 +37,11 @@ def test_browser_ui_can_pause_and_approve_without_runtime_in_session(tmp_path, m
     assert pending.engine == "hybrid"
     assert any(pending.approval["approval_id"] in item.value for item in app.caption)
     assert any(pending.approval["payload_hash"] in item.value for item in app.caption)
-    assert all("runtime" not in str(key) for key in app.session_state.filtered_state)
+    state_values = getattr(app.session_state, "filtered_state", app.session_state)
+    assert all("runtime" not in str(key) for key in state_values)
     next(button for button in app.button if button.label == "确认保存").click().run()
     assert not app.exception
     assert app.session_state["latest_run_id"] == run_id
-    assert "latest_ui_result" not in app.session_state.filtered_state
+    assert "latest_ui_result" not in app.session_state
     assert load_persisted_ui_result(*stores, "demo", run_id).run_status == "succeeded"
     assert not [button for button in app.button if button.label == "确认保存"]
