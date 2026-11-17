@@ -76,7 +76,6 @@ RESUME_UPLOAD_ERROR_KEY = "resume-upload-error"
 RESUME_UPLOAD_BLOCKED_KEY = "resume-upload-blocked"
 
 DEFAULT_TARGET_COUNT = 3
-DEFAULT_DEADLINE_SECONDS = 90.0
 DEFAULT_OFFICIAL_SPECS = ("xiaomi",)
 
 TERMINAL_REASON_LABELS = {
@@ -1171,7 +1170,13 @@ def main() -> None:
             target_count = st.number_input(
                 "目标岗位数", min_value=1, max_value=50, value=DEFAULT_TARGET_COUNT, step=1
             )
-            st.caption("默认总时限 90 秒；本轮最多检查 10 个候选，未检查部分会明确显示。")
+            # Include discovery/model overhead and a per-target browser budget.
+            # Extra targets cannot expand this run beyond its 10-candidate check cap.
+            deadline_seconds = 60 + 30 * min(int(target_count), 10)
+            st.caption(
+                f"按目标岗位数自动分配总时限 {deadline_seconds} 秒，达到目标会提前结束；"
+                "本轮最多检查 10 个候选，未检查部分会明确显示。"
+            )
         aggregator_upload = None
         aggregator_url_text = ""
         seed_url_text = ""
@@ -1220,7 +1225,7 @@ def main() -> None:
                 hitl=hitl and engine == "hybrid",
                 planner_strategy="adaptive" if use_planner and engine == "hybrid" else "policy",
                 planner_provider=planner_provider if engine == "hybrid" else None,
-                deadline_seconds=DEFAULT_DEADLINE_SECONDS,
+                deadline_seconds=float(deadline_seconds),
             )
             if should_consume_llm_budget(request):
                 consume_llm_budget(

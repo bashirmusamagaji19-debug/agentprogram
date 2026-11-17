@@ -4,6 +4,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 from web_task_agent.models import JobPosting, MatchResult, RunMetrics
 from web_task_agent.streamlit_app import (
     artifact_cards_html,
@@ -385,6 +387,29 @@ def test_default_ui_uses_xiaomi_three_targets_and_empty_skills(tmp_path, monkeyp
     assert toggles["启用 LLM 抽取"] is False
     assert toggles["启用 LLM 匹配"] is False
     assert toggles["启用模型选择候选"] is False
+
+
+@pytest.mark.parametrize("target_count, expected_deadline", [(1, 90), (3, 150), (6, 240), (50, 360)])
+def test_ui_run_deadline_scales_with_target_count(tmp_path, monkeypatch, target_count, expected_deadline):
+    from streamlit.testing.v1 import AppTest
+
+    from web_task_agent import streamlit_app as ui
+
+    captured = []
+
+    async def capture_request(request, **kwargs):
+        captured.append(request)
+        raise UiRequestError("test request captured")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ui, "run_ui_request", capture_request)
+    app = AppTest.from_file(str(REPO_ROOT / "streamlit_app.py"), default_timeout=30).run()
+    next(item for item in app.number_input if item.label == "目标岗位数").set_value(target_count)
+    next(item for item in app.button if item.label == "开始运行岗位 Agent").click().run()
+
+    assert not app.exception
+    assert len(captured) == 1
+    assert captured[0].deadline_seconds == expected_deadline
 
 
 def test_job_cards_show_internship_evidence_basis_and_low_score(tmp_path: Path) -> None:
