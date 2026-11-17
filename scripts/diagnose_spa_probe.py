@@ -48,6 +48,15 @@ async def probe(label, *, activate=False, **options):
 
 async def main():
     await probe("default")
+    await probe("no_extensions", enable_default_extensions=False)
+    await probe("activate_tab", activate=True)
+
+
+asyncio.run(main())
+
+
+async def main():
+    await probe("default")
     await probe("without_extensions", enable_default_extensions=False)
     await probe("activated", activate=True)
 
