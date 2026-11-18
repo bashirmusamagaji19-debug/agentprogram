@@ -15,14 +15,18 @@ VERIFIED_SOURCES = {
                 "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习"},
     "mihoyo": {"name": "米哈游", "official_url": "https://jobs.mihoyo.com/",
                "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习"},
-    "liauto": {"name": "理想汽车", "official_url": "https://www.lixiang.com/employ.html",
-               "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "实习"},
     "nio": {"name": "蔚来", "official_url": "https://nio.jobs.feishu.cn/",
             "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习",
             "note": "本次目标 2 条、交付 1 条；其余详情未通过，保留为部分可用来源。"},
 }
 
+LIMITED_SOURCES = {
+    "liauto": {"name": "理想汽车", "official_url": "https://www.lixiang.com/employ.html",
+               "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "实习"},
+}
+
 SOURCE_LIMITATIONS = {
+    "理想汽车": "本机样本通过，但 Streamlit 和 Linux 云端发现接口连续超时，暂移出直连可选名单。",
     "腾讯": "当前校招接口返回空列表，暂不作为可选直连来源。",
     "百度": "当前公开接口拒绝访问，暂不作为可选直连来源。",
     "华为": "现有适配器仅覆盖社招，不能证明实习岗位覆盖；申请入口核验仍不稳定。",

@@ -1,0 +1,85 @@
+{
+  "seconds": 16.03,
+  "keyword": "AI 实习",
+  "candidate_count": 20,
+  "source_diagnostics": [
+    {
+      "source": "xiaomi",
+      "status": "healthy",
+      "count": 5,
+      "attempts": 1,
+      "candidate_count": 5
+    },
+    {
+      "source": "xiaohongshu",
+      "status": "healthy",
+      "count": 15,
+      "attempts": 2,
+      "candidate_count": 8
+    },
+    {
+      "source": "xpeng",
+      "status": "healthy",
+      "count": 5,
+      "attempts": 1,
+      "candidate_count": 5
+    },
+    {
+      "source": "meituan",
+      "status": "healthy",
+      "count": 15,
+      "attempts": 2,
+      "candidate_count": 5
+    },
+    {
+      "source": "netease",
+      "status": "healthy",
+      "count": 15,
+      "attempts": 2,
+      "candidate_count": 11
+    },
+    {
+      "source": "mihoyo",
+      "status": "healthy",
+      "count": 15,
+      "attempts": 2,
+      "candidate_count": 9
+    },
+    {
+      "source": "liauto",
+      "status": "healthy",
+      "count": 45,
+      "attempts": 3,
+      "candidate_count": 0
+    },
+    {
+      "source": "nio",
+      "status": "healthy",
+      "count": 15,
+      "attempts": 2,
+      "candidate_count": 6
+    }
+  ],
+  "candidate_sources": [
+    "xiaomi",
+    "xiaohongshu",
+    "xpeng",
+    "meituan",
+    "netease",
+    "mihoyo",
+    "nio",
+    "xiaomi",
+    "xiaohongshu",
+    "xpeng",
+    "meituan",
+    "netease",
+    "mihoyo",
+    "nio",
+    "xiaomi",
+    "xiaohongshu",
+    "xpeng",
+    "meituan",
+    "netease",
+    "mihoyo"
+  ]
+}

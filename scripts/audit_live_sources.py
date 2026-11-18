@@ -14,14 +14,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from web_task_agent.source_catalog import VERIFIED_SOURCES  # noqa: E402
+from web_task_agent.source_catalog import LIMITED_SOURCES, VERIFIED_SOURCES  # noqa: E402
 from web_task_agent.streamlit_runner import UiRunRequest, run_ui_request  # noqa: E402
+
+AUDIT_SOURCES = {**VERIFIED_SOURCES, **LIMITED_SOURCES}
 
 
 async def audit(args):
     rows = []
     for name in args.sources:
-        keyword = VERIFIED_SOURCES[name].get("validation_keyword", "AI Agent 实习")
+        keyword = AUDIT_SOURCES[name].get("validation_keyword", "AI Agent 实习")
         result = await run_ui_request(
             UiRunRequest(data_mode="official", official_specs=[name], engine="hybrid",
                          keyword=keyword, location="全国", target_count=2, deadline_seconds=210),
@@ -46,10 +48,10 @@ async def audit(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sources", nargs="+", choices=list(VERIFIED_SOURCES),
+    parser.add_argument("--sources", nargs="+", choices=list(AUDIT_SOURCES),
                         default=os.environ.get("AUDIT_SOURCE_SPECS", "").split() or list(VERIFIED_SOURCES))
     parser.add_argument("--output", type=Path, default=ROOT / "output" / "live-source-audit")
     arguments = parser.parse_args()
-    if any(source not in VERIFIED_SOURCES for source in arguments.sources):
+    if any(source not in AUDIT_SOURCES for source in arguments.sources):
         parser.error("AUDIT_SOURCE_SPECS contains an unregistered source")
     raise SystemExit(0 if asyncio.run(audit(arguments)) else 1)
