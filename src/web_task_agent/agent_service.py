@@ -37,7 +37,7 @@ class AgentRunRequest(BaseModel):
     target_count: int = Field(default=10, ge=1, le=50)
     skills: list[str] = Field(default_factory=list)
     resume_text: str = ""
-    data_mode: Literal["demo", "aggregator", "seed_urls", "official"] = "demo"
+    data_mode: Literal["demo", "aggregator", "seed_urls", "official", "web_search"] = "demo"
     aggregator_path: str | None = None
     aggregator_url: str | None = None
     official_specs: list[str] | None = None

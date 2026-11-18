@@ -59,11 +59,26 @@ class SourceCaptureBrowser:
                 self._register(DiscoveredJob(url=url, source="seed_urls"))
 
     @property
+    def discovered_count(self):
+        return getattr(self.browser, "discovered_count", 0)
+
+    @discovered_count.setter
+    def discovered_count(self, value):
+        self.browser.discovered_count = value
+
+    @property
+    def selected_count(self):
+        return getattr(self.browser, "selected_count", len([
+            url for url, rows in self._by_url.items()
+            if any(c.query_context.get("type") != "search_page" for c in rows)]))
+
+    @property
     def candidate_summaries(self):
-        return {url: {"title": rows[0].title, "company": rows[0].company,
+        return {**getattr(self.browser, "candidate_summaries", {}), **{url: {"title": rows[0].title,
+                      "company": rows[0].company,
                       "location": rows[0].location_hint, "source_spec": rows[0].source_spec}
                 for url, all_rows in self._by_url.items()
-                if (rows := [c for c in all_rows if c.query_context.get("type") != "search_page"])}
+                if (rows := [c for c in all_rows if c.query_context.get("type") != "search_page"])}}
 
     @property
     def source_diagnostics(self):
@@ -71,6 +86,8 @@ class SourceCaptureBrowser:
 
     @property
     def resolution_log(self):
+        if hasattr(self.browser, "resolution_log"):
+            return self.browser.resolution_log
         loader = getattr(self.browser, "_page_loader", None)
         return getattr(loader, "resolution_log", [])
 
@@ -99,7 +116,18 @@ class SourceCaptureBrowser:
         async with self._capture_lock:
             started_at, started = datetime.now(UTC), perf_counter()
             operation = self._operation_id("search")
-            pages = await self.browser.search(query, target_count=target_count)
+            try:
+                pages = await self.browser.search(query, target_count=target_count)
+            except Exception as exc:
+                discovery = self._register(DiscoveredJob(
+                    url=getattr(self.browser, "search_endpoint", "https://www.google.com/search"),
+                    source="browser-search-page", query_context={"type": "search_page", "query": query}))
+                self.archive.append_attempt({
+                    "candidate_id": discovery.candidate_id, "strategy": "search", "started_at": started_at,
+                    "elapsed_ms": (perf_counter() - started) * 1000, "status": "error",
+                    "error_category": classify_page_exception(exc).category,
+                    "operation_id": operation, "operation_kind": "search"})
+                raise
             for page in pages:
                 discovery = self._register(DiscoveredJob(
                     url=page.url, title=page.title, source="browser-search-page",
@@ -120,7 +148,8 @@ class SourceCaptureBrowser:
                     if not any(c.query_context.get("type") != "search_page" for c in self._by_url.get(url, [])):
                         self._register(DiscoveredJob(url=url, source="browser-search", discovery_url=page.url,
                             query_context={"type": "discovered_url", "source": snapshot},
-                            title=page.title if url == page.url else ""))
+                            title=page.title if url == page.url else
+                            getattr(self.browser, "candidate_summaries", {}).get(url, {}).get("title", "")))
             return pages
 
     async def open_url(self, url: str) -> BrowserPage:

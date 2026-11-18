@@ -474,7 +474,7 @@ class BrowserUseClient:
                 "const enabled = !el.disabled && el.getAttribute('aria-disabled') !== 'true';"
                 "const text = (el.innerText || el.value || el.getAttribute('aria-label') || el.title || '') "
                 ".trim().replace(/\\s+/g, ' ');"
-                "if (!visible || !enabled || !text || !/(apply|投递|申请|应聘)/i.test(text)) return [];"
+                "if (!visible || !enabled || !text || !/(apply|投\\s*递|申\\s*请|应\\s*聘)/i.test(text)) return [];"
                 "return [{tag: el.tagName.toLowerCase(), text, visible: true, enabled: true, "
                 "href: el.href || '', context: (el.closest('main,article,section,form')?.innerText || '') "
                 ".trim().slice(0, 240)}];"

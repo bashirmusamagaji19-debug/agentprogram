@@ -98,6 +98,18 @@ async def _build_browser_components(request, *, repository, page_loader=None,
         loader = adapters["loader"](jobs, official_api=official_api,
                                     http_loader=http_loader, repository=repository)
         browser = adapters["browser"](page_loader=loader, discovery_only=True)
+    elif request.data_mode == "web_search":
+        from web_task_agent.web_search import WebSearchBrowser, build_search_client
+
+        official_api = adapters["official_api"]()
+        if isinstance(official_api, OfficialApiContentFetcher):
+            official_api.deadline = request_deadline
+        browser = WebSearchBrowser(
+            build_search_client(), official_api=official_api, http_loader=http_loader,
+            repository=repository, deadline=request_deadline,
+            candidate_limit=candidate_limit if candidate_limit is not None else 10,
+            min_batch_size=min(10, max(3, request.target_count * 3)))
+        seeds = []
     else:
         source = (adapters["official"](specs=request.official_specs or None,
                                       keyword=request.keyword, location=request.location)
@@ -110,8 +122,14 @@ async def _build_browser_components(request, *, repository, page_loader=None,
             source.deadline = request_deadline
         # Existing list adapters contain synchronous HTTP transports. Keep them
         # off the UI event loop so the entrance deadline remains effective.
-        jobs = await asyncio.to_thread(
-            lambda: asyncio.run(source.discover(limit=min(100, max(20, request.target_count * 3)))))
+        discovery_limit = min(100, max(20, request.target_count * 3))
+        if isinstance(source, OfficialListSource) and len(source.specs) > 1:
+            remaining = (max(0.1, request_deadline - monotonic()) if request_deadline is not None
+                         else request.deadline_seconds)
+            jobs = await source.discover_concurrently(
+                discovery_limit, deadline=monotonic() + min(60, remaining * 0.35))
+        else:
+            jobs = await asyncio.to_thread(lambda: asyncio.run(source.discover(limit=discovery_limit)))
         discovered_count = len(jobs)
         if candidate_limit is not None:
             jobs = jobs[:candidate_limit]
@@ -138,7 +156,8 @@ async def _build_browser_components(request, *, repository, page_loader=None,
             keyword=request.keyword, location=request.location,
             target_count=request.target_count, jobs=jobs,
             seed_urls=seeds, mode=request.data_mode)
-    browser.discovered_count = discovered_count
+    if request.data_mode != "web_search":
+        browser.discovered_count = discovered_count
     browser.require_verified_links = request.data_mode != "demo"
     return browser, seeds
 

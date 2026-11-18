@@ -40,7 +40,7 @@ def _diagnostic_summary(
     error_count = 0
     for item in diagnostics:
         status = str(item.get("status", "")).casefold()
-        count = item.get("count")
+        count = item.get("candidate_count", item.get("count"))
         count_value = int(count) if isinstance(count, int) and not isinstance(count, bool) else 0
         if status in {"failed", "error", "unavailable"}:
             error_count += 1

@@ -48,6 +48,7 @@ _FEISHU_DETAIL_PORTALS = {
     "agirobot.jobs.feishu.cn": _FeishuDetailPortal("智元机器人", "internrecruitment"),
     "vrfi1sk8a0.jobs.feishu.cn": _FeishuDetailPortal("MiniMax", "index"),
     "shengshu.jobs.feishu.cn": _FeishuDetailPortal("生数科技", "index"),
+    "nio.jobs.feishu.cn": _FeishuDetailPortal("蔚来", "index"),
 }
 
 _FEISHU_CHANNEL_DETAIL_PATH = re.compile(

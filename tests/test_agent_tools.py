@@ -41,6 +41,19 @@ class SuccessfulTool:
         )
 
 
+def test_identity_keeps_spa_job_routes_but_ignores_document_anchors():
+    from web_task_agent.agent_tools import _job_identity_keys
+    job = SimpleNamespace(url="https://jobs.mihoyo.com/#/campus/position/1001",
+                          company="米哈游", title="AI 实习", location="上海", source="mihoyo")
+    first = _job_identity_keys(job, {})
+    job.url = "https://jobs.mihoyo.com/#/campus/position/1002"
+    assert not first.intersection(_job_identity_keys(job, {}))
+    job.url = "https://example.com/job/1#requirements"
+    anchor = _job_identity_keys(job, {})
+    job.url = "https://example.com/job/1#apply"
+    assert anchor.intersection(_job_identity_keys(job, {}))
+
+
 class BrokenBrowser:
     async def open_url(self, url: str):
         raise TimeoutError("navigation timed out")

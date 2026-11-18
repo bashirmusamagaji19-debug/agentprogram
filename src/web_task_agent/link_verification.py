@@ -70,7 +70,7 @@ _LOGIN_OR_CHALLENGE_PATTERNS = (
     re.compile(r"\bplease\s+(?:sign\s+in|log\s+in)\b", re.I),
     re.compile(r"\bverify\s+you\s+are\s+human\b", re.I),
     re.compile(r"\b(?:captcha|security\s+check|access\s+denied)\b", re.I),
-    re.compile(r"请(?:先)?登录|登录后(?:查看|继续|申请)|登录\s*/\s*注册", re.I),
+    re.compile(r"请(?:先)?登录|登录后(?:查看|继续|申请)", re.I),
     re.compile(r"人机验证|安全验证|访问受限", re.I),
 )
 
@@ -87,7 +87,7 @@ _LIST_PAGE_PATTERNS = (
 
 _APPLY_TEXT_PATTERN = re.compile(
     r"(?:apply(?:\s+now|\s+for\s+(?:this\s+)?(?:job|position|role))?"
-    r"|submit\s+(?:an\s+)?application|投递(?:简历)?|立即申请|申请(?:职位|岗位)?|应聘)",
+    r"|submit\s+(?:an\s+)?application|投\s*递(?:简历)?|立即申请|申\s*请(?:职位|岗位)?|应\s*聘)",
     re.I,
 )
 

@@ -1,5 +1,7 @@
 # Web 自动任务 Agent
 
+2026-11-18 更新：Streamlit 增加「网页搜索」，通过 DeepSeek Search 发现公开岗位，实际执行 SearchJobsTool，再独立检查详情、正文和申请入口。模型与搜索共用每会话 **30 次**运行额度。官方来源保留小米、小红书、美团、网易、米哈游、理想、小鹏和蔚来 8 家；本次抽查共交付 15 条通过浏览器核验的岗位，蔚来为 1/2 部分成功。每家抽查关键词不同，不能据此保证任意条件都有结果，其他大厂的接口限制在侧栏明确展示。见[本轮核验与修复日志](docs/work-log/2026-11-18-web-search-sources.md)。
+
 当前主目录使用 `master`，完整源码和测试均保留。2026-10-26全量回归为 **1145通过、1跳过，覆盖率88.03%**；真实来源最近一次审计为9个来源交付20条浏览器核验岗位。工作树已收尾，详见[复盘与恢复索引](docs/work-log/2026-10-26-worktree-cleanup.md)和[来源验收报告](docs/results/source-validation-20261026/ACCEPTANCE.md)。
 
 历史模型验收（2026-10-25）：完整 release-check 六项通过，全量 pytest/coverage 阶段通过，覆盖率 **87.99%**。Windows 日志编码的小修复另经 17 项定向测试验证。已完成14条人工复核及 v4 的720个正式配对单元，维持 rules 默认；真实来源10条任务均无交付。报告见 [正式对照结果](docs/results/formal-model-value-v4-20261025/DECISION.md)。后续说明见 [人工任务说明](docs/HUMAN_REVIEW.md)。

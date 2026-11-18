@@ -285,7 +285,7 @@ async def test_meituan_lister_uses_configured_keywords():
 
     assert len(jobs) == 1
     assert jobs[0].company == "美团"
-    assert jobs[0].url == "https://zhaopin.meituan.com/jobdetail?jobUnionId=4241222974"
+    assert jobs[0].url == "https://zhaopin.meituan.com/web/position/detail?jobUnionId=4241222974"
     # 美团列表自带 jobDuty/jobRequirement → jd_text 兜底可直接用
     assert jobs[0].jd_text
 
@@ -483,15 +483,32 @@ def test_moka_envelope_decrypt_roundtrip():
     assert decrypted["data"]["jobs"][0]["id"] == "j-1"
 
 
-def test_streamlit_multiselect_offers_new_sources():
-    """Streamlit 发现源多选必须覆盖全部注册的 spec(用户可选)。"""
-    import inspect
+def test_streamlit_catalog_uses_registered_verified_adapters():
+    from web_task_agent.source_catalog import VERIFIED_SOURCES
 
-    from web_task_agent import streamlit_app
+    assert set(VERIFIED_SOURCES) <= set(_SPECS)
+    assert len(VERIFIED_SOURCES) >= 7
 
-    src = inspect.getsource(streamlit_app)
-    for spec in _SPECS:
-        assert f'"{spec}"' in src, f"发现源 {spec} 未出现在 Streamlit UI"
+
+@pytest.mark.asyncio
+async def test_parallel_discovery_keeps_completed_source_when_another_times_out(monkeypatch):
+    import asyncio
+    from time import monotonic
+
+    async def fast(transport, limit):
+        return [DiscoveredJob(url="https://example.com/1", title="AI 实习生", source="xiaomi")]
+
+    async def slow(transport, limit):
+        await asyncio.sleep(1)
+        return []
+
+    monkeypatch.setitem(_SPECS, "xiaomi", fast)
+    monkeypatch.setitem(_SPECS, "netease", slow)
+    source = OfficialListSource(specs=["xiaomi", "netease"], transport=FakeTransport({}))
+    jobs = await source.discover_concurrently(limit=2, deadline=monotonic() + 0.3)
+    assert [job.url for job in jobs] == ["https://example.com/1"]
+    assert source.diagnostics[0]["status"] == "healthy"
+    assert source.diagnostics[1]["error_category"] == "timeout"
 
 
 # ── 京东(第二批 agent 产出,实测冒烟通过)──
@@ -940,7 +957,7 @@ async def test_nio_lister_maps_fields_and_filters_non_domain():
     assert job.title == "大模型-VLM/VLA 多模态算法工程师"
     assert job.company == "蔚来"
     assert job.source == "nio"
-    assert job.url == "https://nio.jobs.feishu.cn/index/position/detail/1001"
+    assert job.url == "https://nio.jobs.feishu.cn/index/position/1001/detail"
     assert job.location == "北京、上海"
     assert "岗位职责：" in job.jd_text and _NIO_LONG_DUTY in job.jd_text
     assert "任职要求：" in job.jd_text and _NIO_LONG_REQ in job.jd_text

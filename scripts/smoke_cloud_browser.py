@@ -19,7 +19,9 @@ async def main() -> None:
     # Exercise a cold SPA as well: its body appears after the old 5/8-second limits.
     html = (
         f"<html><head><title>{title}</title></head><body><script>"
-        f"setTimeout(() => requestAnimationFrame(() => {{document.body.innerText = {json.dumps(content)};}}), 10000);"
+        f"setTimeout(() => requestAnimationFrame(() => {{document.body.innerText = {json.dumps(content)};"
+        "const button = document.createElement('button');button.innerText = '申 请';document.body.append(button);"
+        "}), 10000);"
         "</script></body></html>"
     )
     page = await BrowserUseClient(
@@ -31,6 +33,8 @@ async def main() -> None:
     )
     assert page.title == title, f"Unexpected browser title: {page.title!r}"
     assert content.strip() in page.content, "Browser did not read the rendered body"
+    assert any(control["text"] == "申 请" for control in page.metadata["apply_controls"]), (
+        "Browser did not observe the visible enabled spaced Chinese apply button")
     print("Cloud browser smoke passed: BrowserSession read a delayed SPA title/body.")
 
 

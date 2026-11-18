@@ -72,6 +72,18 @@ def company_line() -> str:
     return "Example Labs - Shanghai"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("apply_text", ["申请", "申 请", "投 递", "应 聘"])
+async def test_header_login_navigation_does_not_hide_a_verified_job_detail(apply_text):
+    async def load(url):
+        return make_page(url=url, content=f"登录/注册\n{JOB_TITLE}\n{company_line()}\n{JOB_JD}",
+                         apply_text=apply_text)
+
+    receipt = await JobLinkVerifier(http_loader=load, browser_loader=load).verify(make_job(), run_id="run-nav")
+    assert receipt["status"] == "verified"
+    assert receipt["active"]
+
+
 def assert_receipt_shape(receipt: dict[str, object]) -> None:
     assert set(receipt) == {
         "status",

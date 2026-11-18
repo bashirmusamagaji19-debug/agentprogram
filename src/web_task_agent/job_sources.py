@@ -234,6 +234,16 @@ class AggregatorPageLoader:
                 return cached  # origin 已在缓存 metadata 中(storage 列透传)
             self._record(url, "cache:miss")
 
+        # 美团发现接口已返回该岗位的完整职责与要求。再次扫描未过滤列表
+        # 会遗漏关键词搜索找到的岗位，并消耗详情核验时间。
+        if job.source == "meituan" and len(job.jd_text.strip()) >= MIN_USEFUL_CONTENT_CHARS:
+            page = build_discovered_page(job)
+            self._check_failure(url, "official-list-api", classify_page_content(page))
+            page.metadata["content_origin"] = "official-api"
+            self._cache(url, page)
+            self._record(url, "official-list-api")
+            return page
+
         # 2. 官方 API（支持域名的 SPA 页优先走结构化接口）
         if self._official_api is not None:
             try:

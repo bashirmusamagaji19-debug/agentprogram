@@ -19,6 +19,12 @@ from web_task_agent.artifact_store import (
 from web_task_agent.models import RunMetrics
 from web_task_agent.provider_health import check_deepseek_capabilities
 from web_task_agent.run_store import FileRunStore, PostgresRunStore, RunRecord, RunStore
+from web_task_agent.source_catalog import (
+    SOURCE_LIMITATIONS,
+    VERIFIED_SOURCE_DATE,
+    VERIFIED_SOURCE_SCOPE,
+    VERIFIED_SOURCES,
+)
 from web_task_agent.streamlit_runner import (
     DEFAULT_AGGREGATOR_URL,
     PROVIDER_API_KEY_ENV,
@@ -35,6 +41,7 @@ from web_task_agent.streamlit_runner import (
     resume_ui_request,
     run_ui_request,
     sync_provider_secrets,
+    validate_ui_request,
 )
 
 PRIORITY_LABELS = {"high": "高", "medium": "中", "low": "低"}
@@ -51,6 +58,12 @@ MODE_HINTS = {
     "official": "实时连接官方招聘 API：默认使用小米实习来源，逐项独立核验交付链接。",
     "aggregator": "聚合岗位：从上传文件或 jobs.json 读取岗位，再执行统一验证和匹配。",
     "seed_urls": "指定岗位 URL：适合验证单个或一组真实岗位页面。",
+    "web_search": "DeepSeek Search 联网发现岗位：搜索摘要仅作线索，详情与申请入口通过核验后才交付。",
+}
+
+MODE_LABELS = {
+    "实时岗位（官方 API）": "official", "网页搜索": "web_search", "指定岗位 URL": "seed_urls",
+    "聚合岗位（上传/URL）": "aggregator", "内置 Demo": "demo",
 }
 
 ARTIFACT_DESCRIPTIONS = {
@@ -848,11 +861,12 @@ def diagnostic_rows(result: UiRunResult) -> list[dict[str, str]]:
 
 
 def source_status_rows(result: UiRunResult) -> list[dict[str, Any]]:
-    labels = {"healthy": "正常", "empty": "无结果", "failed": "失败"}
+    labels = {"healthy": "请求成功", "empty": "无结果", "failed": "请求失败"}
     return [
         {
             "来源": str(item.get("source", "")),
-            "状态": labels.get(str(item.get("status", "")), str(item.get("status", ""))),
+            "状态": ("无匹配候选" if item.get("status") == "healthy" and item.get("candidate_count") == 0
+                   else labels.get(str(item.get("status", "")), str(item.get("status", "")))),
             "发现": _as_int(item.get("count")),
             "筛选后": _as_int(item.get("candidate_count"), _as_int(item.get("count"))),
             "尝试": _as_int(item.get("attempts")),
@@ -879,8 +893,8 @@ def artifact_download_spec(
     return label, file_name, mime, content
 
 
-# 公开演示成本保护:每会话 LLM 运行次数上限(qwen 额度是真实成本)
-LLM_SESSION_LIMIT = 3
+# Model and Search API enabled runs share one allowance per session.
+LLM_SESSION_LIMIT = 30
 
 
 def llm_budget_remaining(budget: dict) -> int:
@@ -891,14 +905,14 @@ def should_consume_llm_budget(request: UiRunRequest) -> bool:
     """真实 provider 的请求预算与岗位数据来源无关。"""
     uses_llm = bool(request.llm_match_provider or request.llm_extractor_provider
                     or (request.planner_provider and request.planner_strategy != "policy"))
-    return uses_llm
+    return uses_llm or request.data_mode == "web_search"
 
 
 def consume_llm_budget(budget: dict) -> None:
     if llm_budget_remaining(budget) <= 0:
         raise UiRequestError(
             f"本会话 LLM 运行次数已达上限({LLM_SESSION_LIMIT} 次)——"
-            "演示额度有限,可关闭模型选项继续体验,或稍后重试。"
+            "可切换官方来源并关闭模型选项继续体验。"
         )
     budget["llm_runs"] = int(budget.get("llm_runs", 0)) + 1
 
@@ -1031,78 +1045,43 @@ def main() -> None:
         st.markdown('<div class="ui-sidebar-label">数据来源</div>', unsafe_allow_html=True)
         mode_label = st.segmented_control(
             "数据模式",
-            ["实时岗位（官方 API）", "指定岗位 URL", "聚合岗位（上传/URL）", "内置 Demo"],
+            list(MODE_LABELS),
             default="实时岗位（官方 API）",
         )
-        mode_key = {
-            "内置 Demo": "demo",
-            "实时岗位（官方 API）": "official",
-            "聚合岗位（上传/URL）": "aggregator",
-            "指定岗位 URL": "seed_urls",
-        }[mode_label or "实时岗位（官方 API）"]
+        mode_key = MODE_LABELS[mode_label or "实时岗位（官方 API）"]
         st.markdown(
             f'<div class="ui-mode-hint">{mode_hint(mode_key)}</div>', unsafe_allow_html=True
         )
+        remaining = llm_budget_remaining(st.session_state.setdefault(f"llm_budget-{owner_id}", {}))
+        st.caption(f"本会话模型／搜索额度：剩余 {remaining} / {LLM_SESSION_LIMIT} 次")
         if mode_key == "demo":
             st.caption("内置 Demo 是次要入口：链接指向 example.com，仅用于演示链路。")
         official_specs = None
         if mode_key == "official":
-            st.caption("默认来源：小米官方招聘 API（2026-10-25 已核验）。")
+            st.caption(f"保留 {len(VERIFIED_SOURCES)} 个实测来源 · {VERIFIED_SOURCE_DATE} 核验，默认小米。")
             official_specs = st.multiselect(
                 "官方发现源",
-                [
-                    "tencent-campus",
-                    "meituan",
-                    "unitree",
-                    "xiaomi",
-                    "netease",
-                    "xiaohongshu",
-                    "mihoyo",
-                    "xpeng",
-                    "agibot",
-                    "galaxea",
-                    "robotera",
-                    "fourier",
-                    "ubtech",
-                    "jd",
-                    "pinduoduo",
-                    "ctrip",
-                    "huawei",
-                    "nio",
-                    "liauto",
-                    "byd",
-                    "geely",
-                    "baidu",
-                    "bing-serp",
-                    "zhongqi",
-                    "xinghai",
-                    "tarsrobot",
-                    "x2robot",
-                    "limx",
-                    "ai2robotics",
-                    "astribot",
-                    "dexmal",
-                    "booster",
-                    "deeprobotics",
-                    "moonshot",
-                    "zhipu",
-                    "minimax",
-                    "stepfun",
-                    "deepseek",
-                    "baichuan",
-                    "modelbest",
-                    "shengshu",
-                    "enflame",
-                ],
+                list(VERIFIED_SOURCES),
                 default=list(DEFAULT_OFFICIAL_SPECS),
+                format_func=lambda source: VERIFIED_SOURCES[source]["name"],
             )
+            with st.expander("来源核验范围"):
+                st.caption(VERIFIED_SOURCE_SCOPE)
+                for source in VERIFIED_SOURCES.values():
+                    st.markdown(f"[{source['name']}官方入口]({source['official_url']})")
+                    st.caption(f"抽查关键词：{source.get('validation_keyword', 'AI Agent 实习')}。"
+                               f"{source.get('note', '')}")
+            with st.expander("其他大厂来源的限制"):
+                for name, reason in SOURCE_LIMITATIONS.items():
+                    st.caption(f"{name}：{reason}")
+                st.caption("这些公司仍可通过网页搜索或指定岗位 URL 寻找，结果仍需独立核验。")
         st.markdown('<div class="ui-sidebar-label">模型与执行</div>', unsafe_allow_html=True)
         with st.expander("高级设置（模型与执行）", expanded=False):
             model_providers = [provider for provider in UI_LLM_PROVIDERS
                                if str(os.environ.get(PROVIDER_API_KEY_ENV[provider], "")).strip()]
             if not model_providers:
                 st.caption("未配置模型服务，当前可使用规则抽取与匹配。")
-            use_llm_extractor = bool(st.toggle("启用 LLM 抽取", value=False,
+            use_llm_extractor = bool(st.toggle("启用 LLM 抽取", value=mode_key == "web_search",
                                               disabled=not model_providers) and model_providers)
             extractor_provider = (
                 st.selectbox("抽取模型", model_providers)
@@ -1225,6 +1204,8 @@ def main() -> None:
     if submitted and not resume_blocker:
         temporary_path: Path | None = None
         try:
+            if mode_key == "official" and not official_specs:
+                raise UiRequestError("请至少选择一个已核验的官方发现源。")
             combined_resume = str(
                 st.session_state.get(RESUME_PREVIEW_TEXT_KEY, "") or ""
             ).strip()
@@ -1254,6 +1235,7 @@ def main() -> None:
                 planner_provider=planner_provider if engine == "hybrid" else None,
                 deadline_seconds=float(deadline_seconds),
             )
+            validate_ui_request(request, environ=os.environ)
             if should_consume_llm_budget(request):
                 consume_llm_budget(
                     st.session_state.setdefault(f"llm_budget-{owner_id}", {})

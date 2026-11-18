@@ -453,7 +453,7 @@ async def _meituan_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa
                 )
                 jobs.append(
                     DiscoveredJob(
-                        url=f"https://zhaopin.meituan.com/jobdetail?jobUnionId={union_id}",
+                        url=f"https://zhaopin.meituan.com/web/position/detail?jobUnionId={union_id}",
                         title=name,
                         company="美团",
                         location=cities,
@@ -1335,7 +1335,7 @@ async def _nio_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: AN
 
     规格快照(nio.cn/careers/jobs HTML 内嵌 __NEXT_DATA__,列表不带 JD)实测过期:
     nio.jobs.feishu.cn 走标准飞书招聘搜索接口,job_post_list 自带 JD 全文,故按
-    关键词检索直取;详情 URL 用实测可打开的 /index/position/detail/{id}。
+    关键词检索直取；详情 URL 使用飞书招聘的 /index/position/{id}/detail 路由。
     社招/实习均收(不做招聘类型过滤),岗位域只按标题判定。
     """
     from web_task_agent.official_list_families import _strip_html  # 复用 HTML 剥离
@@ -1362,7 +1362,7 @@ async def _nio_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: AN
                 job_id = str(item.get("id") or "").strip()
                 if not title or not job_id:
                     continue
-                url = f"https://nio.jobs.feishu.cn/index/position/detail/{job_id}"
+                url = f"https://nio.jobs.feishu.cn/index/position/{job_id}/detail"
                 if url in seen:  # 同一岗位会命中多个关键词,按 URL 去重
                     continue
                 if not _title_in_domain(title):
@@ -1858,6 +1858,47 @@ class OfficialListSource:
         self.diagnostics: list[dict[str, object]] = []
         self.keyword = keyword
         self.location = location
+
+    async def discover_concurrently(self, limit: int, *, deadline: float) -> list[DiscoveredJob]:
+        """Isolate source deadlines and preserve completed, fairly interleaved batches."""
+        import asyncio
+        import copy
+        from time import monotonic
+
+        if limit <= 0:
+            self.diagnostics = []
+            return []
+        semaphore = asyncio.Semaphore(4)
+        budget = max(5, -(-limit // len(self.specs)))
+
+        async def collect(spec):
+            child = OfficialListSource(specs=[spec], transport=copy.copy(self.transport),
+                                       keyword=self.keyword, location=self.location)
+            child.transport.deadline = deadline
+            try:
+                async with semaphore:
+                    remaining = deadline - monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError
+                    batch = await asyncio.wait_for(asyncio.to_thread(
+                        lambda: asyncio.run(child.discover(budget))), timeout=remaining)
+                return batch, child.diagnostics
+            except TimeoutError:
+                return [], [{"source": spec, "status": "failed", "count": 0,
+                             "candidate_count": 0, "error_category": "timeout",
+                             "error_detail": "source discovery budget exceeded"}]
+
+        results = await asyncio.gather(*(collect(spec) for spec in self.specs))
+        self.diagnostics = [row for _, rows in results for row in rows]
+        jobs, seen = [], set()
+        for index in range(max((len(batch) for batch, _ in results), default=0)):
+            for batch, _ in results:
+                if index < len(batch) and batch[index].url not in seen:
+                    jobs.append(batch[index])
+                    seen.add(batch[index].url)
+                    if len(jobs) >= limit:
+                        return jobs
+        return jobs
 
     async def discover(self, limit: int) -> list[DiscoveredJob]:
         """公平采样发现:每源预算 = ceil(limit/源数),跨源交错合并。

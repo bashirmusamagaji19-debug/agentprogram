@@ -1,0 +1,476 @@
+{
+  "run_id": "run-e2690a3c",
+  "data_mode": "web_search",
+  "run_status": "succeeded",
+  "terminal_reason": "target_reached",
+  "search_conditions": {
+    "keyword": "AI Agent 实习",
+    "keywords": [
+      "ai",
+      "agent",
+      "实习"
+    ],
+    "location": "全国",
+    "keyword_logic": "all",
+    "location_logic": "any",
+    "candidate_budget": 10
+  },
+  "progress": {
+    "discovered": 10,
+    "selected": 3,
+    "limit": 10,
+    "checked": 2,
+    "verified": 1,
+    "delivered": 1,
+    "pending": 0,
+    "unexamined": 8
+  },
+  "agent_trace": [
+    {
+      "action": "search_jobs",
+      "source": "policy",
+      "target": null,
+      "reason": "No candidate URLs are available, so job search must run first.",
+      "observation": {
+        "tool_name": "search_jobs",
+        "success": true,
+        "summary": "Discovered 3 candidate URLs.",
+        "payload": {
+          "candidate_urls": [
+            "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+            "https://smart.org.cn/career/administrative/1422.html",
+            "https://career.cic.tsinghua.edu.cn/xsglxt/f/jyxt/anony/showZwxx?zpxxid=569182954&type=SXXX#1"
+          ],
+          "query": "AI Agent 实习 全国",
+          "search_diagnostics": {
+            "query": "AI Agent 实习 全国",
+            "queries": [
+              "AI Agent 实习 招聘"
+            ],
+            "provider": "deepseek-search",
+            "search_calls": 1,
+            "candidate_count": 3,
+            "discovered_count": 10,
+            "selected_count": 3,
+            "has_more": true,
+            "stop_reason": "target_reached"
+          },
+          "shortfall": 0
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 670.0573000125587,
+        "recoverable": false
+      },
+      "remaining_budget": 43,
+      "planner_usage": []
+    },
+    {
+      "action": "open_page",
+      "source": "policy",
+      "target": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+      "reason": "Open the next unvisited candidate job URL.",
+      "observation": {
+        "tool_name": "open_page",
+        "success": true,
+        "summary": "Opened https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e.",
+        "payload": {
+          "url": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+          "title": "武汉大学就业信息网"
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 4475.582199986093,
+        "recoverable": false
+      },
+      "remaining_budget": 42,
+      "planner_usage": []
+    },
+    {
+      "action": "extract_text",
+      "source": "policy",
+      "target": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+      "reason": "The current page has not been converted into a structured job.",
+      "observation": {
+        "tool_name": "extract_text",
+        "success": true,
+        "summary": "Extracted AI Engineer with confidence 1.00.",
+        "payload": {
+          "job": {
+            "title": "AI Engineer",
+            "company": "承玥信息科技（上海）有限公司（MemVerge）",
+            "location": "北京市海淀区,上海市杨浦区",
+            "source": "browser-use",
+            "url": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+            "requirements": "本科、硕士或博士学历；计算机软件与理论、计算机技术、计算机科学与技术、计算机系统结构等相关专业；充满好奇心、动手能力强、热衷于使用前沿AI技术进行开发。",
+            "responsibilities": "开发大语言模型（LLM）相关的Agent软件产品；通过检索增强生成（RAG）、AI智能体、记忆模块、搜索以及个性化相关能力，把技术实验成果转化为真正可用的产品功能；与资深工程师协同合作。",
+            "skills": [
+              "大语言模型",
+              "LLM",
+              "RAG",
+              "检索增强生成",
+              "AI Agent",
+              "AI智能体",
+              "记忆模块",
+              "搜索",
+              "个性化"
+            ],
+            "posted_at": "2026-09-21",
+            "confidence": 1.0,
+            "tier": "",
+            "category": "其他",
+            "url_verification": "unverified",
+            "link_verification": {},
+            "internship_evidence_source": "",
+            "internship_evidence_value": ""
+          },
+          "confidence": 1.0
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 6452.997699991101,
+        "recoverable": false
+      },
+      "remaining_budget": 41,
+      "planner_usage": []
+    },
+    {
+      "action": "verify_job",
+      "source": "policy",
+      "target": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+      "reason": "Extracted job candidates require quality verification.",
+      "observation": {
+        "tool_name": "verify_job",
+        "success": false,
+        "summary": "Verifier rejected AI Engineer.",
+        "payload": {
+          "reasons": [
+            "keyword mismatch: missing 实习",
+            "recruitment type unconfirmed: internship experience is not a job type"
+          ],
+          "job": {
+            "title": "AI Engineer",
+            "company": "承玥信息科技（上海）有限公司（MemVerge）",
+            "location": "北京市海淀区,上海市杨浦区",
+            "source": "browser-use",
+            "url": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+            "requirements": "本科、硕士或博士学历；计算机软件与理论、计算机技术、计算机科学与技术、计算机系统结构等相关专业；充满好奇心、动手能力强、热衷于使用前沿AI技术进行开发。",
+            "responsibilities": "开发大语言模型（LLM）相关的Agent软件产品；通过检索增强生成（RAG）、AI智能体、记忆模块、搜索以及个性化相关能力，把技术实验成果转化为真正可用的产品功能；与资深工程师协同合作。",
+            "skills": [
+              "大语言模型",
+              "LLM",
+              "RAG",
+              "检索增强生成",
+              "AI Agent",
+              "AI智能体",
+              "记忆模块",
+              "搜索",
+              "个性化"
+            ],
+            "posted_at": "2026-09-21",
+            "confidence": 1.0,
+            "tier": "",
+            "category": "其他",
+            "url_verification": "unverified",
+            "link_verification": {},
+            "internship_evidence_source": "",
+            "internship_evidence_value": ""
+          }
+        },
+        "error_category": "verification_filtered",
+        "error_message": "keyword mismatch: missing 实习; recruitment type unconfirmed: internship experience is not a job type",
+        "latency_ms": 0.970900000538677,
+        "recoverable": true
+      },
+      "remaining_budget": 40,
+      "planner_usage": []
+    },
+    {
+      "action": "open_page",
+      "source": "policy",
+      "target": "https://smart.org.cn/career/administrative/1422.html",
+      "reason": "Verifier rejection cannot recover on this page, so continue with the next candidate.",
+      "observation": {
+        "tool_name": "open_page",
+        "success": true,
+        "summary": "Opened https://smart.org.cn/career/administrative/1422.html.",
+        "payload": {
+          "url": "https://smart.org.cn/career/administrative/1422.html",
+          "title": "AI Agent工程师实习生（临床研究方向）-深圳医学科学院"
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 141.94460000726394,
+        "recoverable": false
+      },
+      "remaining_budget": 39,
+      "planner_usage": []
+    },
+    {
+      "action": "extract_text",
+      "source": "policy",
+      "target": "https://smart.org.cn/career/administrative/1422.html",
+      "reason": "The current page has not been converted into a structured job.",
+      "observation": {
+        "tool_name": "extract_text",
+        "success": true,
+        "summary": "Extracted AI Agent工程师实习生（临床研究方向） with confidence 1.00.",
+        "payload": {
+          "job": {
+            "title": "AI Agent工程师实习生（临床研究方向）",
+            "company": "深圳医学科学院",
+            "location": "深圳",
+            "source": "http",
+            "url": "https://smart.org.cn/career/administrative/1422.html",
+            "requirements": "1.研究生及以上在读，计算机、人工智能、软件工程、数据科学、生物医学工程或相关专业；硕士/博士优先。\n2.Python 为必备语言，有扎实的工程实践能力；熟悉 PyTorch/HuggingFace 生态者优先。\n3.对LLM与Agent技术栈有实际动手经验：理解Prompt Engineering、RAG、Tool Use、Memory等核心机制。有可演示的Agent/RAG项目（课程项目、开源贡献、比赛或实习产出）是核心筛选依据。\n4.具备数据处理与Pipeline搭建能力：能处理大规模文本/临床数据的清洗、转换与结构化，熟悉SQL和向量数据库者优先。\n5.对医疗场景的特殊性有基本认知或强烈学习意愿：理解临床数据对准确性、可溯源性、隐私合规的高要求，愿意在“技术可行”与“医学可靠”之间做工程取舍。\n6.自驱力强，能在跨职能团队（算法、产品、医学）中独立推进问题定义—方案设计—实现—调试的完整闭环。\n优先条件（有其一即可）：\n1.有医疗NLP任务经验（电子病历NER、医学问答、临床决策支持、医学文献信息抽取）；\n2.有RAG系统在垂直领域（医疗、法律、金融等高准确性要求场景）的落地或调优经验；\n有Docker或全栈原型开发经验。",
+            "responsibilities": "1.参与临床研究场景下医疗AI Agent的架构设计与工程实现，覆盖任务规划（Planning）、工具调用（Tool Use）、记忆机制（Memory）、RAG Pipeline与多轮工作流编排。\n2.围绕临床试验/临床数据场景，建设和优化医疗知识库与检索系统：包括医学文献、试验方案、指南的结构化处理，向量检索与重排（Reranking），以及来源追踪与证据可溯源性保障。\n3.将Agent能力嵌入真实的临床工作流（如临床数据核查辅助、医学编码辅助、试验文档信息抽取、文献筛选与情报提炼），对任务的准确率、稳定性和低幻觉率负责，参与Badcase归因与迭代。\n4.参与Agent评测体系的搭建：设计离线评测集与在线反馈指标，通过实验对比不同Prompt策略、RAG配置或工具编排方案的效果。\n5.与产品、医学团队协作，将临床业务需求拆解为可执行的技术模块，撰写技术文档并推动从原型到可运行系统的落地。",
+            "skills": [
+              "Python",
+              "PyTorch",
+              "HuggingFace",
+              "LLM",
+              "Agent",
+              "Prompt Engineering",
+              "RAG",
+              "Tool Use",
+              "Memory",
+              "SQL",
+              "向量数据库",
+              "数据处理",
+              "Pipeline",
+              "医疗NLP",
+              "电子病历NER",
+              "医学问答",
+              "临床决策支持",
+              "医学文献信息抽取",
+              "Docker",
+              "全栈原型开发",
+              "Planning",
+              "Reranking",
+              "多轮工作流编排",
+              "Agent评测"
+            ],
+            "posted_at": "2026-11-16",
+            "confidence": 1.0,
+            "tier": "",
+            "category": "算法",
+            "url_verification": "http-fetched",
+            "link_verification": {},
+            "internship_evidence_source": "",
+            "internship_evidence_value": ""
+          },
+          "confidence": 1.0
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 8185.34009999712,
+        "recoverable": false
+      },
+      "remaining_budget": 38,
+      "planner_usage": []
+    },
+    {
+      "action": "verify_job",
+      "source": "policy",
+      "target": "https://smart.org.cn/career/administrative/1422.html",
+      "reason": "Extracted job candidates require quality verification.",
+      "observation": {
+        "tool_name": "verify_job",
+        "success": true,
+        "summary": "Verifier accepted AI Agent工程师实习生（临床研究方向）.",
+        "payload": {
+          "job": {
+            "title": "AI Agent工程师实习生（临床研究方向）",
+            "company": "深圳医学科学院",
+            "location": "深圳",
+            "source": "http",
+            "url": "https://smart.org.cn/career/administrative/1422.html",
+            "requirements": "1.研究生及以上在读，计算机、人工智能、软件工程、数据科学、生物医学工程或相关专业；硕士/博士优先。\n2.Python 为必备语言，有扎实的工程实践能力；熟悉 PyTorch/HuggingFace 生态者优先。\n3.对LLM与Agent技术栈有实际动手经验：理解Prompt Engineering、RAG、Tool Use、Memory等核心机制。有可演示的Agent/RAG项目（课程项目、开源贡献、比赛或实习产出）是核心筛选依据。\n4.具备数据处理与Pipeline搭建能力：能处理大规模文本/临床数据的清洗、转换与结构化，熟悉SQL和向量数据库者优先。\n5.对医疗场景的特殊性有基本认知或强烈学习意愿：理解临床数据对准确性、可溯源性、隐私合规的高要求，愿意在“技术可行”与“医学可靠”之间做工程取舍。\n6.自驱力强，能在跨职能团队（算法、产品、医学）中独立推进问题定义—方案设计—实现—调试的完整闭环。\n优先条件（有其一即可）：\n1.有医疗NLP任务经验（电子病历NER、医学问答、临床决策支持、医学文献信息抽取）；\n2.有RAG系统在垂直领域（医疗、法律、金融等高准确性要求场景）的落地或调优经验；\n有Docker或全栈原型开发经验。",
+            "responsibilities": "1.参与临床研究场景下医疗AI Agent的架构设计与工程实现，覆盖任务规划（Planning）、工具调用（Tool Use）、记忆机制（Memory）、RAG Pipeline与多轮工作流编排。\n2.围绕临床试验/临床数据场景，建设和优化医疗知识库与检索系统：包括医学文献、试验方案、指南的结构化处理，向量检索与重排（Reranking），以及来源追踪与证据可溯源性保障。\n3.将Agent能力嵌入真实的临床工作流（如临床数据核查辅助、医学编码辅助、试验文档信息抽取、文献筛选与情报提炼），对任务的准确率、稳定性和低幻觉率负责，参与Badcase归因与迭代。\n4.参与Agent评测体系的搭建：设计离线评测集与在线反馈指标，通过实验对比不同Prompt策略、RAG配置或工具编排方案的效果。\n5.与产品、医学团队协作，将临床业务需求拆解为可执行的技术模块，撰写技术文档并推动从原型到可运行系统的落地。",
+            "skills": [
+              "Python",
+              "PyTorch",
+              "HuggingFace",
+              "LLM",
+              "Agent",
+              "Prompt Engineering",
+              "RAG",
+              "Tool Use",
+              "Memory",
+              "SQL",
+              "向量数据库",
+              "数据处理",
+              "Pipeline",
+              "医疗NLP",
+              "电子病历NER",
+              "医学问答",
+              "临床决策支持",
+              "医学文献信息抽取",
+              "Docker",
+              "全栈原型开发",
+              "Planning",
+              "Reranking",
+              "多轮工作流编排",
+              "Agent评测"
+            ],
+            "posted_at": "2026-11-16",
+            "confidence": 1.0,
+            "tier": "",
+            "category": "算法",
+            "url_verification": "http-fetched",
+            "link_verification": {
+              "status": "verified",
+              "checked_at": "2026-11-18T01:30:01.801156+00:00",
+              "run_id": "run-e2690a3c",
+              "requested_url": "https://smart.org.cn/career/administrative/1422.html",
+              "final_url": "https://smart.org.cn/career/administrative/1422.html",
+              "method": "browser",
+              "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+              "evidence_sha256": "0b5b6306747ba98ef8bac098f0c96b6820f1d8aaf41129bd95f608f332dfb681",
+              "title_matched": true,
+              "jd_matched": true,
+              "active": true
+            },
+            "internship_evidence_source": "",
+            "internship_evidence_value": ""
+          }
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 3501.5552999975625,
+        "recoverable": false
+      },
+      "remaining_budget": 37,
+      "planner_usage": []
+    },
+    {
+      "action": "score_match",
+      "source": "policy",
+      "target": null,
+      "reason": "The verified target is ready for profile matching.",
+      "observation": {
+        "tool_name": "score_match",
+        "success": true,
+        "summary": "Scored 1 verified jobs.",
+        "payload": {
+          "matches": [
+            {
+              "job_id": "https://smart.org.cn/career/administrative/1422.html",
+              "score": 0.0,
+              "matched_skills": [],
+              "missing_skills": [
+                "Python",
+                "LLM",
+                "SQL",
+                "RAG",
+                "PyTorch",
+                "agent",
+                "nlp",
+                "向量数据库",
+                "prompt engineering"
+              ],
+              "reason": "JD 文本扫描匹配 0/9 个识别技能：暂无。",
+              "priority": "low",
+              "suggested_actions": [
+                "补强或准备相关经历：Python",
+                "补强或准备相关经历：LLM",
+                "补强或准备相关经历：SQL",
+                "补强或准备相关经历：RAG",
+                "补强或准备相关经历：PyTorch",
+                "补强或准备相关经历：agent",
+                "补强或准备相关经历：nlp",
+                "补强或准备相关经历：向量数据库",
+                "补强或准备相关经历：prompt engineering"
+              ]
+            }
+          ]
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 4.8775999748613685,
+        "recoverable": false
+      },
+      "remaining_budget": 36,
+      "planner_usage": []
+    },
+    {
+      "action": "save_results",
+      "source": "policy",
+      "target": null,
+      "reason": "Matched target results are ready for persistence.",
+      "observation": {
+        "tool_name": "save_results",
+        "success": true,
+        "summary": "Persisted 1 verified jobs.",
+        "payload": {
+          "saved_jobs": 1,
+          "reused": false
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 6.452100002206862,
+        "recoverable": false
+      },
+      "remaining_budget": 35,
+      "planner_usage": []
+    },
+    {
+      "action": "finish",
+      "source": "policy",
+      "target": null,
+      "reason": "The requested results have been persisted.",
+      "observation": {
+        "tool_name": "finish",
+        "success": true,
+        "summary": "Agent finished with status completed: target_reached.",
+        "payload": {
+          "terminal_status": "completed",
+          "terminal_reason": "target_reached"
+        },
+        "error_category": "",
+        "error_message": "",
+        "latency_ms": 0.05929998587816954,
+        "recoverable": false
+      },
+      "remaining_budget": 35,
+      "planner_usage": []
+    }
+  ],
+  "source_diagnostics": [
+    {
+      "source": "deepseek-search",
+      "status": "healthy",
+      "attempts": 1,
+      "count": 10,
+      "candidate_count": 10
+    }
+  ],
+  "diagnostics": [
+    {
+      "url": "https://xsjy.whu.edu.cn/frontpage/whu/html/recruitmentinfoForm.html?positionDetailId=f7a2fa1d91b7409e9530763cef13984e",
+      "error": "verification_filtered: keyword mismatch: missing 实习, recruitment type unconfirmed: internship experience is not a job type",
+      "kind": "search_filter"
+    }
+  ],
+  "jobs": [
+    {
+      "title": "AI Agent工程师实习生（临床研究方向）",
+      "company": "深圳医学科学院",
+      "location": "深圳",
+      "url": "https://smart.org.cn/career/administrative/1422.html",
+      "link_verification": {
+        "status": "verified",
+        "checked_at": "2026-11-18T01:30:01.801156+00:00",
+        "run_id": "run-e2690a3c",
+        "requested_url": "https://smart.org.cn/career/administrative/1422.html",
+        "final_url": "https://smart.org.cn/career/administrative/1422.html",
+        "method": "browser",
+        "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+        "evidence_sha256": "0b5b6306747ba98ef8bac098f0c96b6820f1d8aaf41129bd95f608f332dfb681",
+        "title_matched": true,
+        "jd_matched": true,
+        "active": true
+      }
+    }
+  ]
+}

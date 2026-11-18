@@ -1,0 +1,657 @@
+{
+  "checked_at": "2026-11-18T01:30:19.032748+00:00",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "keyword": "See per-source keyword",
+  "location": "全国",
+  "target_per_source": 2,
+  "scope": "Sample acceptance, not a claim that every job/city or future request succeeds.",
+  "sources": [
+    {
+      "source": "xiaomi",
+      "run_id": "run-f585d50c",
+      "status": "succeeded",
+      "terminal_reason": "target_reached",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 18
+      },
+      "source_diagnostics": [
+        {
+          "source": "xiaomi",
+          "status": "healthy",
+          "count": 20,
+          "attempts": 1,
+          "candidate_count": 20
+        }
+      ],
+      "diagnostics": [],
+      "samples": [
+        {
+          "title": "agent应用实习生-2027届",
+          "company": "小米",
+          "location": "北京",
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662271237599725834/detail",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:29:22.988906+00:00",
+            "run_id": "run-f585d50c",
+            "requested_url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662271237599725834/detail",
+            "final_url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7662271237599725834/detail",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "8b5d0f8de284f38f919fb4274f92bbbf915ef418b04e5374503ae9be6765cce0",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "AI Agent算法实习生",
+          "company": "小米",
+          "location": "北京",
+          "url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7687596167350061355/detail",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:29:28.698237+00:00",
+            "run_id": "run-f585d50c",
+            "requested_url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7687596167350061355/detail",
+            "final_url": "https://xiaomi.jobs.f.mioffice.cn/internship/position/7687596167350061355/detail",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "0faca33c169412341f161e8ad3d552524f2543b2faab1d7292afcb521308d995",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true,
+      "keyword": "AI Agent 实习"
+    },
+    {
+      "source": "xiaohongshu",
+      "run_id": "run-f4f98925",
+      "status": "succeeded",
+      "terminal_reason": "target_reached",
+      "progress": {
+        "discovered": 12,
+        "selected": 10,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 10
+      },
+      "source_diagnostics": [
+        {
+          "source": "xiaohongshu",
+          "status": "healthy",
+          "count": 43,
+          "attempts": 2,
+          "candidate_count": 12
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "xiaohongshu",
+          "error": "search_filtered: 31 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://job.xiaohongshu.com/campus/position/23087",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://job.xiaohongshu.com/campus/position/19237",
+          "error": "page_empty_shell: page has insufficient content"
+        }
+      ],
+      "samples": [
+        {
+          "title": "产品实习生 （AI产品方向）",
+          "company": "小红书",
+          "location": "上海市",
+          "url": "https://job.xiaohongshu.com/campus/position/23087",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:29:38.456465+00:00",
+            "run_id": "run-f4f98925",
+            "requested_url": "https://job.xiaohongshu.com/campus/position/23087",
+            "final_url": "https://job.xiaohongshu.com/campus/position/23087",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "6687d172669e390d8d2d7fc210be3ea48c1a9604657bd0ee509d6cbb7b65813b",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "Agent开发实习生",
+          "company": "小红书",
+          "location": "北京市",
+          "url": "https://job.xiaohongshu.com/campus/position/19237",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:29:41.817854+00:00",
+            "run_id": "run-f4f98925",
+            "requested_url": "https://job.xiaohongshu.com/campus/position/19237",
+            "final_url": "https://job.xiaohongshu.com/campus/position/19237",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "e30d35dc3ff4acea42b8b8a7d9eb4d876aae15f00482f2bce5a30d6893bb96b9",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true,
+      "keyword": "AI Agent 实习"
+    },
+    {
+      "source": "xpeng",
+      "run_id": "run-ae2f6a12",
+      "status": "succeeded",
+      "terminal_reason": "target_reached",
+      "progress": {
+        "discovered": 7,
+        "selected": 7,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 5
+      },
+      "source_diagnostics": [
+        {
+          "source": "xpeng",
+          "status": "healthy",
+          "count": 13,
+          "attempts": 1,
+          "candidate_count": 13
+        }
+      ],
+      "diagnostics": [],
+      "samples": [
+        {
+          "title": "Agent 产品实习生（记忆方向）",
+          "company": "小鹏汽车",
+          "location": "北京",
+          "url": "https://xiaopeng.jobs.feishu.cn/campus/position/7698647256014489898/detail",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:29:55.848420+00:00",
+            "run_id": "run-ae2f6a12",
+            "requested_url": "https://xiaopeng.jobs.feishu.cn/campus/position/7698647256014489898/detail",
+            "final_url": "https://xiaopeng.jobs.feishu.cn/campus/position/7698647256014489898/detail",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "db7cb37296f32f461b2cc037b33852eeef91511b14ae9ecc17207ad80852ecec",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "产品实习生（体验 AI 自动化评测方向）",
+          "company": "小鹏汽车",
+          "location": "上海",
+          "url": "https://xiaopeng.jobs.feishu.cn/campus/position/7661888157235202350/detail",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:30:01.845700+00:00",
+            "run_id": "run-ae2f6a12",
+            "requested_url": "https://xiaopeng.jobs.feishu.cn/campus/position/7661888157235202350/detail",
+            "final_url": "https://xiaopeng.jobs.feishu.cn/campus/position/7661888157235202350/detail",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "d9b32e14fa37f528936040a7333d8d560a8d93c09b8679c5089c09b36e01341c",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true,
+      "keyword": "AI Agent 实习"
+    },
+    {
+      "source": "meituan",
+      "keyword": "AI 实习",
+      "run_id": "run-2ac2d3e7",
+      "status": "succeeded",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 18
+      },
+      "source_diagnostics": [
+        {
+          "source": "meituan",
+          "status": "healthy",
+          "count": 60,
+          "attempts": 2,
+          "candidate_count": 27
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "meituan",
+          "error": "search_filtered: 33 candidates did not match keyword/location",
+          "kind": "search_filter"
+        }
+      ],
+      "samples": [
+        {
+          "title": "【大模型北斗实习】代码大模型",
+          "company": "美团",
+          "url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=3153761434",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T06:27:29.016589+00:00",
+            "run_id": "run-2ac2d3e7",
+            "requested_url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=3153761434",
+            "final_url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=3153761434",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "b8be0966f606e2875a73c1bc7409b04cb48b07ba2589f2f921a0ccda11279cf2",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "【基座大模型北斗实习】基座大模型-Coding方向",
+          "company": "美团",
+          "url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=4348763907",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T06:27:43.824347+00:00",
+            "run_id": "run-2ac2d3e7",
+            "requested_url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=4348763907",
+            "final_url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=4348763907",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "d3c1a9daea008bea344f50e4509ec6c84c7f6da7ad197ce0c95418e47e1edf4e",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "source": "netease",
+      "keyword": "AI 实习",
+      "run_id": "run-13443032",
+      "status": "succeeded",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 18
+      },
+      "source_diagnostics": [
+        {
+          "source": "netease",
+          "status": "healthy",
+          "count": 60,
+          "attempts": 2,
+          "candidate_count": 50
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "netease",
+          "error": "search_filtered: 10 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://hr.163.com/job-detail.html?id=65260",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://hr.163.com/job-detail.html?id=71723",
+          "error": "page_empty_shell: page has insufficient content"
+        }
+      ],
+      "samples": [
+        {
+          "title": "大模型算法实习生",
+          "company": "网易",
+          "location": "北京市",
+          "url": "https://hr.163.com/job-detail.html?id=65260",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:46:03.373499+00:00",
+            "run_id": "run-13443032",
+            "requested_url": "https://hr.163.com/job-detail.html?id=65260",
+            "final_url": "https://hr.163.com/job-detail.html?id=65260",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "2ceaef770be0c4c162269916ebac829a9295ec3e245081b08086f19f8464217a",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "语音大模型数据标注实习生",
+          "company": "网易",
+          "location": "杭州市",
+          "url": "https://hr.163.com/job-detail.html?id=71723",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:46:08.457780+00:00",
+            "run_id": "run-13443032",
+            "requested_url": "https://hr.163.com/job-detail.html?id=71723",
+            "final_url": "https://hr.163.com/job-detail.html?id=71723",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "b2d33d9083c2828dd41bee01694ff05bcfff0cb97bb46cf459f7780aef4d4c85",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "source": "mihoyo",
+      "keyword": "AI 实习",
+      "run_id": "run-b8d6918b",
+      "status": "succeeded",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 5,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 3,
+        "unexamined": 15
+      },
+      "source_diagnostics": [
+        {
+          "source": "mihoyo",
+          "status": "healthy",
+          "count": 32,
+          "attempts": 2,
+          "candidate_count": 23
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "mihoyo",
+          "error": "search_filtered: 9 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/9834",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/9826",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/8090",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/8817",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/9772",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/9834",
+          "error": "verification_filtered: verification deadline exceeded during SPA browser visit",
+          "kind": "link_verification"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/8090",
+          "error": "verification_filtered: verification deadline exceeded during SPA browser visit",
+          "kind": "link_verification"
+        },
+        {
+          "url": "https://jobs.mihoyo.com/#/campus/position/8817",
+          "error": "verification_filtered: verification deadline exceeded during SPA browser visit",
+          "kind": "link_verification"
+        }
+      ],
+      "samples": [
+        {
+          "title": "AI人文训练实习生（韩语方向）",
+          "company": "米哈游",
+          "url": "https://jobs.mihoyo.com/#/campus/position/9826",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T06:24:11.012594+00:00",
+            "run_id": "run-b8d6918b",
+            "requested_url": "https://jobs.mihoyo.com/#/campus/position/9826",
+            "final_url": "https://jobs.mihoyo.com/#/campus/position/9826",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "738e80b1d3d039be0201ddf35d2296270960149ee22bc0217408a82aa5a9bbf5",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "视频生成算法研究实习生",
+          "company": "米哈游",
+          "url": "https://jobs.mihoyo.com/#/campus/position/9772",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T06:25:11.164877+00:00",
+            "run_id": "run-b8d6918b",
+            "requested_url": "https://jobs.mihoyo.com/#/campus/position/9772",
+            "final_url": "https://jobs.mihoyo.com/#/campus/position/9772",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "b3157a5e06ebc5c85b64ee365e98928179072a1fc62a3dcb4c8e52a776cb39a1",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "source": "liauto",
+      "keyword": "实习",
+      "run_id": "run-9616294f",
+      "status": "succeeded",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 18
+      },
+      "source_diagnostics": [
+        {
+          "source": "liauto",
+          "status": "healthy",
+          "count": 180,
+          "attempts": 3,
+          "candidate_count": 25
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "liauto",
+          "error": "search_filtered: 155 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://www.lixiang.com/employ/detail/18946.html",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://www.lixiang.com/employ/detail/18957.html",
+          "error": "page_empty_shell: page has insufficient content"
+        }
+      ],
+      "samples": [
+        {
+          "title": "大模型分布式训练系统与网络互联方向实习生",
+          "company": "理想汽车",
+          "location": "上海",
+          "url": "https://www.lixiang.com/employ/detail/18946.html",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:47:09.619911+00:00",
+            "run_id": "run-9616294f",
+            "requested_url": "https://www.lixiang.com/employ/detail/18946.html",
+            "final_url": "https://www.lixiang.com/employ/detail/18946.html?fromJob=1",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "6e1cd74c1faef91d33a041c8919ed621f985f098b91b98245edbfa536757c8b0",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "【基座模型\"理想星\"顶尖实习】世界模型算法实习（北京/上海）",
+          "company": "理想汽车",
+          "location": "北京顺义区",
+          "url": "https://www.lixiang.com/employ/detail/18957.html",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T01:47:13.463470+00:00",
+            "run_id": "run-9616294f",
+            "requested_url": "https://www.lixiang.com/employ/detail/18957.html",
+            "final_url": "https://www.lixiang.com/employ/detail/18957.html?fromJob=1",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "868b830b816dc42b4162ebb53084326582ac591ca5f228b14105a60e3b503353",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "source": "nio",
+      "keyword": "AI 实习",
+      "run_id": "run-bf18e65c",
+      "status": "partial",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 10,
+        "verified": 1,
+        "delivered": 1,
+        "pending": 0,
+        "unexamined": 10
+      },
+      "source_diagnostics": [
+        {
+          "source": "nio",
+          "status": "healthy",
+          "count": 60,
+          "attempts": 2,
+          "candidate_count": 20
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "nio",
+          "error": "search_filtered: 40 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7663035755586177331/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7706377926649104650/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7617691569060284698/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7572077819510655273/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7579555240233748777/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7573569231501986090/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7703766386434115866/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7697100208165685523/detail",
+          "error": "page_removed: PageRemovedError"
+        },
+        {
+          "url": "https://nio.jobs.feishu.cn/index/position/7530552874892921115/detail",
+          "error": "page_removed: PageRemovedError"
+        }
+      ],
+      "samples": [
+        {
+          "title": "大模型与强化学习实习生",
+          "company": "蔚来",
+          "url": "https://nio.jobs.feishu.cn/index/position/7647046322574461203/detail",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T06:26:29.480513+00:00",
+            "run_id": "run-bf18e65c",
+            "requested_url": "https://nio.jobs.feishu.cn/index/position/7647046322574461203/detail",
+            "final_url": "https://nio.jobs.feishu.cn/index/position/7647046322574461203/detail",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "8275b0eff25883f4a19c52043e11c5930564862227fc86d3851d11df466a9338",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true
+    }
+  ],
+  "minimum_verified_sample": 1
+}

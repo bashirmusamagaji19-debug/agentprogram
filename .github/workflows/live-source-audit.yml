@@ -1,0 +1,27 @@
+name: Live source acceptance
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    container: python:3.12-bookworm
+    timeout-minutes: 25
+    env:
+      ANONYMIZED_TELEMETRY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cloud runtime
+        run: |
+          apt-get update
+          xargs -a packages.txt apt-get install -y
+          python -m pip install -e .
+      - name: Check real sources and fresh browser receipts
+        run: python scripts/audit_live_sources.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-source-acceptance
+          path: output/live-source-audit
+          retention-days: 7

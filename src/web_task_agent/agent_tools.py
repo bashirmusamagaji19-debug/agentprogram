@@ -565,7 +565,8 @@ def _job_identity_keys(job, metadata: dict[str, Any]) -> set[str]:
     query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
              if not key.casefold().startswith("utm_") and key.casefold() not in {"gclid", "fbclid"}]
     canonical = urlunsplit((parts.scheme.casefold(), parts.netloc.casefold(),
-                           parts.path.rstrip("/"), urlencode(sorted(query)), ""))
+                           parts.path.rstrip("/"), urlencode(sorted(query)),
+                           parts.fragment if parts.fragment.startswith(("/", "!/")) else ""))
     # 组合身份键还会用到公司、标题和地点。归一化文本空白与大小写以减少格式差异。
     def normalize(text: str) -> str:
         return re.sub(r"\s+", " ", text).strip().casefold()

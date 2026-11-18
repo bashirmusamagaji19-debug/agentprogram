@@ -53,3 +53,12 @@ def test_empty_evidence_never_claims_perfect_source_rate(tmp_path):
     assert summary["snapshot_integrity"]["value"] is None
     assert summary["conditions_passed"]["value"] is None
     assert evidence == {}
+
+
+def test_source_candidates_mean_filtered_candidates_not_raw_list_count(tmp_path):
+    from web_task_agent.source_metrics import build_source_metrics
+
+    summary, _ = build_source_metrics(tmp_path / "missing", source_diagnostics=[{
+        "source": "huawei", "status": "healthy", "count": 47, "candidate_count": 0}])
+    assert summary["source_callable"]["value"] == 1
+    assert summary["sources_with_candidates"]["value"] == 0

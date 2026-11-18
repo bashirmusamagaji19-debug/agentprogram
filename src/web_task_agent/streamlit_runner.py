@@ -45,7 +45,7 @@ from web_task_agent.storage import JobRepository
 from web_task_agent.verifier import JobVerifier
 from web_task_agent.workflow import WebTaskWorkflow
 
-UiDataMode = Literal["demo", "aggregator", "seed_urls", "official"]
+UiDataMode = Literal["demo", "aggregator", "seed_urls", "official", "web_search"]
 RETENTION_DAYS = 7
 
 # job-radar 聚合仓库发布的 jobs.json（GitHub raw，含 official_url/jd_text），
@@ -196,6 +196,8 @@ def validate_ui_request(
         )
         if provider
     }
+    if request.data_mode == "web_search":
+        providers.add("deepseek")
     missing = sorted(
         PROVIDER_API_KEY_ENV[provider]
         for provider in providers
@@ -284,6 +286,21 @@ async def run_ui_request(
             # The graph is paused immediately before save: no navigation or new
             # discovery is permitted while confirming an already frozen batch.
             browser, seed_urls = FakeBrowserClient([]), request.seed_urls
+            previous_path = run_dir / "result.json"
+            if previous_path.is_file():
+                previous = UiRunResult.model_validate_json(previous_path.read_text(encoding="utf-8"))
+                browser.discovered_count = previous.progress.get("discovered", len(seed_urls))
+                browser.selected_count = previous.progress.get("selected", len(seed_urls))
+                browser.source_diagnostics = previous.source_diagnostics
+                browser.resolution_log = previous.resolution_log
+                source_reference = {key: getattr(previous, key) for key in (
+                    "source_manifest", "source_mode", "source_captured_at")}
+                browser.reference_metadata = lambda directory: source_reference
+                manifest = _run_artifact_path(run_dir, previous.source_manifest)
+                if manifest is not None:
+                    from web_task_agent.source_archive import SourceArchive
+
+                    browser.archive = SourceArchive(manifest.parent)
         else:
             try:
                 browser, seed_urls = await _build_browser(
@@ -342,6 +359,7 @@ async def run_ui_request(
             service_result = await start_agent_run(
                 user, run_id=run_id, owner_id=persistence_owner,
                 services=services, options=request.options(candidate_count=(
+                    10 if request.data_mode == "web_search" else
                     len(seed_urls) if seed_urls else getattr(browser, "discovered_count", None))),
             )
         state = service_result.view
@@ -356,8 +374,9 @@ async def run_ui_request(
             state.metadata["source_manifest"] = previous.source_manifest
             state.metadata["source_mode"] = previous.source_mode
             state.metadata["source_captured_at"] = previous.source_captured_at
-            state.metadata["source_metrics"] = previous.source_metrics
-            state.metadata["source_evidence"] = previous.source_evidence
+            if "source_metrics" not in state.metadata:
+                state.metadata["source_metrics"] = previous.source_metrics
+                state.metadata["source_evidence"] = previous.source_evidence
         state.metadata["source_diagnostics"] = source_diagnostics
         state.metadata["resolution_log"] = resolution_log
         if state.metrics is None:
@@ -447,7 +466,8 @@ async def run_ui_request(
             saved=bool(service_result.agent_state.saved) if service_result.agent_state else bool(state.jobs),
             progress={
                 "discovered": getattr(browser, "discovered_count", len(seed_urls)),
-                "selected": len(seed_urls), "limit": 10,
+                "selected": (getattr(browser, "selected_count", 0)
+                             if request.data_mode == "web_search" else len(seed_urls)), "limit": 10,
                 "checked": len(service_result.agent_state.visited_urls | service_result.agent_state.rejected_urls)
                 if service_result.agent_state else state.metrics.pages_visited,
                 "verified": (len(service_result.agent_state.verified_jobs)

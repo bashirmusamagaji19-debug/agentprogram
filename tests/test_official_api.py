@@ -31,6 +31,21 @@ class FakeResponse:
 
 
 @pytest.mark.asyncio
+async def test_nio_reads_native_detail_before_generic_http(monkeypatch):
+    def open_detail(req, timeout):
+        assert req.full_url == "https://nio.jobs.feishu.cn/api/v1/job/posts/123"
+        assert req.get_header("Website-path") == "index"
+        return FakeResponse({"code": 0, "data": {"job_post_detail": {
+            "id": "123", "title": "AI Agent 实习", "description": "构建大模型智能体。",
+            "requirement": "熟悉 Python。", "channel_online_status": 1}}})
+
+    monkeypatch.setattr("web_task_agent.official_api.url_request.urlopen", open_detail)
+    content = await OfficialApiContentFetcher().fetch("https://nio.jobs.feishu.cn/index/position/123/detail")
+    assert content.company == "蔚来"
+    assert "构建大模型智能体" in content.content
+
+
+@pytest.mark.asyncio
 async def test_xiaomi_current_canonical_url_reads_live_detail_shape(monkeypatch):
     record = json.loads((Path(__file__).parent / 'fixtures/xiaomi_live_20261025.json').read_text(encoding='utf-8'))
     calls = []

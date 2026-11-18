@@ -165,3 +165,20 @@ def test_build_discovered_page_uses_jd_text_as_content():
     assert page.source == "aggregator:job-radar"
     assert page.metadata["discovered_company"] == "示例公司"
     assert page.metadata["discovered_location"] == "上海"
+
+
+@pytest.mark.asyncio
+async def test_meituan_discovered_full_jd_does_not_rescan_unfiltered_list():
+    from web_task_agent.job_sources import AggregatorPageLoader
+
+    class UnneededApi:
+        def fetch(self, url):
+            raise AssertionError("The discovery response already contains the official JD")
+
+    job = DiscoveredJob(url="https://zhaopin.meituan.com/web/position/detail?jobUnionId=123",
+                        title="AI 实习生", company="美团", location="北京", source="meituan",
+                        jd_text="岗位职责：构建 AI Agent。任职要求：Python，实习三个月。" * 8)
+    loader = AggregatorPageLoader([job], official_api=UnneededApi())
+    page = await loader(job.url)
+    assert page.content == job.jd_text
+    assert page.metadata["content_origin"] == "official-api"

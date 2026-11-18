@@ -155,6 +155,14 @@ def test_mode_hint_explains_each_data_mode() -> None:
     assert "指定岗位 URL" in mode_hint("seed_urls")
 
 
+def test_healthy_source_with_no_matching_candidates_is_labelled_precisely(tmp_path):
+    from web_task_agent.streamlit_app import source_status_rows
+
+    result = make_result(tmp_path)
+    result.source_diagnostics = [{"source": "huawei", "status": "healthy", "count": 47, "candidate_count": 0}]
+    assert source_status_rows(result)[0]["状态"] == "无匹配候选"
+
+
 def test_metric_grid_contains_status_classes_and_accessible_labels() -> None:
     html = metric_grid_html(RunMetrics(run_id="run-ui", valid_jobs=3, failed_pages=1))
 
@@ -327,18 +335,20 @@ def test_demo_notice_marks_fixture_data(tmp_path: Path) -> None:
 
 
 def test_llm_run_budget_allows_then_blocks():
-    """公开演示定位:任何人可体验,但 LLM 额度有限 —
-    每会话限 3 次 LLM 运行,超出后拒绝并提示。"""
+    """Allow 30 model-enabled runs, including sessions that already used three."""
     from web_task_agent.streamlit_app import consume_llm_budget, llm_budget_remaining
 
     budget: dict = {}
-    assert llm_budget_remaining(budget) == 3
+    assert llm_budget_remaining(budget) == 30
 
     consume_llm_budget(budget)
     consume_llm_budget(budget)
-    assert llm_budget_remaining(budget) == 1
+    assert llm_budget_remaining(budget) == 28
 
     consume_llm_budget(budget)
+    assert llm_budget_remaining(budget) == 27
+    for _ in range(27):
+        consume_llm_budget(budget)
     assert llm_budget_remaining(budget) == 0
 
     import pytest
@@ -379,6 +389,9 @@ def test_default_ui_uses_xiaomi_three_targets_and_empty_skills(tmp_path, monkeyp
     assert mode.value == "实时岗位（官方 API）"
     sources = next(item for item in app.multiselect if item.label == "官方发现源")
     assert sources.value == ["xiaomi"]
+    from web_task_agent.source_catalog import VERIFIED_SOURCES
+    assert sources.options == [source["name"] for source in VERIFIED_SOURCES.values()]
+    assert "网页搜索" in mode.options
     target = next(item for item in app.number_input if item.label == "目标岗位数")
     assert target.value == 3
     skills = next(item for item in app.text_input if item.label == "技能标签")
