@@ -23,6 +23,8 @@ def build_search_client() -> DeepSeekWebClient:
 def _candidate_url(job: DiscoveredJob) -> str:
     parts = urlsplit(job.url)
     path = parts.path.casefold()
+    if parts.fragment.startswith(("/", "!/")):
+        path = urlsplit(parts.fragment.removeprefix("!")).path.casefold()
     # A search hit is only a hint. Omit obvious portals, articles and result lists;
     # unknown detail pages can still enter the normal extraction/link gates.
     if (parts.username or parts.password or path in {"", "/"}

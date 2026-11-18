@@ -22,6 +22,29 @@ def client_with_results(calls, *, failure=None):
     return DeepSeekWebClient(api_key="test-key", transport=transport)
 
 
+@pytest.mark.parametrize("url", [
+    "https://jobs.mihoyo.com/#/campus/position/9826",
+    "https://campus.jd.com/#/details?id=9095",
+    "https://example.com/#!/jobs/123",
+])
+def test_search_keeps_hash_routed_job_details(url):
+    from web_task_agent.job_sources import DiscoveredJob
+    from web_task_agent.web_search import _candidate_url
+
+    assert _candidate_url(DiscoveredJob(url=url)) == url
+
+
+@pytest.mark.parametrize("url", [
+    "https://jobs.mihoyo.com/", "https://jobs.mihoyo.com/#/",
+    "https://jobs.mihoyo.com/#/campus/position/list",
+])
+def test_search_still_excludes_homepages_and_hash_routed_lists(url):
+    from web_task_agent.job_sources import DiscoveredJob
+    from web_task_agent.web_search import _candidate_url
+
+    assert not _candidate_url(DiscoveredJob(url=url))
+
+
 @pytest.mark.asyncio
 async def test_search_batches_are_deduplicated_bounded_and_keep_diagnostics():
     from web_task_agent.web_search import WebSearchBrowser
