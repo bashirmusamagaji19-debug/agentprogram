@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import threading
-import time
 from collections import Counter
 from pathlib import Path
 
@@ -965,6 +963,7 @@ async def test_episode_timeout_is_isolated_and_late_admission_stays_accounted(tm
         pages[f"{task.case_id}.json"] = make_page("https://example.test/jobs/a")
     calls: list[str] = []
     lock = threading.Lock()
+    second_started = threading.Event()
 
     class Reader:
         def __init__(self, label: str) -> None:
@@ -974,7 +973,9 @@ async def test_episode_timeout_is_isolated_and_late_admission_stays_accounted(tm
             with lock:
                 calls.append(self.label)
             if self.label == "first":
-                time.sleep(0.25)
+                second_started.wait(4)
+            else:
+                second_started.set()
             return {
                 "status": "ok",
                 "reading": PageReading(
@@ -1013,13 +1014,12 @@ async def test_episode_timeout_is_isolated_and_late_admission_stays_accounted(tm
             runs=1,
             output_dir=output,
             max_calls=10,
-            case_deadline_seconds=0.1,
+            case_deadline_seconds=0.75,
         ),
         dataset_loader=loader_for(tasks, catalogs),
         reader_factory=reader_factory,
         page_resolver=pages.__getitem__,
     )
-    await asyncio.sleep(0.3)
 
     assert calls == ["first", "second"]
     predictions = read_results(output / "results.jsonl")

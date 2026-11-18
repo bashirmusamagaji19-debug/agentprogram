@@ -296,7 +296,7 @@ def test_curated_sources_exclude_unvalidated_or_internship_incompatible_sources(
     from web_task_agent.source_catalog import VERIFIED_SOURCES
 
     assert {"xiaomi", "xiaohongshu", "xpeng", "meituan", "netease", "mihoyo", "nio",
-            "huawei", "baidu"} <= VERIFIED_SOURCES.keys()
+            "huawei", "baidu", "ctrip", "jd", "tencent-campus"} == VERIFIED_SOURCES.keys()
     assert "liauto" not in VERIFIED_SOURCES
     assert "agibot" not in VERIFIED_SOURCES
     assert all(row["checked_on"] == "2026-11-18" for row in VERIFIED_SOURCES.values())

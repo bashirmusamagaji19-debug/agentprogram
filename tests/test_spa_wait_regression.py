@@ -185,7 +185,7 @@ async def test_default_verifier_waits_for_the_expected_job_before_verifying(monk
         async def evaluate(self, script):
             if "document.body" in script:
                 return NAVIGATION_SHELL if elapsed[0] < render_after else RENDERED_JOB
-            if "querySelectorAll('a,button" in script:
+            if "querySelectorAll" in script and "getBoundingClientRect" in script:
                 if elapsed[0] < render_after:
                     return []
                 return [{"tag": "button", "text": "Apply now", "visible": True, "enabled": True}]

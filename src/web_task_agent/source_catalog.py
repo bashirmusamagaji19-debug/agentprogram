@@ -9,6 +9,13 @@ VERIFIED_SOURCES = {
                "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI Agent 实习"},
     "baidu": {"name": "百度", "official_url": "https://talent.baidu.com/jobs/list?recruitType=INTERN",
               "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI Agent 实习"},
+    "ctrip": {"name": "携程", "official_url": "https://careers.ctrip.com/",
+              "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习",
+              "note": "云端本轮 1/2：一条通过，另一条动态详情核验超时。"},
+    "jd": {"name": "京东", "official_url": "https://campus.jd.com/#/jobs",
+           "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习"},
+    "tencent-campus": {"name": "腾讯", "official_url": "https://join.qq.com/post.html?query=p_2",
+                       "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习"},
     "xiaomi": {"name": "小米", "official_url": "https://hr.xiaomi.com/", "checked_on": VERIFIED_SOURCE_DATE},
     "xiaohongshu": {"name": "小红书", "official_url": "https://job.xiaohongshu.com/",
                     "checked_on": VERIFIED_SOURCE_DATE},
@@ -27,12 +34,6 @@ VERIFIED_SOURCES = {
 LIMITED_SOURCES = {
     "liauto": {"name": "理想汽车", "official_url": "https://www.lixiang.com/employ.html",
                "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "实习"},
-    "ctrip": {"name": "携程", "official_url": "https://careers.ctrip.com/",
-              "validation_keyword": "AI 实习"},
-    "jd": {"name": "京东", "official_url": "https://campus.jd.com/#/jobs",
-           "validation_keyword": "AI 实习"},
-    "tencent-campus": {"name": "腾讯", "official_url": "https://join.qq.com/post.html?query=p_2",
-                       "validation_keyword": "AI 实习"},
 }
 
 # Exact recruitment hosts. Shared providers must use the employer's own tenant.
@@ -53,7 +54,5 @@ WEB_SEARCH_HOSTS = {
 
 SOURCE_LIMITATIONS = {
     "理想汽车": "本机样本通过，但 Streamlit 和 Linux 云端发现接口连续超时，暂移出直连可选名单。",
-    "腾讯": "当前校招接口返回空列表，暂不作为可选直连来源。",
-    "京东、携程": "本次发现数据的招聘类型或详情核验未通过，暂不作为可选直连来源。",
-    "比亚迪、拼多多": "本次未通过完整详情与条件核验，暂不作为可选直连来源。",
+    "比亚迪、拼多多": "官网实习频道可访问，本次未找到符合 AI 开发方向并通过详情和申请入口核验的样本。",
 }

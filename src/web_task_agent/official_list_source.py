@@ -302,7 +302,7 @@ async def _tencent_campus_lister(transport, limit: int) -> list[DiscoveredJob]: 
                 url=f"https://join.qq.com/post_detail.html?postId={url_parse.quote(post_id)}",
                 title=title, company="腾讯", location=str(item.get("workCities") or "").strip(),
                 source="tencent-campus", source_job_id=post_id, discovery_url=_TENCENT_SEARCH_POSITION_API,
-                query_context={"page": page, "keyword": term}, discovered_at=datetime.now(UTC),
+                query_context={"page": page, "page_size": 20, "keyword": term}, discovered_at=datetime.now(UTC),
                 tags=[project] if project else [], internship_evidence_source="tencent:list:project",
                 internship_evidence_value="internship",
             ))

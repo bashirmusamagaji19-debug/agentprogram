@@ -9,12 +9,16 @@ from web_task_agent.official_list_source import _tencent_campus_lister, _xiaomi_
 @pytest.mark.asyncio
 async def test_tencent_native_identity_and_paging_are_preserved():
     def open_json(method, url, **kwargs):
-        items = [{"positionTitle": "AI 实习生", "postId": "native-1", "workCities": "北京"}]
-        return {"data": {"positionList": items if kwargs["body"]["pageNo"] == 1 else []}}
+        if url.endswith("getProjectMapping"):
+            return {"status": 0, "data": [{"subProjectList": [
+                {"projectName": "日常实习", "projectId": "2", "mappingId": 2},
+            ]}]}
+        items = [{"positionTitle": "AI 实习生", "postId": "native-1", "workCities": "北京", "projectId": 2}]
+        return {"status": 0, "data": {"positionList": items if kwargs["body"]["pageIndex"] == 1 else []}}
     job = (await _tencent_campus_lister(SimpleNamespace(open_json=open_json), 1))[0]
     assert job.source_job_id == "native-1"
     assert job.discovery_url == "https://join.qq.com/api/v1/position/searchPosition"
-    assert job.query_context == {"page": 1, "page_size": 50}
+    assert job.query_context == {"page": 1, "page_size": 20, "keyword": "AI"}
     assert job.discovered_at.tzinfo
 
 
