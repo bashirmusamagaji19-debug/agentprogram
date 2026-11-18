@@ -46,7 +46,7 @@
 
 ## 验证与发布
 
-实现前基线 1197 passed、1 skipped；新增搜索、额度、SPA 身份、来源隔离、导航登录及空格按钮、恢复归档等回归。最终全量测试、CI、云端来源抽查与线上页面验收结果在发布完成后补记。云端手动审计入口为 `.github/workflows/live-source-audit.yml`，使用合成空简历、真实公开招聘数据，不需要模型密钥。
+实现前基线 1197 passed、1 skipped；新增搜索、额度、SPA 身份、来源隔离、导航登录及空格按钮、恢复归档等回归。最终全量测试、CI、云端来源抽查与线上页面验收结果见下文。云端手动审计入口为 `.github/workflows/live-source-audit.yml`，使用合成空简历、真实公开招聘数据，不需要模型密钥。
 
 ### 云端复核及后续修复
 
@@ -64,4 +64,8 @@ CI 全量检查发现聚合模式的注入工厂被官方来源 `isinstance` 判
 
 发布验证：`2fc0d57` 的 [master CI 44253940482](https://github.com/bashirmusamagaji19-debug/agentprogram/actions/runs/44253940482) 全部通过：1224 passed、1 skipped，覆盖率 88.22%，真实 Linux 浏览器冒烟通过。`5fb9868` 的 [CI 44254455900](https://github.com/bashirmusamagaji19-debug/agentprogram/actions/runs/44254455900) 也成功。本机相关定向测试通过；本机覆盖率全量在旧数据集逐页重复校验上耗时很长，已停止，完整覆盖率结果使用上述 Linux CI，未宣称本机全量通过。
 
-浏览器语言修复与最终七源版本的 CI、网易复测结果将在最终验收后补记。所有改动在隔离工作树完成，部署分支为 `master` 与 `feature/chinese-job-pipeline`；没有覆盖原始工作区的未提交修改。
+语言修复后的 Linux 复测 [44256549557](https://github.com/bashirmusamagaji19-debug/agentprogram/actions/runs/44256549557) 已完成，网易 `run-876b2711` 检查 2 条、交付 2 条，标题、正文和启用的投递入口均由新浏览器回执确认；理想 `run-e2ad2612` 再次在发现阶段耗尽 210 秒，0 候选。因此该审计整体为 failure，不能称作两源全部通过。公开结果见 [cloud-recheck-summary.json](../results/source-validation-20261118/cloud-recheck-summary.json)。结合首轮云端证据，当前保留七家均至少有一条云端新鲜核验交付，共 13 条；蔚来仍为 1/2 部分成功。
+
+最终代码 `9334faa` 的 [master CI 44258731936](https://github.com/bashirmusamagaji19-debug/agentprogram/actions/runs/44258731936) 全部通过：1224 passed、1 skipped，覆盖率 88.22%，Ruff 与真实 Linux 浏览器检查均通过；[功能分支 CI 44258731899](https://github.com/bashirmusamagaji19-debug/agentprogram/actions/runs/44258731899) 也全部通过。同一提交的 [部署分支 CI 44258731739](https://github.com/bashirmusamagaji19-debug/agentprogram/actions/runs/44258731739) 初次出现两项旧时间测试失败：`test_direct_hitl_resume_is_bounded_and_timeout_persists_terminal_state[recover_hitl]` 在 0.3 秒预算内未到暂停点；`test_human_wait_does_not_spend_hitl_active_deadline[resume_hitl]` 在同样预算内未完成存盘。此前 `057439f` 的 master CI 也有后一项参数 `recover_hitl` 波动，而该提交另两分支成功。没有修改生产时限或删掉断言以掩盖，部署分支失败任务已发起重跑；不宣称三分支每次 CI 都通过。
+
+所有改动在隔离工作树完成，部署分支为 `master` 与 `feature/chinese-job-pipeline`；没有覆盖原始工作区的未提交修改。网页搜索、30 次额度及此前的八源列表已在真实 Streamlit 页面操作验收；随后浏览器语言修复与七源名单已推送部署分支，并用 Linux 真源复测覆盖。最终版本推送后未再人工操作线上页面，不将先前页面截图或观察当作最终七源界面的复验。

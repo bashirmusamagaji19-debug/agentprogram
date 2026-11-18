@@ -38,8 +38,8 @@ Files: `streamlit_app.py`, `tests/test_streamlit_app.py`, `tests/test_streamlit_
 
 ### Task 4: Verification and deployment
 
-- [ ] Run Ruff, focused tests and the full deterministic suite with coverage.
-- [ ] Self-review actual diff, request deadlines, candidate limits, search failure categories, public evidence and secret handling.
-- [ ] Update README and `docs/work-log/2026-11-18-web-search-sources.md` with exact evidence, known source exclusions and limits.
-- [ ] Commit and deploy to the existing Streamlit deployment branches, preserving the user's dirty primary checkout.
-- [ ] Verify CI and run the deployed webpage: visible search mode, allowance 30, reduced source list, real search trace, and at least one freshly verified delivered job. Recheck each retained source in the cloud environment; remove any that fail the stated acceptance scope.
+- [x] Run Ruff, focused tests and the full deterministic suite with coverage. Final code master CI: 1224 passed, 1 skipped, coverage 88.22%; deployment-branch timing flakes and rerun are documented separately.
+- [x] Self-review actual diff, request deadlines, candidate limits, search failure categories, public evidence and secret handling; independent review findings corrected.
+- [x] Update README and `docs/work-log/2026-11-18-web-search-sources.md` with exact evidence, known source exclusions and limits.
+- [x] Commit and push to the existing Streamlit deployment branches, preserving the user's dirty primary checkout.
+- [x] Verify the deployed search mode, allowance 30, curated list, real SearchJobsTool trace and one freshly verified delivered job. Cloud-audit every retained source; remove Li Auto after repeated cloud timeouts. Final seven-source list and locale correction are pushed and Linux-verified; no subsequent manual UI check is claimed.

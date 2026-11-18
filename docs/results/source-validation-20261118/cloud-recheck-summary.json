@@ -1,0 +1,129 @@
+{
+  "checked_at": "2026-11-18T07:13:29.291571+00:00",
+  "platform": "Linux-7.0.0-1019-azure-x86_64-with-glibc2.36",
+  "location": "全国",
+  "target_per_source": 2,
+  "minimum_verified_sample": 1,
+  "scope": "Sample acceptance, not a claim that every job/city or future request succeeds.",
+  "sources": [
+    {
+      "source": "netease",
+      "keyword": "AI 实习",
+      "run_id": "run-876b2711",
+      "status": "succeeded",
+      "terminal_reason": "target_reached",
+      "progress": {
+        "discovered": 20,
+        "selected": 10,
+        "limit": 10,
+        "checked": 2,
+        "verified": 2,
+        "delivered": 2,
+        "pending": 0,
+        "unexamined": 18
+      },
+      "source_diagnostics": [
+        {
+          "source": "netease",
+          "status": "healthy",
+          "count": 60,
+          "attempts": 2,
+          "candidate_count": 50
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "netease",
+          "error": "search_filtered: 10 candidates did not match keyword/location",
+          "kind": "search_filter"
+        },
+        {
+          "url": "https://hr.163.com/job-detail.html?id=65260",
+          "error": "page_empty_shell: page has insufficient content"
+        },
+        {
+          "url": "https://hr.163.com/job-detail.html?id=71723",
+          "error": "page_empty_shell: page has insufficient content"
+        }
+      ],
+      "samples": [
+        {
+          "title": "大模型算法实习生",
+          "company": "网易",
+          "location": "北京市",
+          "url": "https://hr.163.com/job-detail.html?id=65260",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T07:09:52.628886+00:00",
+            "run_id": "run-876b2711",
+            "requested_url": "https://hr.163.com/job-detail.html?id=65260",
+            "final_url": "https://hr.163.com/job-detail.html?id=65260",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "3eeb8b7f4de99eda293fd595939b41f93366633988cadeb85d6987c957133647",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        },
+        {
+          "title": "语音大模型数据标注实习生",
+          "company": "网易",
+          "location": "杭州市",
+          "url": "https://hr.163.com/job-detail.html?id=71723",
+          "receipt": {
+            "status": "verified",
+            "checked_at": "2026-11-18T07:09:59.234670+00:00",
+            "run_id": "run-876b2711",
+            "requested_url": "https://hr.163.com/job-detail.html?id=71723",
+            "final_url": "https://hr.163.com/job-detail.html?id=71723",
+            "method": "browser",
+            "reason": "detail page, job title, JD snippet, and visible enabled apply control matched",
+            "evidence_sha256": "f490ef5efa6af39a4ffe4f7f5cad8039e1fcd4c52201dbbeef8e8fc27e6cf9e5",
+            "title_matched": true,
+            "jd_matched": true,
+            "active": true
+          }
+        }
+      ],
+      "accepted": true
+    },
+    {
+      "source": "liauto",
+      "keyword": "实习",
+      "run_id": "run-e2ad2612",
+      "status": "failed",
+      "terminal_reason": "deadline_exceeded",
+      "progress": {
+        "discovered": 0,
+        "selected": 0,
+        "limit": 10,
+        "checked": 0,
+        "verified": 0,
+        "delivered": 0,
+        "pending": 0,
+        "unexamined": 0
+      },
+      "source_diagnostics": [
+        {
+          "source": "liauto",
+          "status": "failed",
+          "attempts": 1,
+          "count": 0,
+          "candidate_count": 0,
+          "error_detail": "来源请求已达到本次总时限，请稍后重试。",
+          "error_category": "transient"
+        }
+      ],
+      "diagnostics": [
+        {
+          "url": "liauto",
+          "error": "source_failed: 来源请求已达到本次总时限，请稍后重试。",
+          "attempts": 1
+        }
+      ],
+      "samples": [],
+      "accepted": false
+    }
+  ]
+}
