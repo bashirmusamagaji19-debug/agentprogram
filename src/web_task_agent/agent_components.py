@@ -123,7 +123,8 @@ async def _build_browser_components(request, *, repository, page_loader=None,
         # Existing list adapters contain synchronous HTTP transports. Keep them
         # off the UI event loop so the entrance deadline remains effective.
         discovery_limit = min(100, max(20, request.target_count * 3))
-        if isinstance(source, OfficialListSource) and len(source.specs) > 1:
+        if (request.data_mode == "official" and callable(getattr(source, "discover_concurrently", None))
+                and len(source.specs) > 1):
             remaining = (max(0.1, request_deadline - monotonic()) if request_deadline is not None
                          else request.deadline_seconds)
             jobs = await source.discover_concurrently(
