@@ -1053,7 +1053,8 @@ def main() -> None:
             f'<div class="ui-mode-hint">{mode_hint(mode_key)}</div>', unsafe_allow_html=True
         )
         remaining = llm_budget_remaining(st.session_state.setdefault(f"llm_budget-{owner_id}", {}))
-        st.caption(f"本会话模型／搜索额度：剩余 {remaining} / {LLM_SESSION_LIMIT} 次")
+        budget_caption = st.empty()
+        budget_caption.caption(f"本会话模型／搜索额度：剩余 {remaining} / {LLM_SESSION_LIMIT} 次")
         if mode_key == "demo":
             st.caption("内置 Demo 是次要入口：链接指向 example.com，仅用于演示链路。")
         official_specs = None
@@ -1259,6 +1260,9 @@ def main() -> None:
         finally:
             if temporary_path is not None:
                 temporary_path.unlink(missing_ok=True)
+
+    remaining = llm_budget_remaining(st.session_state.setdefault(f"llm_budget-{owner_id}", {}))
+    budget_caption.caption(f"本会话模型／搜索额度：剩余 {remaining} / {LLM_SESSION_LIMIT} 次")
 
     # Migrate old browser sessions; runtime and result objects are reconstructed from storage.
     st.session_state.pop("latest_ui_result", None)

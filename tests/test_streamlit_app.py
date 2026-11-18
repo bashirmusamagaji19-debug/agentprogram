@@ -463,6 +463,7 @@ def test_health_button_runs_synthetic_probe_and_shows_both_results(tmp_path, mon
     assert calls == [True]
     assert any("文本推理通过" in item.value for item in app.success)
     assert any("图片识别通过" in item.value for item in app.success)
+    assert any("剩余 29 / 30" in item.value for item in app.caption)
 
 
 @pytest.mark.parametrize("target_count, expected_deadline", [(1, 90), (3, 150), (6, 240), (50, 360)])
