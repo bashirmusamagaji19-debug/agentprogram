@@ -5,15 +5,17 @@ from __future__ import annotations
 import asyncio
 import re
 from collections import Counter
+from copy import copy
 from time import monotonic
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from web_task_agent.browser import BrowserUseClient, PageHttpError, PageTimeoutError
+from web_task_agent.browser import BrowserUseClient, HttpPageLoader, PageEmptyError, PageHttpError, PageTimeoutError
 from web_task_agent.deepseek_search import DeepSeekWebClient
 from web_task_agent.job_sources import AggregatorPageLoader, DiscoveredJob
 from web_task_agent.llm_extractor import build_llm_provider_config
 from web_task_agent.models import BrowserPage
-from web_task_agent.page_reliability import PageFailureCategory, classify_page_exception
+from web_task_agent.official_api import OfficialApiContentFetcher
+from web_task_agent.page_reliability import PageFailureCategory, classify_page_content, classify_page_exception
 from web_task_agent.source_catalog import VERIFIED_SOURCES, WEB_SEARCH_HOSTS
 from web_task_agent.source_provenance import validate_public_url
 
@@ -30,8 +32,17 @@ _DETAIL_PATH = re.compile(r"(?:^|/)(?:position|post|jobs?)/[^/]+/(?:detail|view)
                           r"/(?:jobs?|position|post)/[0-9a-z_-]*\d[0-9a-z_-]*(?:\.html)?(?:/|$)|"
                           r"/(?:job-?details?|position-?details?|details?|jobdesc|postdetail)/"
                           r"[^/]*\d[^/]*(?:/|$)", re.I)
-_JOB_IDS = {"id", "jobid", "jobunionid", "positionid", "postid", "advertisementid", "zpxxid"}
+_JOB_IDS = {"id", "jobid", "jobunionid", "positionid", "postid", "advertisementid", "positionintentionid", "zpxxid"}
 _NON_DETAIL_SEGMENT = {"list", "search", "recruitment", "index", "home", "news", "announcement"}
+
+_JOB_SECTION = re.compile(
+    r"(?:^|\n)\s*(?:岗位职责|工作职责|主要职责|工作内容|职责描述|岗位描述|职位描述|任职要求|岗位要求|任职资格|"
+    r"job description|what you.ll do|responsibilities|requirements|qualifications|about the role)"
+    r"(?:[：:]|\s*(?:\n|$))", re.I)
+
+
+def _has_detail_content(body: str, _title: str) -> bool:
+    return bool(_JOB_SECTION.search(body))
 
 
 def normalize_employer_host(value: str) -> str:
@@ -103,7 +114,8 @@ class WebSearchBrowser:
                  extra_hosts=()):
         self.client = client
         self.official_api, self.http_loader, self.repository = official_api, http_loader, repository
-        self.browser_loader = browser_loader or BrowserUseClient(deadline=deadline, render_wait_seconds=8)
+        self.browser_loader = browser_loader or BrowserUseClient(
+            deadline=deadline, render_wait_seconds=8, content_ready=_has_detail_content)
         self.deadline = deadline
         self.candidate_limit = min(10, candidate_limit)
         self.min_batch_size = min(self.candidate_limit, min_batch_size)
@@ -119,6 +131,8 @@ class WebSearchBrowser:
         )))
         self._keys = set()
         self._hit_counts = Counter()
+        self._selected_employers = Counter()
+        self._employer_by_host = {host: spec for spec, hosts in WEB_SEARCH_HOSTS.items() for host in hosts}
         self._jobs: dict[str, DiscoveredJob] = {}
         self._buffer: list[str] = []
         self._queries: list[str] = []
@@ -195,7 +209,19 @@ class WebSearchBrowser:
                 self._buffer.append(url)
                 self.candidate_summaries[url] = {"title": title, "source_spec": "deepseek-search"}
             self.discovered_count = len(self._jobs)
-        urls, self._buffer = self._buffer[:count], self._buffer[count:]
+        # Respect result rank within each employer, but give another employer a
+        # turn before processing repeated hits from the first company.
+        urls = []
+
+        def employer(url):
+            host = urlsplit(url).hostname
+            return self._employer_by_host.get(host, host)
+
+        while self._buffer and len(urls) < count:
+            index = min(range(len(self._buffer)), key=lambda i: self._selected_employers[employer(self._buffer[i])])
+            url = self._buffer.pop(index)
+            urls.append(url)
+            self._selected_employers[employer(url)] += 1
         self.selected_count += len(urls)
         self.search_diagnostics = {
             "query": query, "queries": self._queries[:self._search_calls], "provider": "deepseek-search",
@@ -219,11 +245,19 @@ class WebSearchBrowser:
     async def open_url(self, url: str) -> BrowserPage:
         if url not in self._jobs:
             raise PageHttpError("candidate outside the employer search results", status_code=403)
-        loader = AggregatorPageLoader(
-            [self._jobs[url]],
-            official_api=self.official_api, http_loader=self.http_loader, repository=self.repository)
+        detail_timeout = min(8, self._remaining())
+        detail_deadline = monotonic() + detail_timeout
+        api, http = self.official_api, self.http_loader
+        if isinstance(api, OfficialApiContentFetcher):
+            api = copy(api)
+            api.deadline = detail_deadline
+        if isinstance(http, HttpPageLoader):
+            http = copy(http)
+            http.deadline = detail_deadline
+        loader = AggregatorPageLoader([self._jobs[url]], official_api=api, http_loader=http,
+                                      repository=self.repository)
         try:
-            page = await asyncio.wait_for(loader(url), timeout=min(8, self._remaining()))
+            page = await asyncio.wait_for(loader(url), timeout=detail_timeout)
         except Exception as exc:
             if classify_page_exception(exc).category is PageFailureCategory.REMOVED:
                 raise
@@ -233,6 +267,11 @@ class WebSearchBrowser:
                 page = await asyncio.wait_for(self.browser_loader.open_url(url), timeout=min(12, self._remaining()))
             except TimeoutError as timeout:
                 raise PageTimeoutError("candidate detail timed out") from timeout
+            if not _has_detail_content(page.content, page.title):
+                failure = classify_page_content(page)
+                if failure and failure.category is PageFailureCategory.REMOVED:
+                    raise PageHttpError("candidate is no longer available", status_code=404) from None
+                raise PageEmptyError("browser returned no identifiable job description") from None
         finally:
             self.resolution_log.extend(loader.resolution_log)
         actual = page.metadata.get("canonical_url") or page.url

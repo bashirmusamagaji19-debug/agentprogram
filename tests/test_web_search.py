@@ -90,6 +90,36 @@ async def test_web_search_prefilters_by_employer_and_single_job_identity():
     assert all("site:" in query and "深圳" in query for query in diagnostics["queries"])
 
 
+@pytest.mark.asyncio
+async def test_search_checks_different_employers_before_repeated_hits():
+    from web_task_agent.web_search import WebSearchBrowser
+
+    urls = [f"https://example.org/jobs/{i}" for i in range(1, 6)]
+    other = "https://example.com/jobs/101"
+    client = DeepSeekWebClient(api_key="test-key", transport=lambda *args: {"results": [
+        {"url": url, "title": "AI Agent internship"} for url in [*urls, other]
+    ]})
+    browser = WebSearchBrowser(client, extra_hosts=["example.org", "example.com"])
+
+    pages = await browser.search("AI Agent", target_count=2)
+    assert pages[0].metadata["candidate_urls"] == [urls[0], other]
+
+
+@pytest.mark.asyncio
+async def test_web_search_browser_fallback_rejects_unrendered_job_shell():
+    from web_task_agent.browser import PageEmptyError
+    from web_task_agent.web_search import WebSearchBrowser
+
+    class ShellBrowser:
+        async def open_url(self, url):
+            return BrowserPage(url=url, title="Talent portal", content="Home | Job search | Sign in " * 30)
+
+    browser = WebSearchBrowser(client_with_results([]), extra_hosts=["example.org"], browser_loader=ShellBrowser())
+    pages = await browser.search("AI Agent 实习", target_count=1)
+    with pytest.raises(PageEmptyError):
+        await browser.open_url(pages[0].metadata["candidate_urls"][0])
+
+
 @pytest.mark.parametrize(("duties", "valid"), [
     ("开发 Agent 工作流并实现工具调用。负责上线后的系统评测。", True),
     ("整理海外数据。负责用户运营。日常使用 AI 工具提升效率。", False),

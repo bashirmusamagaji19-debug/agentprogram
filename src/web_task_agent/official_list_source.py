@@ -395,7 +395,7 @@ async def _baidu_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: 
                     tags=[project] if project else [],
                     source_job_id=post_id,
                     discovery_url=url,
-                    query_context={"keyword": search, "page": 1, "recruitType": recruit_type},
+                    query_context={"keyword": search, "page": 1, "recruit_type": recruit_type},
                     internship_evidence_source=BAIDU_LIST_TYPE_SOURCE,
                     internship_evidence_value=recruit_type,
                 ))

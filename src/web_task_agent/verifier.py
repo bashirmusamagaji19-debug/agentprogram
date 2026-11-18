@@ -21,7 +21,8 @@ _ENGINEERING_OBJECT = re.compile(
     r"\b(?:agent|agents|llm|rag|api|apis|software|model|models|workflow|workflows|backend|code|pipeline)\b", re.I)
 _OTHER_DUTY = re.compile(
     r"数据标注|数据整理|内容创作|内容审核|用户运营|内容运营|社群运营|投放|市场推广|商务拓展|"
-    r"运营数据|营销|客户服务|\b(?:annotat\w+|marketing|community management|content moderation)\b", re.I)
+    r"运营数据|市场调研|竞品分析|用户调研|产品原型|需求文档|营销|客户服务|"
+    r"\b(?:annotat\w+|marketing|community management|content moderation)\b", re.I)
 
 
 def _primarily_development(duties: str) -> bool:
