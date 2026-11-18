@@ -59,7 +59,7 @@ MODE_HINTS = {
     "official": "实时连接官方招聘 API：默认使用小米实习来源，逐项独立核验交付链接。",
     "aggregator": "聚合岗位：从上传文件或 jobs.json 读取岗位，再执行统一验证和匹配。",
     "seed_urls": "指定岗位 URL：适合验证单个或一组真实岗位页面。",
-    "web_search": "DeepSeek Search 优先搜索已核验大厂的官方单岗详情。岗位须以开发为主，且通过投递入口核验。",
+    "web_search": "DeepSeek Search 搜索已核验大厂的官方岗位详情。结果不足时补查官网。岗位须以开发为主，且通过投递入口核验。",
 }
 
 MODE_LABELS = {

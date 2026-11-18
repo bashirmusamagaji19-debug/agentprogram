@@ -120,6 +120,37 @@ async def test_web_search_browser_fallback_rejects_unrendered_job_shell():
         await browser.open_url(pages[0].metadata["candidate_urls"][0])
 
 
+@pytest.mark.asyncio
+async def test_web_search_supplements_second_batch_with_attributed_official_job(tmp_path):
+    from web_task_agent.job_sources import DiscoveredJob
+    from web_task_agent.source_capture import SourceCaptureBrowser
+    from web_task_agent.web_search import WebSearchBrowser
+
+    public_url = "https://example.org/jobs/10"
+    native = DiscoveredJob(url=public_url, title="AI Agent developer", company="Example",
+                           source="example-employer", source_job_id="10",
+                           discovery_url="https://example.org/jobs")
+    official_calls = []
+
+    async def official_discovery(target_count):
+        official_calls.append(target_count)
+        return [native], [{"source": "example-employer", "status": "healthy", "count": 1}]
+
+    browser = WebSearchBrowser(client_with_results([]), extra_hosts=["example.org"],
+                               official_discovery=official_discovery)
+    capture = SourceCaptureBrowser(browser, root=tmp_path / "archive", run_id="run-web-supplement",
+                                   keyword="AI Agent", location="全国", target_count=1)
+    first = await capture.search("AI Agent", target_count=1)
+    assert first[0].metadata["candidate_urls"] == ["https://example.org/jobs/1"]
+    assert official_calls == []
+    second = await capture.search("AI Agent", target_count=1)
+
+    assert second[0].metadata["candidate_urls"] == [public_url]
+    assert official_calls == [1]
+    assert any(r.source_spec == native.source and r.source_job_id == "10" for r in capture.candidates.values())
+    assert capture.source_diagnostics[-1]["source"] == "example-employer"
+
+
 @pytest.mark.parametrize(("duties", "valid"), [
     ("开发 Agent 工作流并实现工具调用。负责上线后的系统评测。", True),
     ("整理海外数据。负责用户运营。日常使用 AI 工具提升效率。", False),
@@ -158,6 +189,20 @@ async def test_unarchivable_hit_does_not_abort_or_leak_in_a_search_batch(tmp_pat
     assert {record.requested_url for record in browser.candidates.values()} >= {valid, urls[-1]}
     assert all("example-secret" not in path.read_text(encoding="utf-8", errors="ignore")
                for path in (tmp_path / "archive").rglob("*.json"))
+
+
+@pytest.mark.parametrize(("title", "valid"), [
+    ("AI产品（J104948）", False),
+    ("AI 产品经理实习生", False),
+    ("AI 产品开发工程师", True),
+])
+def test_development_role_does_not_confuse_product_roles_with_engineering(title, valid):
+    from web_task_agent.models import JobPosting
+    from web_task_agent.verifier import JobVerifier
+
+    job = JobPosting(title=title, company="示例", location="深圳", source="http",
+                     url="https://example.org/jobs/1", responsibilities="开发 AI Agent 工作流。", confidence=1)
+    assert JobVerifier(require_development=True).verify(job).is_valid is valid
 
 
 @pytest.mark.asyncio
@@ -250,7 +295,8 @@ def test_web_search_is_a_billable_run_and_appears_in_ui():
 def test_curated_sources_exclude_unvalidated_or_internship_incompatible_sources():
     from web_task_agent.source_catalog import VERIFIED_SOURCES
 
-    assert {"xiaomi", "xiaohongshu", "xpeng", "meituan", "netease", "mihoyo", "nio"} == set(VERIFIED_SOURCES)
+    assert {"xiaomi", "xiaohongshu", "xpeng", "meituan", "netease", "mihoyo", "nio",
+            "huawei", "baidu"} <= VERIFIED_SOURCES.keys()
     assert "liauto" not in VERIFIED_SOURCES
     assert "agibot" not in VERIFIED_SOURCES
     assert all(row["checked_on"] == "2026-11-18" for row in VERIFIED_SOURCES.values())

@@ -24,6 +24,15 @@ _OTHER_DUTY = re.compile(
     r"运营数据|市场调研|竞品分析|用户调研|产品原型|需求文档|营销|客户服务|"
     r"\b(?:annotat\w+|marketing|community management|content moderation)\b", re.I)
 
+_NON_DEVELOPMENT_TITLE = re.compile(
+    r"产品(?:经理|助理|运营|策划)|^(?:AI\s*)?产品\s*(?:实习(?:生)?)?(?:\s*[（(]|\s*$)|"
+    r"(?:内容|用户|社区|商业|电商|新媒体|社群)运营|数据标注|"
+    r"\b(?:product manager|content operation\w*|data annotat\w*)\b", re.I)
+
+
+def is_non_development_role(title: str) -> bool:
+    return bool(_NON_DEVELOPMENT_TITLE.search(title.strip()))
+
 
 def _primarily_development(duties: str) -> bool:
     engineering = other = 0
@@ -60,7 +69,8 @@ class JobVerifier:
             reasons.append("missing requirements and responsibilities")
         if not self._is_relevant(job):
             reasons.append("not relevant to AI job direction")
-        if self.require_development and not _primarily_development(job.responsibilities):
+        if self.require_development and (is_non_development_role(job.title)
+                                         or not _primarily_development(job.responsibilities)):
             reasons.append("岗位职责未能确认以开发或技术研发为主")
         return VerificationResult(is_valid=not reasons, reasons=reasons)
 

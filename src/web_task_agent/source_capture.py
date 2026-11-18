@@ -146,6 +146,11 @@ class SourceCaptureBrowser:
                 urls = page.metadata.get("candidate_urls", [page.url])
                 for url in urls:
                     if not any(c.query_context.get("type") != "search_page" for c in self._by_url.get(url, [])):
+                        get_job = getattr(self.browser, "discovered_job", None)
+                        native = get_job(url) if callable(get_job) else None
+                        if isinstance(native, DiscoveredJob):
+                            self._register(native)
+                            continue
                         self._register(DiscoveredJob(url=url, source="browser-search", discovery_url=page.url,
                             query_context={"type": "discovered_url", "source": snapshot},
                             title=page.title if url == page.url else

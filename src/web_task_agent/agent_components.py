@@ -99,17 +99,46 @@ async def _build_browser_components(request, *, repository, page_loader=None,
                                     http_loader=http_loader, repository=repository)
         browser = adapters["browser"](page_loader=loader, discovery_only=True)
     elif request.data_mode == "web_search":
+        from web_task_agent.source_catalog import VERIFIED_SOURCES
+        from web_task_agent.verifier import is_non_development_role
         from web_task_agent.web_search import WebSearchBrowser, build_search_client
 
         official_api = adapters["official_api"]()
         if isinstance(official_api, OfficialApiContentFetcher):
             official_api.deadline = request_deadline
+        async def official_supplement(limit):
+            # Search live, validated recruitment sites once, keeping the same
+            # keyword and city. Sequential per-source budgets protect the run.
+            jobs, diagnostics = [], []
+            soft_deadline = monotonic() + 12
+            for spec in ("baidu", "huawei", "tencent-campus", "ctrip", "jd"):
+                if spec not in VERIFIED_SOURCES or len(jobs) >= limit:
+                    continue
+                now = monotonic()
+                budget = min(4.0, soft_deadline - now, (request_deadline or soft_deadline) - now)
+                if budget <= 0:
+                    break
+                source = OfficialListSource(specs=[spec], keyword=request.keyword, location=request.location)
+                source.transport.deadline = now + budget
+                source_limit = min(2, limit - len(jobs))
+                discovery_limit = source_limit + 2
+                try:
+                    items = await asyncio.wait_for(asyncio.to_thread(
+                        lambda adapter=source, count=discovery_limit: asyncio.run(adapter.discover(count))),
+                        timeout=budget)
+                except TimeoutError:
+                    diagnostics.append({"source": spec, "status": "failed", "error_category": "timeout", "count": 0})
+                    continue
+                jobs.extend([job for job in items if not is_non_development_role(job.title)][:source_limit])
+                diagnostics.extend(source.diagnostics)
+            return jobs, diagnostics
+
         browser = WebSearchBrowser(
             build_search_client(), official_api=official_api, http_loader=http_loader,
             repository=repository, deadline=request_deadline,
             candidate_limit=candidate_limit if candidate_limit is not None else 10,
             min_batch_size=min(5, max(3, request.target_count + 1)),
-            extra_hosts=request.web_search_hosts)
+            extra_hosts=request.web_search_hosts, official_discovery=official_supplement)
         seeds = []
     else:
         source = (adapters["official"](specs=request.official_specs or None,

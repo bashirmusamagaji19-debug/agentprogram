@@ -5,6 +5,10 @@ VERIFIED_SOURCE_SCOPE = (
     "按各公司列出的关键词／全国抽查：发现岗位后检查真实详情、正文与可用申请入口。"
     "样本通过不保证所有关键词、城市或后续请求都有结果；每次交付仍重新核验。")
 VERIFIED_SOURCES = {
+    "huawei": {"name": "华为", "official_url": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN",
+               "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI Agent 实习"},
+    "baidu": {"name": "百度", "official_url": "https://talent.baidu.com/jobs/list?recruitType=INTERN",
+              "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI Agent 实习"},
     "xiaomi": {"name": "小米", "official_url": "https://hr.xiaomi.com/", "checked_on": VERIFIED_SOURCE_DATE},
     "xiaohongshu": {"name": "小红书", "official_url": "https://job.xiaohongshu.com/",
                     "checked_on": VERIFIED_SOURCE_DATE},
@@ -23,10 +27,6 @@ VERIFIED_SOURCES = {
 LIMITED_SOURCES = {
     "liauto": {"name": "理想汽车", "official_url": "https://www.lixiang.com/employ.html",
                "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "实习"},
-    "huawei": {"name": "华为", "official_url": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN",
-               "validation_keyword": "AI Agent 实习"},
-    "baidu": {"name": "百度", "official_url": "https://talent.baidu.com/jobs/list?recruitType=INTERN",
-              "validation_keyword": "AI Agent 实习"},
     "ctrip": {"name": "携程", "official_url": "https://careers.ctrip.com/",
               "validation_keyword": "AI 实习"},
     "jd": {"name": "京东", "official_url": "https://campus.jd.com/#/jobs",
@@ -54,8 +54,6 @@ WEB_SEARCH_HOSTS = {
 SOURCE_LIMITATIONS = {
     "理想汽车": "本机样本通过，但 Streamlit 和 Linux 云端发现接口连续超时，暂移出直连可选名单。",
     "腾讯": "当前校招接口返回空列表，暂不作为可选直连来源。",
-    "百度": "当前公开接口拒绝访问，暂不作为可选直连来源。",
-    "华为": "现有适配器仅覆盖社招，不能证明实习岗位覆盖；申请入口核验仍不稳定。",
     "京东、携程": "本次发现数据的招聘类型或详情核验未通过，暂不作为可选直连来源。",
     "比亚迪、拼多多": "本次未通过完整详情与条件核验，暂不作为可选直连来源。",
 }

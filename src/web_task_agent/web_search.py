@@ -6,6 +6,7 @@ import asyncio
 import re
 from collections import Counter
 from copy import copy
+from dataclasses import replace
 from time import monotonic
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -16,8 +17,10 @@ from web_task_agent.llm_extractor import build_llm_provider_config
 from web_task_agent.models import BrowserPage
 from web_task_agent.official_api import OfficialApiContentFetcher
 from web_task_agent.page_reliability import PageFailureCategory, classify_page_content, classify_page_exception
+from web_task_agent.search_conditions import _internship_requested
 from web_task_agent.source_catalog import VERIFIED_SOURCES, WEB_SEARCH_HOSTS
 from web_task_agent.source_provenance import validate_public_url
+from web_task_agent.verifier import is_non_development_role
 
 
 def build_search_client() -> DeepSeekWebClient:
@@ -111,7 +114,7 @@ class WebSearchBrowser:
     search_endpoint = "https://api.deepseek.com/v1/tools/search"
     def __init__(self, client: DeepSeekWebClient, *, official_api=None, http_loader=None,
                  repository=None, browser_loader=None, deadline=None, candidate_limit=10, min_batch_size=1,
-                 extra_hosts=()):
+                 extra_hosts=(), official_discovery=None):
         self.client = client
         self.official_api, self.http_loader, self.repository = official_api, http_loader, repository
         self.browser_loader = browser_loader or BrowserUseClient(
@@ -138,6 +141,64 @@ class WebSearchBrowser:
         self._queries: list[str] = []
         self._search_calls = 0
         self._search_errors: list[str] = []
+        self._official_discovery = official_discovery
+        self._supplement_attempted = False
+        self._want_internship = False
+        self._official_diagnostics = []
+
+    def discovered_job(self, url: str) -> DiscoveredJob | None:
+        job = self._jobs.get(url)
+        return job if job is not None and job.source != "deepseek-search" else None
+
+    def _queue_job(self, job: DiscoveredJob, *, official: bool = False) -> None:
+        try:
+            if urlsplit(job.url).hostname not in self.hosts:
+                self._hit_counts["filtered_outside_employers"] += 1
+                return
+            validate_public_url(job.url)
+            url = _candidate_url(job)
+            if url:
+                validate_public_url(url)
+        except ValueError:
+            self._hit_counts["filtered_invalid_url"] += 1
+            return
+        if not url or _COLLECTION_TITLE.search(job.title):
+            self._hit_counts["filtered_not_detail"] += 1
+            return
+        parts = urlsplit(url)
+        if (self._want_internship and parts.hostname == "talent.baidu.com"
+                and not parts.path.casefold().startswith("/jobs/detail/intern/")):
+            self._hit_counts["filtered_wrong_recruitment_type"] += 1
+            return
+        if is_non_development_role(job.title):
+            self._hit_counts["filtered_non_development_title"] += 1
+            return
+        key = _job_key(url)
+        if key in self._keys:
+            self._hit_counts["filtered_duplicate"] += 1
+            return
+        self._keys.add(key)
+        title = re.sub(r"[\x00-\x1f\x7f]", " ", job.title).strip()[:500]
+        company = VERIFIED_SOURCES.get(self._employer_by_host.get(parts.hostname), {}).get("name", "")
+        self._jobs[url] = (replace(job, url=url, title=title) if official else DiscoveredJob(
+            url=url, title=title, company=company, source="deepseek-search"))
+        self._buffer.append(url)
+        self.candidate_summaries[url] = {"title": title, "source_spec": self._jobs[url].source}
+        self.discovered_count = len(self._jobs)
+        if official:
+            self._hit_counts["official_supplement_candidates"] += 1
+
+    async def _supplement(self, count: int) -> None:
+        self._supplement_attempted = True
+        try:
+            jobs, self._official_diagnostics = await asyncio.wait_for(
+                self._official_discovery(count), timeout=min(15, self._remaining()))
+        except TimeoutError:
+            self._official_diagnostics = [{"source": "official-supplement", "status": "failed",
+                                           "error_category": "timeout", "count": 0}]
+            return
+        for job in jobs:
+            self._queue_job(job, official=True)
 
     def _remaining(self):
         remaining = 30 if self.deadline is None else min(30, self.deadline - monotonic())
@@ -161,7 +222,10 @@ class WebSearchBrowser:
             return []
         if not self._queries:
             self._queries = _scoped_queries(query, self.hosts)
+            self._want_internship = _internship_requested(query)
         count = max(0, min(5, max(target_count, self.min_batch_size), self.candidate_limit - self.selected_count))
+        if count and self._search_calls and self._official_discovery and not self._supplement_attempted:
+            await self._supplement(count)
         while count and len(self._buffer) < count and self._search_calls < len(self._queries):
             actual_query = self._queries[self._search_calls]
             self._search_calls += 1
@@ -185,30 +249,9 @@ class WebSearchBrowser:
                 raise
             for job in jobs:
                 self._hit_counts["returned_hits"] += 1
-                try:
-                    if urlsplit(job.url).hostname not in self.hosts:
-                        self._hit_counts["filtered_outside_employers"] += 1
-                        continue
-                    validate_public_url(job.url)
-                    url = _candidate_url(job)
-                    if url:
-                        validate_public_url(url)
-                except ValueError:
-                    self._hit_counts["filtered_invalid_url"] += 1
-                    continue
-                if not url or _COLLECTION_TITLE.search(job.title):
-                    self._hit_counts["filtered_not_detail"] += 1
-                    continue
-                key = _job_key(url)
-                if key in self._keys:
-                    self._hit_counts["filtered_duplicate"] += 1
-                    continue
-                self._keys.add(key)
-                title = re.sub(r"[\x00-\x1f\x7f]", " ", job.title).strip()[:500]
-                self._jobs[url] = DiscoveredJob(url=url, title=title, source="deepseek-search")
-                self._buffer.append(url)
-                self.candidate_summaries[url] = {"title": title, "source_spec": "deepseek-search"}
-            self.discovered_count = len(self._jobs)
+                self._queue_job(job)
+        if count and not self._buffer and self._official_discovery and not self._supplement_attempted:
+            await self._supplement(count)
         # Respect result rank within each employer, but give another employer a
         # turn before processing repeated hits from the first company.
         urls = []
@@ -218,7 +261,10 @@ class WebSearchBrowser:
             return self._employer_by_host.get(host, host)
 
         while self._buffer and len(urls) < count:
-            index = min(range(len(self._buffer)), key=lambda i: self._selected_employers[employer(self._buffer[i])])
+            index = min(range(len(self._buffer)), key=lambda i: (
+                self._jobs[self._buffer[i]].source == "deepseek-search",
+                self._selected_employers[employer(self._buffer[i])],
+            ))
             url = self._buffer.pop(index)
             urls.append(url)
             self._selected_employers[employer(url)] += 1
@@ -228,17 +274,18 @@ class WebSearchBrowser:
             "search_calls": self._search_calls, "candidate_count": len(urls),
             "discovered_count": self.discovered_count, "selected_count": self.selected_count,
             "has_more": self.selected_count < self.candidate_limit and (
-                bool(self._buffer) or self._search_calls < len(self._queries)),
+                bool(self._buffer) or self._search_calls < len(self._queries)
+                or (self._official_discovery is not None and not self._supplement_attempted)),
             "stop_reason": "batch_selected" if urls else "no_more_results",
             "employer_hosts": list(self.hosts), "query_errors": list(self._search_errors), **self._hit_counts,
         }
         self.source_diagnostics = [{
             "source": "deepseek-search", "status": "healthy" if self._hit_counts["returned_hits"] else "empty",
             "attempts": self._search_calls, "count": self._hit_counts["returned_hits"],
-            "candidate_count": self.discovered_count,
-        }]
+            "candidate_count": self.discovered_count - self._hit_counts["official_supplement_candidates"],
+        }, *self._official_diagnostics]
         return [BrowserPage(url="https://api.deepseek.com/v1/tools/search", title="Web search results",
-                            content="Search result titles are unverified discovery hints.",
+                            content="Discovery hints. Verify each job detail independently.",
                             source="deepseek-search", metadata={"candidate_urls": urls,
                                                                "search_diagnostics": self.search_diagnostics})]
 
@@ -258,6 +305,9 @@ class WebSearchBrowser:
                                       repository=self.repository)
         try:
             page = await asyncio.wait_for(loader(url), timeout=detail_timeout)
+            if (isinstance(http, HttpPageLoader) and page.metadata.get("content_origin") == "http"
+                    and not _has_detail_content(page.content, page.title)):
+                raise PageEmptyError("HTTP returned no identifiable job description")
         except Exception as exc:
             if classify_page_exception(exc).category is PageFailureCategory.REMOVED:
                 raise
