@@ -23,6 +23,32 @@ VERIFIED_SOURCES = {
 LIMITED_SOURCES = {
     "liauto": {"name": "理想汽车", "official_url": "https://www.lixiang.com/employ.html",
                "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "实习"},
+    "huawei": {"name": "华为", "official_url": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN",
+               "validation_keyword": "AI Agent 实习"},
+    "baidu": {"name": "百度", "official_url": "https://talent.baidu.com/jobs/list?recruitType=INTERN",
+              "validation_keyword": "AI Agent 实习"},
+    "ctrip": {"name": "携程", "official_url": "https://careers.ctrip.com/",
+              "validation_keyword": "AI 实习"},
+    "jd": {"name": "京东", "official_url": "https://campus.jd.com/#/jobs",
+           "validation_keyword": "AI 实习"},
+    "tencent-campus": {"name": "腾讯", "official_url": "https://join.qq.com/post.html?query=p_2",
+                       "validation_keyword": "AI 实习"},
+}
+
+# Exact recruitment hosts. Shared providers must use the employer's own tenant.
+WEB_SEARCH_HOSTS = {
+    "xiaomi": ("xiaomi.jobs.f.mioffice.cn", "hr.xiaomi.com"),
+    "xiaohongshu": ("job.xiaohongshu.com",),
+    "xpeng": ("xiaopeng.jobs.feishu.cn",),
+    "meituan": ("zhaopin.meituan.com",),
+    "netease": ("hr.163.com",),
+    "mihoyo": ("jobs.mihoyo.com",),
+    "nio": ("nio.jobs.feishu.cn",),
+    "huawei": ("career.huawei.com",),
+    "baidu": ("talent.baidu.com",),
+    "ctrip": ("careers.ctrip.com",),
+    "jd": ("campus.jd.com",),
+    "tencent-campus": ("join.qq.com",),
 }
 
 SOURCE_LIMITATIONS = {

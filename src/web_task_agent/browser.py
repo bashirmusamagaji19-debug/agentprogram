@@ -270,9 +270,17 @@ class BrowserUseClient:
         self.last_read_diagnostics.update(
             stage="rendering", page_created_after=round(monotonic() - started, 3),
         )
+        requested = urlsplit(url)
+        # Huawei renders direction JD text before enabling its native Apply button.
+        wait_for_apply = (
+            self.content_ready is not None
+            and requested.hostname == "career.huawei.com"
+            and requested.path == "/cn/job-details"
+            and "positionIntentionId" in parse_qs(requested.query)
+        )
         # 动态站点初次渲染可能只有加载提示。正文读取可在限时内等待内容就绪。
         try:
-            content = await self._read_body_until_useful(page)
+            content = await self._read_body_until_useful(page, wait_for_apply=wait_for_apply)
         finally:
             self.last_read_diagnostics["body_wait_finished_after"] = round(monotonic() - started, 3)
             await self._capture_render_diagnostics(page)
@@ -392,7 +400,7 @@ class BrowserUseClient:
             )
         return ""
 
-    async def _read_body_until_useful(self, page: Any) -> str:
+    async def _read_body_until_useful(self, page: Any, *, wait_for_apply: bool = False) -> str:
         # 默认以正文长度判断页面是否已渲染。严格核验可提供专门的就绪条件，
         # 比如等正文中出现与当前岗位匹配的描述片段。
         content = await self._read_body_text(page)
@@ -417,7 +425,7 @@ class BrowserUseClient:
                     ready = bool(await self._call(content_ready, content, title))
                 except Exception:
                     ready = False
-                if ready:
+                if ready and (not wait_for_apply or await self._read_apply_controls(page)):
                     return content
             elif len(content.strip()) >= MIN_USEFUL_CONTENT_CHARS:
                 return content
@@ -466,8 +474,11 @@ class BrowserUseClient:
         try:
             controls = await self._call(
                 page.evaluate,
-                "() => Array.from(document.querySelectorAll('a,button,input[type=\"submit\"],"
-                "input[type=\"button\"],[role=\"button\"]')).flatMap(el => {"
+                "() => {"
+                "const jdDetail = location.hostname === 'campus.jd.com' "
+                "&& /^#\\/details\\?id=\\d+(?:&|$)/.test(location.hash);"
+                "const selector = 'a,button,input[type=\"submit\"],input[type=\"button\"],[role=\"button\"]';"
+                "return Array.from(document.querySelectorAll(jdDetail ? selector + ',div' : selector)).flatMap(el => {"
                 "const style = window.getComputedStyle(el);"
                 "const rect = el.getBoundingClientRect();"
                 "const hidden = el.closest('[hidden],[aria-hidden=\"true\"]');"
@@ -477,11 +488,15 @@ class BrowserUseClient:
                 "const enabled = !el.disabled && el.getAttribute('aria-disabled') !== 'true';"
                 "const text = (el.innerText || el.value || el.getAttribute('aria-label') || el.title || '') "
                 ".trim().replace(/\\s+/g, ' ');"
+                # 京东详情用有点击事件的普通 DIV 作为投递控件。
+                "if (!el.matches(selector) && (text !== '投递简历' || el.childElementCount "
+                "|| typeof el.onclick !== 'function' || style.cursor !== 'pointer' "
+                "|| style.pointerEvents === 'none' || el.closest('[inert],[aria-disabled=\"true\"]'))) return [];"
                 "if (!visible || !enabled || !text || !/(apply|投\\s*递|申\\s*请|应\\s*聘)/i.test(text)) return [];"
                 "return [{tag: el.tagName.toLowerCase(), text, visible: true, enabled: true, "
                 "href: el.href || '', context: (el.closest('main,article,section,form')?.innerText || '') "
                 ".trim().slice(0, 240)}];"
-                "})",
+                "}); }",
             )
         except Exception:
             return []

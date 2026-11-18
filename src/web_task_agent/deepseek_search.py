@@ -49,8 +49,11 @@ def _transport(endpoint: str, key: str, payload: dict[str, Any], timeout: int) -
 
 
 def _web_url(value: str) -> bool:
-    parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.hostname) and not parsed.username
+    try:
+        parsed = urlparse(value)
+        return parsed.scheme in {"http", "https"} and bool(parsed.hostname) and not parsed.username
+    except ValueError:
+        return False
 
 
 class DeepSeekWebClient:

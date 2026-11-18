@@ -61,6 +61,10 @@ def test_official_list_source_backfills_tier() -> None:
 
     class OneJobTransport:
         def open_json(self, method: str, url: str, *, body=None, form: bool = False) -> dict:
+            if url.endswith("getProjectMapping"):
+                return {"status": 0, "data": [{"subProjectList": [
+                    {"mappingId": 2, "projectId": "2", "projectName": "日常实习"},
+                ]}]}
             return {
                 "status": 0,
                 "data": {
@@ -68,7 +72,7 @@ def test_official_list_source_backfills_tier() -> None:
                         {
                             "positionTitle": "AI全栈工程师实习生",
                             "postId": "p-1",
-                            "projectName": "应届毕业生",
+                            "projectName": "日常实习",
                             "recruitLabelName": "应届毕业生",
                             "workCities": "深圳",
                         }

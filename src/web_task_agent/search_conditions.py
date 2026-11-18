@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from web_task_agent.baidu_recruitment import BAIDU_DETAIL_TYPE_SOURCE, BAIDU_LIST_TYPE_SOURCE
 from web_task_agent.browser import MIN_USEFUL_CONTENT_CHARS
 from web_task_agent.location_filter import is_unknown_location, location_matches
 from web_task_agent.skill_aliases import term_in_text
@@ -16,8 +17,13 @@ _ALIAS_GROUPS = (
     ("intern", "interns", "internship", "internships", "实习", "实习生"),
 )
 _ALIASES = {alias: group for group in _ALIAS_GROUPS for alias in group}
-_OFFICIAL_TYPE_SOURCES = {"xiaomi:list:type", "xiaomi:detail:recruit_type.id",
-                          "liauto:list:job_mode", "feishu:detail:recruit_type.name"}
+_BAIDU_INTERN_TYPE_SOURCES = {BAIDU_LIST_TYPE_SOURCE, BAIDU_DETAIL_TYPE_SOURCE}
+_HUAWEI_INTERN_TYPE_SOURCES = {"huawei:list:scenarioName", "huawei:detail:scenarioName"}
+_OFFICIAL_TYPE_SOURCES = {
+    "xiaomi:list:type", "xiaomi:detail:recruit_type.id", "ctrip:list:kind", "jd:list:planName",
+    "liauto:list:job_mode", "feishu:detail:recruit_type.name", "tencent:detail:recruitType",
+    "tencent:list:project",
+} | _BAIDU_INTERN_TYPE_SOURCES | _HUAWEI_INTERN_TYPE_SOURCES
 
 
 def parse_keywords(keyword: str) -> list[str]:
@@ -34,8 +40,15 @@ def missing_keywords(keyword: str, text: str) -> list[str]:
 
 
 def has_official_internship(source: str, value: str) -> bool:
+    if source in _BAIDU_INTERN_TYPE_SOURCES:
+        return value == "INTERN"
+    if source in _HUAWEI_INTERN_TYPE_SOURCES:
+        return value == "实习生"
+    if source == "jd:list:planName":
+        return value.strip().endswith(("实习生", "实习生计划"))
     # Values verified against public list/detail responses on 2026-10-25.
     return (source, value) in {
+        ("ctrip:list:kind", "3"), ("tencent:list:project", "internship"), ("tencent:detail:recruitType", "2"),
         ("xiaomi:list:type", "3"), ("xiaomi:detail:recruit_type.id", "202"),
         ("liauto:list:job_mode", "202"),
     } or (source == "feishu:detail:recruit_type.name"

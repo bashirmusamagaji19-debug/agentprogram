@@ -28,10 +28,48 @@ from urllib import parse as url_parse
 from urllib import request as url_request
 from urllib.error import URLError
 
-from web_task_agent.browser import PageHttpError, PageTimeoutError
+from web_task_agent.baidu_recruitment import (
+    BAIDU_DETAIL_PATH,
+    BAIDU_DETAIL_TYPE_SOURCE,
+    BAIDU_HOST,
+    baidu_job_text,
+    parse_baidu_page,
+)
+from web_task_agent.browser import PageEmptyError, PageHttpError, PageTimeoutError
 
 # 腾讯校招库详情接口（join.qq.com，公开无鉴权）
 _TENCENT_CAMPUS_DETAIL_API = "https://join.qq.com/api/v1/jobDetails/getJobDetailsByPostId"
+
+_HUAWEI_POSITION_API = (
+    "https://apigw-dgg-b0.huawei.com/api/apig/channelhw/recruitmentPosition/pub/"
+)
+_HUAWEI_APP_PARAM = "?X-HW-ID=app_000000035886"
+_HUAWEI_INTENT_API = _HUAWEI_POSITION_API + "getPositionIntentionList" + _HUAWEI_APP_PARAM
+_HUAWEI_DETAIL_API = _HUAWEI_POSITION_API + "getRecruitmentPositionDetail" + _HUAWEI_APP_PARAM
+_HUAWEI_INTERNSHIP_LIST_URL = (
+    "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN"
+)
+_HUAWEI_DETAIL_URL = "https://career.huawei.com/cn/job-details"
+_HUAWEI_HEADERS = {
+    "Content-Type": "application/json",
+    "x-jalor-tenantAlias": "hcm",
+    "x-language": "zh_CN",
+    "x-Referer": "https://career.huawei.com/cn",
+    "x-alb-gray": "prod",
+    "Referer": "https://career.huawei.com/cn/campus-recruitment-job-list",
+}
+
+
+def _huawei_direction_jd(direction: dict) -> str:
+    from web_task_agent.official_list_families import _strip_html
+
+    duties = _strip_html(str(direction.get("jobResponsibilities") or ""))
+    requirements = _strip_html(str(direction.get("jobDemand") or ""))
+    if not duties or not requirements or "请您详见岗位意向" in duties + requirements:
+        return ""
+    name = str(direction.get("positionIntention") or "").strip()
+    direction_label = f"岗位意向：{name}\n" if name else ""
+    return f"岗位职责：\n{direction_label}{duties}\n任职要求：\n{requirements}"
 
 
 @dataclass(frozen=True)
@@ -78,6 +116,7 @@ class OfficialApiContent:
     canonical_url: str = ""
     internship_evidence_source: str = ""
     internship_evidence_value: str = ""
+    content_origin: str = "official-api"
 
 
 class OfficialApiContentFetcher:
@@ -94,9 +133,16 @@ class OfficialApiContentFetcher:
         return await asyncio.to_thread(self._fetch_sync, url)
 
     def _fetch_sync(self, url: str) -> OfficialApiContent:
-        host = (url_parse.urlsplit(url).hostname or "").lower()
+        parsed_url = url_parse.urlsplit(url)
+        host = (parsed_url.hostname or "").lower()
+        if host == "career.huawei.com" and parsed_url.path == "/cn/job-details":
+            if "positionIntentionId" in url_parse.parse_qs(
+                parsed_url.query, keep_blank_values=True
+            ):
+                return self._fetch_huawei_direction(url)
         if host == "join.qq.com":
-            post_ids = url_parse.parse_qs(url_parse.urlsplit(url).query).get("postId") or []
+            post_ids = [value for key, value in url_parse.parse_qsl(parsed_url.query)
+                        if key.casefold() == "postid"]
             if not post_ids or not post_ids[0].strip():
                 raise OfficialApiUnavailableError("tencent campus URL without postId")
             return self._fetch_tencent_campus(post_ids[0].strip())
@@ -108,7 +154,60 @@ class OfficialApiContentFetcher:
             return self._fetch_tencent(url)
         if host == "zhaopin.meituan.com" or host.endswith(".zhaopin.meituan.com"):
             return self._fetch_meituan(url)
+        if host == BAIDU_HOST:
+            match = BAIDU_DETAIL_PATH.fullmatch(url_parse.urlsplit(url).path)
+            if match:
+                return self._fetch_baidu_detail(*match.groups())
         raise UnsupportedOfficialApiError(f"no official API adapter for host: {host}")
+
+    def _fetch_huawei_direction(self, url: str) -> OfficialApiContent:
+        query = url_parse.parse_qs(url_parse.urlsplit(url).query, keep_blank_values=True)
+        ad_ids = query.get("advertisementId", [])
+        direction_ids = query.get("positionIntentionId", [])
+        if any(len(ids) != 1 or not re.fullmatch(r"[0-9]+", ids[0]) for ids in (ad_ids, direction_ids)):
+            raise OfficialApiUnavailableError("Huawei detail lacks a valid ad or direction ID")
+        ad_id, direction_id = ad_ids[0], direction_ids[0]
+        canonical_url = f"{_HUAWEI_DETAIL_URL}?advertisementId={ad_id}&positionIntentionId={direction_id}"
+
+        def post(api_url: str, body: dict) -> dict:
+            return self._open_json(url_request.Request(
+                api_url,
+                data=json.dumps(body).encode("utf-8"),
+                headers={**_HUAWEI_HEADERS, "Referer": canonical_url, "User-Agent": "Mozilla/5.0"},
+            ))
+
+        payload = post(_HUAWEI_DETAIL_API, {"advertisementId": ad_id})
+        data = payload.get("data")
+        if (payload.get("status") != "SUCCESS" or not isinstance(data, dict)
+                or str(data.get("advertisementId")) != ad_id):
+            raise OfficialApiUnavailableError("Huawei detail unavailable or ad ID mismatch")
+        title = str(data.get("jobname") or "").strip()
+        job_id = data.get("jobId")
+        if not title or not job_id or data.get("recruitType") != "CR" or data.get("scenarioName") != "实习生":
+            raise OfficialApiUnavailableError("Huawei detail lacks confirmed internship identity")
+        payload = post(_HUAWEI_INTENT_API, {"jobId": job_id})
+        directions = payload.get("data")
+        if payload.get("status") != "SUCCESS" or not isinstance(directions, list):
+            raise OfficialApiUnavailableError("Huawei internship directions unavailable")
+        direction = next((
+            item for item in directions
+            if isinstance(item, dict) and str(item.get("jobId")) == str(job_id)
+            and str(item.get("positionIntentionId")) == direction_id
+        ), None)
+        if direction is None:
+            raise OfficialApiUnavailableError("Huawei detail direction ID mismatch")
+        jd_text = _huawei_direction_jd(direction)
+        if len(jd_text) < 80:
+            raise OfficialApiUnavailableError("Huawei internship direction has no sufficient JD")
+        location = str(direction.get("jobPlaceName") or "").strip()
+        return OfficialApiContent(
+            content=f"公司：华为\n工作地点：{location}\n{jd_text}",
+            title=title,
+            company="华为",
+            canonical_url=canonical_url,
+            internship_evidence_source="huawei:detail:scenarioName",
+            internship_evidence_value=data["scenarioName"],
+        )
 
     def _fetch_xiaomi(self, url: str) -> OfficialApiContent:
         # The existing Xiaomi list adapter returns these native Feishu detail URLs.
@@ -224,6 +323,43 @@ class OfficialApiContentFetcher:
             internship_evidence_value=recruit_type_name,
         )
 
+    def _fetch_baidu_detail(self, recruit_type: str, post_id: str) -> OfficialApiContent:
+        from web_task_agent.page_reliability import PageRemovedError
+
+        url = f"https://{BAIDU_HOST}/jobs/detail/{recruit_type}/{post_id}"
+        timeout = self.timeout_seconds if self.deadline is None else min(
+            self.timeout_seconds, self.deadline - monotonic()
+        )
+        if timeout <= 0:
+            raise PageTimeoutError("baidu detail request deadline exceeded")
+        request = url_request.Request(url)  # noqa: S310
+        with url_request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+            html = response.read().decode("utf-8")
+        try:
+            detail = parse_baidu_page(html).get("detailData")
+        except ValueError as exc:
+            raise PageEmptyError("baidu detail page has no job data") from exc
+        if not isinstance(detail, dict) or detail.get("recruitType") != recruit_type:
+            raise PageEmptyError("baidu detail has no matching recruitment type")
+        item = detail.get("postInfo")
+        if not isinstance(item, dict) or item.get("postId") != post_id:
+            raise PageEmptyError("baidu detail has no matching job ID")
+        if detail.get("isValid") is False:
+            raise PageRemovedError("baidu position is no longer online")
+        title = str(item.get("name") or "").strip()
+        content = baidu_job_text(item)
+        if detail.get("isValid") is not True or not title or not content:
+            raise PageEmptyError("baidu detail has no verified title or job description")
+        return OfficialApiContent(
+            content=content,
+            title=title,
+            company="百度",
+            canonical_url=url,
+            internship_evidence_source=BAIDU_DETAIL_TYPE_SOURCE,
+            internship_evidence_value=recruit_type,
+            content_origin="http",
+        )
+
     # ── 腾讯：详情页 URL ?postId=… → ByPostId 接口 ──────────────────
 
     def _fetch_tencent(self, url: str) -> OfficialApiContent:
@@ -287,8 +423,10 @@ class OfficialApiContentFetcher:
         data = payload.get("data")
         if not isinstance(data, dict) or not data:
             raise OfficialApiUnavailableError(f"tencent campus detail empty for postId={post_id}")
+        if str(data.get("postId") or post_id) != post_id:
+            raise OfficialApiUnavailableError(f"tencent campus detail mismatched for postId={post_id}")
 
-        title = str(data.get("title") or "").strip()
+        title = str(data.get("title") or data.get("positionTitle") or "").strip()
         # 标准标签行（与社招/美团一致的格式约定，规则抽取直接命中——见 #19）
         labeled = ["公司：腾讯"]
         work_cities = "、".join(
@@ -323,6 +461,8 @@ class OfficialApiContentFetcher:
             content="\n".join(labeled),
             title=title,
             company="腾讯",
+            internship_evidence_source="tencent:detail:recruitType",
+            internship_evidence_value=str(data.get("recruitType") or ""),
             canonical_url=(
                 f"https://join.qq.com/post_detail.html?postId={url_parse.quote(post_id)}"
             ),

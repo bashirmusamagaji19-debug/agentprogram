@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import html
 import os
+import re
 import tempfile
 from collections.abc import Callable, Mapping, MutableMapping
 from hmac import compare_digest
@@ -58,7 +59,7 @@ MODE_HINTS = {
     "official": "实时连接官方招聘 API：默认使用小米实习来源，逐项独立核验交付链接。",
     "aggregator": "聚合岗位：从上传文件或 jobs.json 读取岗位，再执行统一验证和匹配。",
     "seed_urls": "指定岗位 URL：适合验证单个或一组真实岗位页面。",
-    "web_search": "DeepSeek Search 联网发现岗位：搜索摘要仅作线索，详情与申请入口通过核验后才交付。",
+    "web_search": "DeepSeek Search 优先搜索已核验大厂的官方单岗详情。岗位须以开发为主，且通过投递入口核验。",
 }
 
 MODE_LABELS = {
@@ -1075,7 +1076,9 @@ def main() -> None:
             with st.expander("其他大厂来源的限制"):
                 for name, reason in SOURCE_LIMITATIONS.items():
                     st.caption(f"{name}：{reason}")
-                st.caption("这些公司仍可通过网页搜索或指定岗位 URL 寻找，结果仍需独立核验。")
+                st.caption("可在网页搜索中手动填写企业招聘域名，或指定已知的岗位详情 URL。")
+        if mode_key == "web_search":
+            st.caption("默认雇主：" + "、".join(source["name"] for source in VERIFIED_SOURCES.values()) + "。")
         st.markdown('<div class="ui-sidebar-label">模型与执行</div>', unsafe_allow_html=True)
         with st.expander("高级设置（模型与执行）", expanded=False):
             model_providers = [provider for provider in UI_LLM_PROVIDERS
@@ -1184,6 +1187,14 @@ def main() -> None:
                 f"按目标岗位数自动分配总时限 {deadline_seconds} 秒，达到目标会提前结束；"
                 "本轮最多检查 10 个候选，未检查部分会明确显示。"
             )
+        web_search_hosts = []
+        if mode_key == "web_search":
+            extra_employers = st.text_input(
+                "额外公司招聘域名（可选，最多 3 个）",
+                placeholder="例如 careers.example.com",
+                help="填写你想加入的公司的官方招聘完整域名，用逗号或空格分隔。共享招聘平台需要公司的专属子域名。",
+            )
+            web_search_hosts = list(dict.fromkeys(filter(None, re.split(r"[\s,，、]+", extra_employers.strip()))))
         aggregator_upload = None
         aggregator_url_text = ""
         seed_url_text = ""
@@ -1227,6 +1238,7 @@ def main() -> None:
                 aggregator_path=str(temporary_path) if temporary_path else None,
                 aggregator_url=aggregator_url_text.strip() or None,
                 official_specs=official_specs or None,
+                web_search_hosts=web_search_hosts,
                 seed_urls=parse_seed_urls(seed_url_text),
                 llm_extractor_provider=extractor_provider,
                 llm_match_provider=match_provider,

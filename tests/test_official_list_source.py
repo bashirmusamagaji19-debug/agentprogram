@@ -30,13 +30,6 @@ from web_task_agent.official_list_source import (
 )
 
 
-def test_tencent_campus_is_not_internship_evidence():
-    from web_task_agent.official_list_source import _is_campus_intern_ai
-    assert not _is_campus_intern_ai({'positionTitle': 'AI Agent工程师', 'projectName': '应届毕业生'})
-    assert not _is_campus_intern_ai({'positionTitle': 'AI Agent工程师', 'projectName': '青云计划'})
-    assert _is_campus_intern_ai({'positionTitle': 'AI Agent工程师', 'recruitLabelName': '日常实习'})
-
-
 @pytest.mark.asyncio
 async def test_xiaomi_official_type_survives_discovery_and_keyword_filter():
     from pathlib import Path
@@ -198,6 +191,12 @@ class FakeTransport:
         raise AssertionError(f"unexpected request: {method} {url}")
 
 
+def _tencent_projects(url, body):
+    return {"status": 0, "data": [{"subProjectList": [
+        {"mappingId": 2, "projectId": "2", "projectName": "日常实习"},
+    ]}]}
+
+
 def _tencent_page_payload(page_no: int, titles: list[str]) -> dict:
     return {
         "status": 0,
@@ -206,14 +205,13 @@ def _tencent_page_payload(page_no: int, titles: list[str]) -> dict:
                 {
                     "positionTitle": title,
                     "postId": f"123000{page_no}{idx}",
-                    "projectName": "应届毕业生",
-                    "recruitLabelName": "应届毕业生",
+                    "projectName": "应届毕业生" if title == "AI全栈工程师" else "日常实习",
                     "workCities": "深圳总部 北京",
                     "bgs": "TEG CSIG",
                 }
                 for idx, title in enumerate(titles)
             ],
-            "count": len(titles),
+            "count": 40 if titles else 0,
         },
     }
 
@@ -221,14 +219,15 @@ def _tencent_page_payload(page_no: int, titles: list[str]) -> dict:
 @pytest.mark.asyncio
 async def test_tencent_campus_lister_filters_intern_ai_and_paginates():
     pages = {
-        1: ["AI全栈工程师", "高级产品经理"],  # 第二条:非 AI → 过滤
-        2: ["混元多模态-大模型数据挖掘研究（实习生 青云计划）", "岗位x"],
+        1: ["AI全栈工程师"],
+        2: ["混元多模态-大模型数据挖掘研究（实习生 青云计划）"],
     }
     transport = FakeTransport(
         {
+            "getProjectMapping": _tencent_projects,
             "searchPosition": lambda url, body: _tencent_page_payload(
-                body.get("pageNo", 1),
-                pages.get(body.get("pageNo", 1), []),
+                body["pageIndex"],
+                pages.get(body["pageIndex"], []),
             )
         }
     )
@@ -238,9 +237,8 @@ async def test_tencent_campus_lister_filters_intern_ai_and_paginates():
     assert "AI全栈工程师" not in titles  # 应届项目不再冒充实习。
     assert "混元多模态-大模型数据挖掘研究（实习生 青云计划）" in titles
     assert all("高级产品经理" != t for t in titles)
-    # 每条都有 careers 形式的 postId URL(详情链路按 host 路由 + canonical 修复)
     for job in jobs:
-        assert job.url.startswith("https://careers.tencent.com/jobdesc.html?postId=")
+        assert job.url.startswith("https://join.qq.com/post_detail.html?postId=")
         assert job.source == "tencent-campus"
 
 
@@ -248,8 +246,9 @@ async def test_tencent_campus_lister_filters_intern_ai_and_paginates():
 async def test_tencent_campus_lister_stops_at_limit():
     transport = FakeTransport(
         {
+            "getProjectMapping": _tencent_projects,
             "searchPosition": lambda url, body: _tencent_page_payload(
-                body.get("pageNo", 1),
+                body["pageIndex"],
                 ["AI工程师", "AI研究员", "大模型算法实习生", "LLM应用实习生"],
             )
         }
@@ -294,9 +293,10 @@ async def test_meituan_lister_uses_configured_keywords():
 async def test_composite_source_merges_specs_in_order():
     transport = FakeTransport(
         {
+            "getProjectMapping": _tencent_projects,
             "searchPosition": lambda url, body: _tencent_page_payload(
-                body.get("pageNo", 1),
-                ["AI实习工程师"] if body.get("pageNo", 1) == 1 else [],
+                body["pageIndex"],
+                ["AI实习工程师"] if body["pageIndex"] == 1 else [],
             ),
             "getJobList": lambda url, body: {
                 "status": 0,
@@ -800,8 +800,8 @@ async def test_ctrip_lister_maps_fields_filters_and_splits_routes():
         "资深AI Agent开发工程师",
     ]
     # 校招/社招路由按 category 区分,参数是 fromId(MJ 开头)而非数字 id
-    assert jobs[0].url == "https://careers.ctrip.com/campus/job-detail/MJ036605"
-    assert jobs[1].url == "https://careers.ctrip.com/experienced/job-detail/MJ036707"
+    assert jobs[0].url == "https://careers.ctrip.com/#/campus/job-detail/MJ036605"
+    assert jobs[1].url == "https://careers.ctrip.com/#/experienced/job-detail/MJ036707"
     assert all(j.company == "携程" for j in jobs)
     assert all(j.source == "ctrip" for j in jobs)
     assert jobs[0].location == "上海"  # cityName 英文 → 中文映射
@@ -822,6 +822,26 @@ async def test_ctrip_lister_stops_at_limit_and_dedupes():
 
     assert len(jobs) == 1
     assert jobs[0].title == "LLM算法工程师（2027届秋招）"
+
+
+@pytest.mark.asyncio
+async def test_ctrip_intern_search_uses_official_kind_and_job_identity():
+    from web_task_agent.search_conditions import has_official_internship
+
+    def respond(url, body):
+        assert body["condition"]["category"] == 1
+        assert body["condition"]["kind"] == ["3"]
+        return {"retValue": {"total": 2, "recruitJobAdList": [
+            dict(_ctrip_item("MJ037606", "AI Agent 工程实习生", _LONG_REQUIREMENTS), kind="3"),
+            dict(_ctrip_item("MJ037607", "AI Agent 开发工程师", _LONG_REQUIREMENTS), kind="1"),
+        ]}}
+
+    transport = FakeTransport({"getJobAd": respond})
+    transport.keyword = "AI Agent 实习"
+    jobs = await _ctrip_lister(transport, limit=10)
+    assert len(jobs) == 1
+    assert jobs[0].url == "https://careers.ctrip.com/#/experienced/job-detail/MJ037606"
+    assert has_official_internship(jobs[0].internship_evidence_source, jobs[0].internship_evidence_value)
 
 
 # ── 华为(第二批 agent 产出,实测冒烟通过)──

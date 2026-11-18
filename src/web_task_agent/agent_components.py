@@ -108,7 +108,8 @@ async def _build_browser_components(request, *, repository, page_loader=None,
             build_search_client(), official_api=official_api, http_loader=http_loader,
             repository=repository, deadline=request_deadline,
             candidate_limit=candidate_limit if candidate_limit is not None else 10,
-            min_batch_size=min(10, max(3, request.target_count * 3)))
+            min_batch_size=min(5, max(3, request.target_count + 1)),
+            extra_hosts=request.web_search_hosts)
         seeds = []
     else:
         source = (adapters["official"](specs=request.official_specs or None,

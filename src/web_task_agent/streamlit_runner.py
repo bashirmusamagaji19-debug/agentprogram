@@ -197,6 +197,13 @@ def validate_ui_request(
         if provider
     }
     if request.data_mode == "web_search":
+        from web_task_agent.web_search import normalize_employer_host
+
+        try:
+            for host in request.web_search_hosts:
+                normalize_employer_host(host)
+        except ValueError as exc:
+            raise UiRequestError(str(exc)) from exc
         providers.add("deepseek")
     missing = sorted(
         PROVIDER_API_KEY_ENV[provider]
@@ -342,7 +349,7 @@ async def run_ui_request(
                     else None
                 )
             ),
-            verifier=JobVerifier(),
+            verifier=JobVerifier(require_development=request.data_mode == "web_search"),
             repository=repository,
             reporter=MarkdownReporter(run_dir / "reports"),
             enforce_search_conditions=True,

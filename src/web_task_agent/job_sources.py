@@ -256,9 +256,11 @@ class AggregatorPageLoader:
                 else:
                     self._record(url, "official-api:unsupported")
             else:
-                failure = classify_page_content(self._to_page(url, content.content, content.title, "official-api"))
-                self._check_failure(url, "official-api:too-short" if failure and
-                                    failure.category == PageFailureCategory.EMPTY_SHELL else "official-api", failure)
+                origin = getattr(content, "content_origin", "official-api")
+                page = self._to_page(url, content.content, content.title, origin)
+                failure = classify_page_content(page)
+                self._check_failure(url, f"{origin}:too-short" if failure and
+                                    failure.category == PageFailureCategory.EMPTY_SHELL else origin, failure)
                 # 与 http/jd_text 路径同一门槛（#27）：短官方 API 正文既不能
                 # 进管线（100~119 字符区间绕过 extractor 的 LLM 幻觉护栏），
                 # 也不能写缓存——否则门槛检查会让该 URL 的缓存永远失效，
@@ -269,12 +271,11 @@ class AggregatorPageLoader:
                     # BrowserPage.url 保持"请求 URL"语义（缓存键/诊断一致），
                     # canonical 经 metadata 透传，extractor 构造 JobPosting 时落位。
                     canonical = str(getattr(content, "canonical_url", "") or "").strip()
-                    page = self._to_page(url, content.content, content.title, "official-api")
                     page = page.model_copy(
                         update={
                             "metadata": {
                                 **page.metadata,
-                                "content_origin": "official-api",
+                                "content_origin": origin,
                                 "internship_evidence_source": getattr(content, "internship_evidence_source", ""),
                                 "internship_evidence_value": getattr(content, "internship_evidence_value", ""),
                                 **({"canonical_url": canonical} if canonical else {}),
@@ -282,10 +283,10 @@ class AggregatorPageLoader:
                         }
                     )
                     self._cache(url, page)
-                    self._record(url, "official-api")
+                    self._record(url, origin)
                     return page
                 if failure is None:
-                    self._record(url, "official-api:too-short")
+                    self._record(url, f"{origin}:too-short")
 
         # 3. HttpPageLoader（服务端渲染站点可直达）
         if self._http_loader is not None:

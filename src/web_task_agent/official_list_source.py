@@ -19,7 +19,15 @@ from datetime import UTC, datetime
 from urllib import parse as url_parse
 from urllib import request as url_request
 
-from web_task_agent.browser import PageHttpError
+from web_task_agent.baidu_recruitment import (
+    BAIDU_DETAIL_PATH,
+    BAIDU_HOST,
+    BAIDU_LIST_TYPE_SOURCE,
+    BAIDU_LIST_URL,
+    baidu_job_text,
+    parse_baidu_page,
+)
+from web_task_agent.browser import MIN_USEFUL_CONTENT_CHARS, PageHttpError
 from web_task_agent.job_sources import AI_TITLE_KEYWORDS, DiscoveredJob, is_intern_ai_job
 from web_task_agent.official_list_families import (
     _strip_html,
@@ -29,7 +37,7 @@ from web_task_agent.official_list_families import (
     make_zhiye_lister,
 )
 from web_task_agent.page_reliability import classify_page_exception
-from web_task_agent.search_conditions import candidate_matches
+from web_task_agent.search_conditions import candidate_matches, missing_keywords, parse_keywords
 
 # 具身智能/机器人是目标求职域(用户新增车企与具身智能厂商),与 AI 词并列为命中口径
 _DOMAIN_TITLE_KEYWORDS = (*AI_TITLE_KEYWORDS, "具身", "机器人", "自动驾驶", "智驾")
@@ -250,58 +258,59 @@ def _text_maybe_compressed(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
-# 腾讯校招库:标题过滤口径与 job-radar 模式(is_intern_ai_job)一致 ——
-# 校招标题不一定带"实习"(如"AI全栈工程师",项目=应届毕业生),
-# 所以"实习/校招"由 projectName/recruitLabelName 判定,AI 方向由标题判定。
-def _is_campus_intern_ai(item: dict) -> bool:
-    title = str(item.get("positionTitle") or "").strip()
-    label = str(item.get("recruitLabelName") or "")
-    project = str(item.get("projectName") or "")
-    if "实习" not in label + project + title:
-        return False
-    return any(keyword in title for keyword in AI_TITLE_KEYWORDS)
+_TENCENT_PROJECT_API = "https://join.qq.com/api/v1/position/getProjectMapping"
 
 
 async def _tencent_campus_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
-    jobs: list[DiscoveredJob] = []
-    page_no = 1
-    while len(jobs) < limit and page_no <= 20:  # 20 页封顶,防失控
-        payload = transport.open_json(
-            "POST",
-            _TENCENT_SEARCH_POSITION_API,
-            body={"pageNo": page_no, "pageSize": 50},
-        )
-        items = (payload.get("data") or {}).get("positionList") or []
+    keyword = getattr(transport, "search_keyword", "")
+    terms = [term for term in parse_keywords(keyword) if missing_keywords("实习", term)]
+    term = next((term for term in terms if term not in {"ai", "人工智能"}), terms[0] if terms else "AI")
+    projects = transport.open_json("GET", _TENCENT_PROJECT_API)
+    if projects.get("status") != 0 or not isinstance(projects.get("data"), list):
+        raise _OfficialListResponseError("tencent campus project list unavailable")
+    mapping_ids, project_ids = [], set()
+    for group in projects["data"]:
+        for project in group.get("subProjectList", []):
+            mapping = project.get("mappingId")
+            if "实习" in str(project.get("projectName") or "") and isinstance(mapping, int):
+                mapping_ids.append(mapping)
+                project_ids.update(str(project.get("projectId") or "").split(","))
+    if not mapping_ids:
+        raise _OfficialListResponseError("tencent campus internship projects missing")
+
+    jobs, seen = [], set()
+    for page in range(1, 5):
+        payload = transport.open_json("POST", _TENCENT_SEARCH_POSITION_API, body={
+            "pageIndex": page, "pageSize": 20, "keyword": term, "projectMappingIdList": mapping_ids,
+        })
+        data = payload.get("data")
+        if payload.get("status") != 0 or not isinstance(data, dict):
+            raise _OfficialListResponseError("tencent campus position search unavailable")
+        items = data.get("positionList") or []
         if not items:
             break
         for item in items:
-            if not _is_campus_intern_ai(item):
-                continue
             post_id = str(item.get("postId") or "").strip()
             title = str(item.get("positionTitle") or "").strip()
-            if not post_id or not title:
+            project = str(item.get("projectName") or "").strip()
+            if not post_id or not title or post_id in seen or not (
+                "实习" in project or str(item.get("projectId") or "-") in project_ids
+            ):
                 continue
-            jobs.append(
-                DiscoveredJob(
-                    url=(
-                        "https://careers.tencent.com/jobdesc.html?postId="
-                        f"{url_parse.quote(post_id)}"
-                    ),
-                    title=title,
-                    company="腾讯",
-                    location=str(item.get("workCities") or "").strip(),
-                    jd_text="",  # 列表不带 JD;正文由详情链官方 API 直取
-                    source="tencent-campus",
-                    source_job_id=post_id,
-                    discovery_url=_TENCENT_SEARCH_POSITION_API,
-                    query_context={"page": page_no, "page_size": 50},
-                    discovered_at=datetime.now(UTC),
-                    tags=[str(item.get("recruitLabelName") or "")],
-                )
-            )
+            seen.add(post_id)
+            jobs.append(DiscoveredJob(
+                url=f"https://join.qq.com/post_detail.html?postId={url_parse.quote(post_id)}",
+                title=title, company="腾讯", location=str(item.get("workCities") or "").strip(),
+                source="tencent-campus", source_job_id=post_id, discovery_url=_TENCENT_SEARCH_POSITION_API,
+                query_context={"page": page, "keyword": term}, discovered_at=datetime.now(UTC),
+                tags=[project] if project else [], internship_evidence_source="tencent:list:project",
+                internship_evidence_value="internship",
+            ))
             if len(jobs) >= limit:
-                break
-        page_no += 1
+                return jobs
+        total = data.get("count")
+        if isinstance(total, int) and total <= page * 20:
+            break
     return jobs
 
 
@@ -310,9 +319,94 @@ _BAIDU_LIST_API = "https://talent.baidu.com/httservice/getPostListNew"
 # 故 keyWord 集合克制且类目间串行。
 _BAIDU_RECRUIT_TYPES = ("INTERN", "GRADUATE", "SOCIAL")
 _BAIDU_KEYWORDS = ["大模型", "AI", "算法", "机器人"]
+_BAIDU_PUBLIC_SEARCHES = ("Agent", "LLM", "算法", "人工智能", "机器人")
+_BAIDU_INTERNSHIP_TERMS = {"实习", "实习生", "intern", "interns", "internship", "internships"}
 
 
 async def _baidu_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    """Sample the first server-rendered page of each public Baidu search."""
+    if limit <= 0:
+        return []
+    # JSON-only transports can still replay the original adapter contract.
+    underlying = transport.transport if isinstance(transport, _DiagnosticTransport) else transport
+    if not callable(getattr(underlying, "fetch_html", None)):
+        return _baidu_legacy_lister(transport, limit)
+
+    keyword = str(getattr(transport, "search_keyword", ""))
+    location = str(getattr(transport, "search_location", "全国"))
+    terms = parse_keywords(keyword)
+    recruit_types = ("INTERN",) if _BAIDU_INTERNSHIP_TERMS.intersection(terms) else _BAIDU_RECRUIT_TYPES
+    searches = dict.fromkeys((
+        "", *(term for term in terms if term not in _BAIDU_INTERNSHIP_TERMS), *_BAIDU_PUBLIC_SEARCHES
+    ))
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    found_list = False
+    for recruit_type in recruit_types:
+        for search in searches:
+            query = {"recruitType": recruit_type}
+            if search:
+                query["search"] = search
+            url = f"{BAIDU_LIST_URL}?{url_parse.urlencode(query)}"
+            try:
+                html = transport.fetch_html(url)
+            except Exception:  # noqa: BLE001 — retain candidates if a later public request fails
+                if jobs:
+                    return jobs
+                raise
+            try:
+                data = parse_baidu_page(html).get("listData")
+            except ValueError:
+                # Some public search URLs return a client-only shell.
+                continue
+            if not isinstance(data, dict) or data.get("recruitType") != recruit_type:
+                continue
+            items = data.get("listDetailData")
+            if not isinstance(items, list):
+                continue
+            found_list = True
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                title = str(item.get("name") or "").strip()
+                post_id = str(item.get("postId") or "").strip()
+                detail_path = f"/jobs/detail/{recruit_type}/{post_id}"
+                if not title or detail_path in seen or not BAIDU_DETAIL_PATH.fullmatch(detail_path):
+                    continue
+                if not keyword and not _title_in_domain(title):
+                    continue
+                place = str(item.get("workPlace") or "").strip()
+                text = baidu_job_text(item)
+                if len(text) < MIN_USEFUL_CONTENT_CHARS or not candidate_matches(
+                    keyword, location, title=title, jd_text=text, location=place,
+                    internship_evidence_source=BAIDU_LIST_TYPE_SOURCE, internship_evidence_value=recruit_type,
+                ):
+                    continue
+                project = str(item.get("projectType") or "").strip()
+                seen.add(detail_path)
+                jobs.append(DiscoveredJob(
+                    url=f"https://{BAIDU_HOST}{detail_path}",
+                    title=title,
+                    company="百度",
+                    location=place,
+                    posted_at=str(item.get("publishDate") or "").strip(),
+                    jd_text=text,
+                    source="baidu",
+                    tags=[project] if project else [],
+                    source_job_id=post_id,
+                    discovery_url=url,
+                    query_context={"keyword": search, "page": 1, "recruitType": recruit_type},
+                    internship_evidence_source=BAIDU_LIST_TYPE_SOURCE,
+                    internship_evidence_value=recruit_type,
+                ))
+                if len(jobs) >= limit:
+                    return jobs
+    if not found_list:
+        _record_response_error(transport, _OfficialListResponseError("baidu public list data unavailable"))
+    return jobs
+
+
+def _baidu_legacy_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
     """百度:POST getPostListNew(form 表单),列表自带 workContent/serviceCondition 全文。
 
     job URL https://talent.baidu.com/jobs/detail/{recruitType}/{postId}。
@@ -972,6 +1066,110 @@ def _family_specs() -> dict[str, object]:
 
 # ── 京东(阶段 3A-2 第二批,agent 实测冒烟通过)──
 _JD_LIST_API = "https://campus.jd.com/api/wx/position/recommendPage"
+_JD_PROJECTS_API = "https://campus.jd.com/api/wx/position/getProjectList"
+_JD_PAGE_API = "https://campus.jd.com/api/wx/position/page?type=present"
+_JD_PLAN_EVIDENCE = "jd:list:planName"
+
+
+def _jd_position(item: dict) -> DiscoveredJob | None:
+    title = str(item.get("positionName") or "").strip()
+    publish_id = str(item.get("publishId") or "").strip()
+    if not title or not publish_id:
+        return None
+    plain = (
+        f"岗位职责：\n{_strip_html(str(item.get('workContent') or ''))}\n"
+        f"任职要求：\n{_strip_html(str(item.get('qualification') or ''))}"
+    ).strip()
+    if len(plain) < 80:
+        return None
+    cities: list[str] = []
+    for req in item.get("requirementVoList") or []:
+        city = str((req or {}).get("workCity") or "").strip()
+        if city and city not in cities:
+            cities.append(city)
+    return DiscoveredJob(
+        url=f"https://campus.jd.com/#/details?id={url_parse.quote(publish_id)}",
+        title=title,
+        company="京东",
+        location="、".join(cities),
+        jd_text=plain,
+        source="jd",
+    )
+
+
+def _jd_internship_plans(payload: dict) -> dict[int, str]:
+    from web_task_agent.search_conditions import has_official_internship
+
+    plans = {}
+    for project in (payload.get("body") or {}).get("projectList") or []:
+        for group in project.get("groupList") or []:
+            for plan in group.get("planMapList") or []:
+                plan_id = plan.get("id")
+                name = str(plan.get("planName") or "").strip()
+                if isinstance(plan_id, int) and has_official_internship(_JD_PLAN_EVIDENCE, name):
+                    plans[plan_id] = name
+    return plans
+
+
+def _jd_internship_jobs(transport, limit: int, keyword: str) -> list[DiscoveredJob]:  # noqa: ANN001
+    # 就算 type=present，官网也用 planIdList 筛选实习，并在每条结果回传 planId。
+    projects = transport.open_json("GET", _JD_PROJECTS_API)
+    if projects.get("success") is not True:
+        raise _OfficialListResponseError("JD recruitment project request failed")
+    plans = _jd_internship_plans(projects)
+    if not plans:
+        return []
+
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    location = str(getattr(transport, "search_location", "全国"))
+    page_size = 50
+    for page_index in range(10):
+        body = {
+            "pageSize": page_size,
+            "pageIndex": page_index,
+            "parameter": {
+                "positionName": "", "planIdList": list(plans), "jobDirectionCodeList": [],
+                "workCityCodeList": [], "positionDeptList": [],
+            },
+        }
+        try:
+            payload = transport.open_json("POST", _JD_PAGE_API, body=body)
+        except Exception:
+            if jobs:
+                return jobs
+            raise
+        if payload.get("success") is not True:
+            error = _OfficialListResponseError("JD internship position request failed")
+            if jobs:
+                _record_response_error(transport, error)
+                return jobs
+            raise error
+        result = payload.get("body") or {}
+        items = result.get("items") or []
+        for item in items:
+            plan_name = plans.get(item.get("planId"))
+            if not plan_name:
+                continue
+            job = _jd_position(item)
+            if job is None or job.url in seen or not candidate_matches(
+                keyword, location, title=job.title, jd_text=job.jd_text, location=job.location,
+                internship_evidence_source=_JD_PLAN_EVIDENCE, internship_evidence_value=plan_name,
+            ):
+                continue
+            seen.add(job.url)
+            jobs.append(dataclasses.replace(
+                job, source_job_id=str(item["publishId"]), discovery_url=_JD_PAGE_API,
+                query_context={"page": page_index + 1, "page_size": page_size},
+                discovered_at=datetime.now(UTC), internship_evidence_source=_JD_PLAN_EVIDENCE,
+                internship_evidence_value=plan_name,
+            ))
+            if len(jobs) >= limit:
+                return jobs
+        total = result.get("totalNumber")
+        if len(items) < page_size or (isinstance(total, int) and (page_index + 1) * page_size >= total):
+            break
+    return jobs
 
 
 async def _jd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
@@ -981,7 +1179,11 @@ async def _jd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN
     岗位对象关键字段:publishId/positionName/workContent/qualification;
     顶层 workCity 恒为 null,城市在 requirementVoList[].workCity(省-市格式)。
     """
-    from web_task_agent.official_list_families import _strip_html  # 复用去标签兜底
+    from web_task_agent.search_conditions import _internship_requested
+
+    keyword = str(getattr(transport, "search_keyword", ""))
+    if _internship_requested(keyword):
+        return _jd_internship_jobs(transport, limit, keyword)
 
     payload = transport.open_json(
         "POST",
@@ -1003,38 +1205,12 @@ async def _jd_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN
         for item in section.get("channelPositionVoList") or []:
             if len(jobs) >= limit:
                 break
-            title = str(item.get("positionName") or "").strip()
-            publish_id = str(item.get("publishId") or "").strip()
-            if not title or not publish_id:
+            if not _title_in_domain(str(item.get("positionName") or "")):
                 continue
-            # 口径只按标题域词(AI/大模型/机器人/具身/自动驾驶/智驾),实习/校招/社招都保留
-            if not _title_in_domain(title):
-                continue
-            url = f"https://campus.jd.com/#/details?id={url_parse.quote(publish_id)}"
-            if url in seen:
-                continue
-            plain = (
-                f"岗位职责：\n{_strip_html(str(item.get('workContent') or ''))}\n"
-                f"任职要求：\n{_strip_html(str(item.get('qualification') or ''))}"
-            ).strip()
-            if len(plain) < 80:  # 诚实原则:无可验证正文不产出
-                continue
-            seen.add(url)
-            cities: list[str] = []
-            for req in item.get("requirementVoList") or []:
-                city = str((req or {}).get("workCity") or "").strip()
-                if city and city not in cities:
-                    cities.append(city)
-            jobs.append(
-                DiscoveredJob(
-                    url=url,
-                    title=title,
-                    company="京东",
-                    location="、".join(cities),
-                    jd_text=plain,
-                    source="jd",
-                )
-            )
+            job = _jd_position(item)
+            if job is not None and job.url not in seen:
+                seen.add(job.url)
+                jobs.append(job)
     return jobs
 
 
@@ -1154,15 +1330,22 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
     """携程招聘官网:POST getJobAd,列表自带 JD 全文,category 2 校招 / 1 社招。
 
     路由参数是 fromId(MJ 开头)而非数字 id(规格复核实录);URL 前缀按
-    category 取 /campus/ 或 /experienced/。关键词循环 + 翻页预算 15 页封顶。
+    category 取 #/campus/ 或 #/experienced/。关键词循环 + 翻页预算 15 页封顶。
     """
     jobs: list[DiscoveredJob] = []
     seen: set[str] = set()
     page_budget = 15  # 关键词 x 类别共享的翻页总预算,防失控
-    for category, route in _CTRIP_CATEGORY_ROUTES:
+    from web_task_agent.search_conditions import _internship_requested
+
+    internship = _internship_requested(getattr(transport, "keyword", ""))
+    categories = ((1, "experienced"),) if internship else _CTRIP_CATEGORY_ROUTES
+    # The internship catalogue is small. Fetch it once instead of assuming
+    # the generic online search indexes every technology term.
+    keywords = [""] if internship else _CTRIP_KEYWORDS
+    for category, route in categories:
         if len(jobs) >= limit:
             break
-        for keyword in _CTRIP_KEYWORDS:
+        for keyword in keywords:
             if len(jobs) >= limit:
                 break
             page = 1
@@ -1175,7 +1358,7 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
                         "condition": {
                             "fromId": [],
                             "keyword": keyword,
-                            "kind": [],
+                            "kind": ["3"] if internship else [],
                             "country": [],
                             "city": [],
                             "bucode": [],
@@ -1195,7 +1378,8 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
                         break
                     title = str(item.get("jobTitle") or "").strip()
                     from_id = str(item.get("fromId") or "").strip()
-                    if not title or not from_id or from_id in seen:
+                    kind = str(item.get("kind") or "")
+                    if not title or not from_id or from_id in seen or (internship and kind != "3"):
                         continue
                     # 实习/校招不过滤(社招也要),只按标题域词(AI/大模型/机器人/具身/自动驾驶/智驾)
                     if not _title_in_domain(title):
@@ -1208,7 +1392,7 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
                     jobs.append(
                         DiscoveredJob(
                             url=(
-                                "https://careers.ctrip.com/"
+                                "https://careers.ctrip.com/#/"
                                 f"{route}/job-detail/{url_parse.quote(from_id)}"
                             ),
                             title=title,
@@ -1216,6 +1400,10 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
                             location=_CTRIP_CITY_NAMES.get(city, city),
                             jd_text=jd_text,
                             source="ctrip",
+                            source_job_id=from_id,
+                            discovery_url=_CTRIP_LIST_API,
+                            internship_evidence_source="ctrip:list:kind" if kind else "",
+                            internship_evidence_value=kind,
                         )
                     )
                 total = int(ret.get("total") or 0)
@@ -1226,23 +1414,6 @@ async def _ctrip_lister(transport, limit: int) -> list[DiscoveredJob]:
 
 
 # ── 华为(阶段 3A-2 第二批,agent 实测冒烟通过)──
-_HUAWEI_LIST_API = (
-    "https://apigw-dgg-b0.huawei.com/api/apig/channelhw/recruitmentPosition"
-    "/pub/getJobPage?X-HW-ID=app_000000035886"
-)
-
-# 华为 jalor 网关强制校验自定义头:缺 x-jalor-tenantAlias 返回 TenantContextError、
-# 缺 x-Referer 返回空结果(实测 2026-09-08),无法仅靠 URL/body 携带
-_HUAWEI_HEADERS = {
-    "Content-Type": "application/json",
-    "x-jalor-tenantAlias": "hcm",
-    "x-language": "zh_CN",
-    "x-Referer": "https://career.huawei.com/cn",
-    "x-alb-gray": "prod",
-    "Referer": "https://career.huawei.com/cn/campus-recruitment-job-list",
-}
-
-
 def _huawei_open_json(transport, url: str, body: dict) -> dict:  # noqa: ANN001
     """带头请求华为网关:先协商 transport 的 headers 形参,失败按传输层能力兜底。
 
@@ -1251,6 +1422,8 @@ def _huawei_open_json(transport, url: str, body: dict) -> dict:  # noqa: ANN001
        形参的 DefaultTransport(实测网关不做 JA3 过滤,urllib 也可,但 cffi 更稳);
     3. 无自定义头回退 — 测试 FakeTransport 路径(真实网关会拒绝,诚实降级为空)。
     """
+    from web_task_agent.official_api import _HUAWEI_HEADERS
+
     try:
         return transport.open_json("POST", url, body=body, headers=_HUAWEI_HEADERS)
     except TypeError:
@@ -1270,16 +1443,14 @@ def _huawei_open_json(transport, url: str, body: dict) -> dict:  # noqa: ANN001
 
 
 async def _huawei_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
-    """华为招聘官网:POST getJobPage 全量拉社招(jobType=SR),列表自带 JD 全文。
+    """华为招聘官网：带实习条件时查校招实习，其余保留社招列表。"""
+    from web_task_agent.official_api import _HUAWEI_APP_PARAM, _HUAWEI_POSITION_API
+    from web_task_agent.search_conditions import _internship_requested
 
-    口径(2026-09-08 实测):
-    - SR(社招)327 岗,pageSize=100 分 4 页拉全,标题域过滤后 29 条有效;
-    - CR(校招/实习)列表与详情接口均为 14 字占位文案"请您详见岗位意向中的…"
-      (真实 JD 仅在登录后的岗位意向流程可见),按诚实原则(<80 字符不产出)跳过
-      —— 不按实习/校招类型过滤,但无正文的岗位不产出;
-    - 网关强制自定义头,经 _huawei_open_json 协商携带。
-    """
-    from web_task_agent.official_list_families import _strip_html
+    list_api = _HUAWEI_POSITION_API + "getJobPage" + _HUAWEI_APP_PARAM
+    keyword = str(getattr(transport, "search_keyword", ""))
+    if _internship_requested(keyword):
+        return _huawei_internship_jobs(transport, list_api, keyword, limit)
 
     jobs: list[DiscoveredJob] = []
     seen: set[str] = set()
@@ -1287,7 +1458,7 @@ async def _huawei_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa:
     while len(jobs) < limit and page_no <= 15:  # 分页封顶 15 页;SR 全量仅 4 页
         payload = _huawei_open_json(
             transport,
-            _HUAWEI_LIST_API,
+            list_api,
             {"curPage": page_no, "pageSize": 100, "jobType": "SR"},
         )
         items = (payload.get("data") or {}).get("result") or []
@@ -1322,6 +1493,93 @@ async def _huawei_lister(transport, limit: int) -> list[DiscoveredJob]:  # noqa:
             if len(jobs) >= limit:
                 break
         page_no += 1
+    return jobs
+
+
+def _huawei_internship_jobs(transport, list_api: str, keyword: str, limit: int) -> list[DiscoveredJob]:  # noqa: ANN001
+    if limit <= 0:
+        return []
+
+    from web_task_agent.location_filter import location_matches
+    from web_task_agent.official_api import (
+        _HUAWEI_DETAIL_URL,
+        _HUAWEI_INTENT_API,
+        _HUAWEI_INTERNSHIP_LIST_URL,
+        _huawei_direction_jd,
+    )
+
+    requested_location = str(getattr(transport, "search_location", "全国"))
+    jobs: list[DiscoveredJob] = []
+    seen: set[str] = set()
+    for page in range(1, 16):
+        params = {"curPage": page, "pageSize": 100, "jobType": "CR", "recruitmentType": ["INTERN"]}
+        try:
+            payload = _huawei_open_json(transport, list_api, params)
+        except Exception:
+            if jobs:
+                return jobs
+            raise
+        data = payload.get("data")
+        if payload.get("status") != "SUCCESS" or not isinstance(data, dict):
+            _record_response_error(transport, _OfficialListResponseError("Huawei internship list is unavailable"))
+            return jobs
+        items = data.get("result")
+        if not items:
+            break
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("jobName") or "").strip()
+            ad_id = str(item.get("advertisementId") or "")
+            job_id = item.get("jobId")
+            scenario = str(item.get("scenarioName") or "")
+            posted_location = str(item.get("workPlace") or "").strip()
+            if (scenario != "实习生" or not job_id or not ad_id.isascii() or not ad_id.isdecimal()
+                    or not _title_in_domain(title)
+                    or (posted_location and not location_matches(requested_location, posted_location))):
+                continue
+            try:
+                payload = _huawei_open_json(transport, _HUAWEI_INTENT_API, {"jobId": job_id})
+            except Exception:
+                # The diagnostic transport retains this per-job failure.
+                continue
+            directions = payload.get("data")
+            if payload.get("status") != "SUCCESS" or not isinstance(directions, list):
+                _record_response_error(
+                    transport, _OfficialListResponseError("Huawei internship directions unavailable")
+                )
+                continue
+            for direction in directions:
+                if not isinstance(direction, dict) or str(direction.get("jobId")) != str(job_id):
+                    continue
+                direction_id = str(direction.get("positionIntentionId") or "")
+                if not direction_id.isascii() or not direction_id.isdecimal():
+                    continue
+                url = f"{_HUAWEI_DETAIL_URL}?advertisementId={ad_id}&positionIntentionId={direction_id}"
+                location = str(direction.get("jobPlaceName") or "").strip()
+                jd_text = _huawei_direction_jd(direction)
+                evidence = {
+                    "internship_evidence_source": "huawei:list:scenarioName",
+                    "internship_evidence_value": scenario,
+                }
+                if url in seen or len(jd_text) < 80 or not candidate_matches(
+                    keyword, requested_location, title=title, jd_text=jd_text, location=location, **evidence
+                ):
+                    continue
+                seen.add(url)
+                jobs.append(DiscoveredJob(
+                    url=url, title=title, company="华为", location=location, jd_text=jd_text,
+                    source="huawei", source_job_id=f"{ad_id}:{direction_id}",
+                    discovery_url=_HUAWEI_INTERNSHIP_LIST_URL,
+                    query_context={"page": page, "page_size": 100, "recruit_type": "INTERN"},
+                    **evidence,
+                ))
+                if len(jobs) >= limit:
+                    return jobs
+        page_info = data.get("pageVO")
+        total_pages = page_info.get("totalPages") if isinstance(page_info, dict) else None
+        if isinstance(total_pages, int) and page >= total_pages:
+            break
     return jobs
 
 

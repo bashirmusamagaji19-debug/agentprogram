@@ -26,6 +26,7 @@ def client_with_results(calls, *, failure=None):
     "https://jobs.mihoyo.com/#/campus/position/9826",
     "https://campus.jd.com/#/details?id=9095",
     "https://example.com/#!/jobs/123",
+    "https://talent.baidu.com/jobs/detail/INTERN/af00a921-47c2-42af-b2b4-389810123454",
 ])
 def test_search_keeps_hash_routed_job_details(url):
     from web_task_agent.job_sources import DiscoveredJob
@@ -50,7 +51,7 @@ async def test_search_batches_are_deduplicated_bounded_and_keep_diagnostics():
     from web_task_agent.web_search import WebSearchBrowser
 
     calls = []
-    browser = WebSearchBrowser(client_with_results(calls), candidate_limit=2)
+    browser = WebSearchBrowser(client_with_results(calls), candidate_limit=2, extra_hosts=["example.org"])
     first = await browser.search("AI Agent 实习 全国", target_count=1)
     second = await browser.search("AI Agent 实习 全国", target_count=5)
     assert first[0].metadata["candidate_urls"] == ["https://example.org/jobs/1"]
@@ -60,6 +61,73 @@ async def test_search_batches_are_deduplicated_bounded_and_keep_diagnostics():
     assert browser.selected_count == 2
     assert not browser.search_diagnostics["has_more"]
     assert browser.source_diagnostics[0]["candidate_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_web_search_prefilters_by_employer_and_single_job_identity():
+    from web_task_agent.web_search import WebSearchBrowser
+
+    official = "https://hr.163.com/job-detail.html?id=65260"
+    custom = "https://careers.example.org/jobs/21"
+    def transport(endpoint, key, payload, timeout):
+        return {"results": [
+            {"url": "https://unknown.jobs.feishu.cn/campus/position/123/detail", "title": "AI Agent 开发实习生"},
+            {"url": "https://hr.163.com.evil.example/jobs/9", "title": "网易 AI Agent 实习生"},
+            {"url": "https://hr.163.com/campus-recruitment.html", "title": "AI 研发招聘公告"},
+            {"url": official + "&from=search#1", "title": "AI Agent 开发实习生"},
+            {"url": official, "title": "AI Agent 开发实习生"},
+            {"url": custom, "title": "LLM 开发实习生"},
+            {"url": "https://x.careers.example.org/jobs/21", "title": "LLM 开发实习生"},
+        ]}
+    browser = WebSearchBrowser(DeepSeekWebClient(api_key="test-key", transport=transport),
+                               extra_hosts=["careers.example.org"])
+    page = (await browser.search("AI Agent 实习 深圳", target_count=3))[0]
+    assert set(page.metadata["candidate_urls"]) == {official, custom}
+    diagnostics = page.metadata["search_diagnostics"]
+    assert diagnostics["filtered_outside_employers"] >= 3
+    assert diagnostics["filtered_not_detail"] >= 1
+    assert diagnostics["filtered_duplicate"] >= 1
+    assert all("site:" in query and "深圳" in query for query in diagnostics["queries"])
+
+
+@pytest.mark.parametrize(("duties", "valid"), [
+    ("开发 Agent 工作流并实现工具调用。负责上线后的系统评测。", True),
+    ("整理海外数据。负责用户运营。日常使用 AI 工具提升效率。", False),
+    ("整理海外运营数据。负责内容运营。协助开发 Agent 工作流。", False),
+    ("Develop and deploy agent workflows. Maintain internal usage documentation.", True),
+])
+def test_development_role_requires_substantive_duties(duties, valid):
+    from web_task_agent.models import JobPosting
+    from web_task_agent.verifier import JobVerifier
+
+    job = JobPosting(title="AI Agent 开发实习生", company="示例", location="深圳", source="http",
+                     url="https://hr.163.com/job-detail.html?id=65260", responsibilities=duties,
+                     requirements="熟悉 Python 和 Agent 项目开发", confidence=1)
+    assert JobVerifier(require_development=True).verify(job).is_valid is valid
+
+
+@pytest.mark.asyncio
+async def test_unarchivable_hit_does_not_abort_or_leak_in_a_search_batch(tmp_path):
+    from web_task_agent.source_capture import SourceCaptureBrowser
+    from web_task_agent.web_search import WebSearchBrowser
+
+    valid = "https://example.org/#/jobs/123"
+    urls = ["https://[bad", "https://example.org/jobs/1?token=example-secret",
+            "https://example.org/#/jobs/2?token=example-secret", valid,
+            "https://example.org/#/jobs/124"]
+    client = DeepSeekWebClient(api_key="test-key", transport=lambda *args: {"results": [
+        {"url": url, "title": "AI Agent internship"} for url in urls
+    ]})
+    browser = SourceCaptureBrowser(WebSearchBrowser(client, extra_hosts=["example.org"]),
+                                   root=tmp_path / "archive", run_id="run-search", keyword="AI Agent",
+                                   location="全国", target_count=2)
+
+    pages = await browser.search("AI Agent", target_count=2)
+    assert pages[0].metadata["candidate_urls"] == [valid, urls[-1]]
+    assert pages[0].metadata["search_diagnostics"]["filtered_invalid_url"] == 2
+    assert {record.requested_url for record in browser.candidates.values()} >= {valid, urls[-1]}
+    assert all("example-secret" not in path.read_text(encoding="utf-8", errors="ignore")
+               for path in (tmp_path / "archive").rglob("*.json"))
 
 
 @pytest.mark.asyncio
@@ -124,7 +192,8 @@ async def test_ui_web_search_runs_search_tool_archives_candidates_and_delivers(t
             "任职要求：熟悉 Python，岗位为实习，至少实习3个月。\n" * 4))
 
     result = await run_ui_request(
-        UiRunRequest(data_mode="web_search", engine="hybrid", target_count=1),
+        UiRunRequest(data_mode="web_search", engine="hybrid", target_count=1,
+                     web_search_hosts=["example.org"]),
         output_root=tmp_path, environ={"DEEPSEEK_API_KEY": "test-key"},
         page_loader=load, link_verifier=VerifiedLinkStub(),
     )
@@ -165,7 +234,7 @@ async def test_web_search_capture_preserves_actual_detail_resolution_attempts(tm
     async def load(url):
         return BrowserPage(url=url, title="AI Agent 实习生", content="真实公开岗位正文与申请说明。" * 20)
 
-    browser = WebSearchBrowser(client_with_results([]), http_loader=load)
+    browser = WebSearchBrowser(client_with_results([]), http_loader=load, extra_hosts=["example.org"])
     capture = SourceCaptureBrowser(browser, root=tmp_path / "archive", run_id="run-search-capture",
                                    keyword="AI Agent 实习", location="全国", target_count=1, mode="web_search")
     pages = await capture.search("AI Agent 实习", target_count=1)
@@ -205,7 +274,8 @@ async def test_search_hitl_approval_preserves_progress_and_recomputes_delivered_
             "公司：Example\n工作地点：北京\n岗位职责：开发 AI Agent 和 RAG。\n任职要求：Python，岗位为实习。\n" * 4))
 
     pending = await run_ui_request(
-        UiRunRequest(data_mode="web_search", engine="hybrid", hitl=True, target_count=1),
+        UiRunRequest(data_mode="web_search", engine="hybrid", hitl=True, target_count=1,
+                     web_search_hosts=["example.org"]),
         output_root=tmp_path, owner_id="test-owner", environ={"DEEPSEEK_API_KEY": "test-key"},
         page_loader=load, link_verifier=VerifiedLinkStub())
     assert pending.run_status == "awaiting_approval"

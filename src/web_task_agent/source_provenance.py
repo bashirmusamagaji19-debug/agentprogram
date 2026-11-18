@@ -192,20 +192,21 @@ def validate_public_url(value: str, field_name: str = "url") -> str:
         port = parts.port
     except ValueError as exc:
         raise ValueError(f"{field_name} has an invalid port") from exc
-    decoded_query = parts.query
-    for _ in range(2):
-        decoded_query = unquote(decoded_query)
-    for fragment in re.split(r"[&;]", decoded_query):
-        key = fragment.partition("=")[0]
-        if _is_credential_query_key(key):
-            raise ValueError(f"{field_name} must not contain query credentials")
+    fragment = parts.fragment if parts.fragment.startswith(("/", "!/")) else ""
+    route_query = urlsplit(fragment.removeprefix("!")).query if fragment else ""
+    for query in (parts.query, route_query):
+        for _ in range(2):
+            query = unquote(query)
+        for parameter in re.split(r"[&;]", query):
+            if _is_credential_query_key(parameter.partition("=")[0]):
+                raise ValueError(f"{field_name} must not contain query credentials")
 
     host = (parts.hostname or "").casefold()
     if ":" in host:
         host = f"[{host}]"
     netloc = host if port is None else f"{host}:{port}"
     path = parts.path or "/"
-    return urlunsplit((parts.scheme.casefold(), netloc, path, parts.query, ""))
+    return urlunsplit((parts.scheme.casefold(), netloc, path, parts.query, fragment))
 
 
 def _public_text(value: str, field_name: str, *, required: bool, maximum: int) -> str:

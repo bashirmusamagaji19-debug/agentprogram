@@ -41,6 +41,7 @@ class AgentRunRequest(BaseModel):
     aggregator_path: str | None = None
     aggregator_url: str | None = None
     official_specs: list[str] | None = None
+    web_search_hosts: list[str] = Field(default_factory=list, max_length=3)
     seed_urls: list[str] = Field(default_factory=list)
     llm_extractor_provider: Literal["deepseek", "qwen"] | None = None
     llm_match_provider: Literal["deepseek", "qwen"] | None = None

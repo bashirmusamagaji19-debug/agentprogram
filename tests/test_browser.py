@@ -246,7 +246,7 @@ async def test_browser_use_search_parses_json_string_links_returned_by_page_eval
             return "https://www.google.com/search?q=AI+intern"
 
         async def evaluate(self, script: str):
-            if "querySelectorAll('a,button" in script:
+            if "const selector = 'a,button" in script:
                 return "[]"
             if "a[href]" in script:
                 return __import__("json").dumps(
@@ -489,7 +489,7 @@ async def test_browser_use_client_captures_final_url_rendered_body_and_visible_a
             nonlocal body_reads
             if "window.location.href" in script:
                 return "https://careers.example.com/job/123?lang=en"
-            if "querySelectorAll('a,button" in script:
+            if "const selector = 'a,button" in script:
                 controls = [
                     {
                         "tag": "button",
@@ -570,7 +570,7 @@ async def test_browser_use_client_marks_url_unobserved_when_get_url_and_location
             raise RuntimeError("target unavailable")
 
         async def evaluate(self, script: str):
-            if "querySelectorAll('a,button" in script:
+            if "const selector = 'a,button" in script:
                 return ""
             if "window.location.href" in script:
                 raise RuntimeError("navigation context unavailable")
