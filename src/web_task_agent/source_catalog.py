@@ -11,7 +11,7 @@ VERIFIED_SOURCES = {
               "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI Agent 实习"},
     "ctrip": {"name": "携程", "official_url": "https://careers.ctrip.com/",
               "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习",
-              "note": "云端本轮 1/2：一条通过，另一条动态详情核验超时。"},
+              "note": "云端独立复测 2/2；较早的合并核验有一条动态详情超时。"},
     "jd": {"name": "京东", "official_url": "https://campus.jd.com/#/jobs",
            "checked_on": VERIFIED_SOURCE_DATE, "validation_keyword": "AI 实习"},
     "tencent-campus": {"name": "腾讯", "official_url": "https://join.qq.com/post.html?query=p_2",
