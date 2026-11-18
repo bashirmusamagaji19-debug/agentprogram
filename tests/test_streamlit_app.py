@@ -389,12 +389,16 @@ def test_default_ui_uses_xiaomi_three_targets_and_empty_skills(tmp_path, monkeyp
     assert toggles["启用模型选择候选"] is False
 
 
-def test_model_selectors_only_offer_configured_providers(tmp_path, monkeypatch):
+@pytest.mark.parametrize("stale_qwen_key", [None, "retired-qwen-key"])
+def test_model_selectors_only_offer_configured_providers(tmp_path, monkeypatch, stale_qwen_key):
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
-    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    if stale_qwen_key:
+        monkeypatch.setenv("DASHSCOPE_API_KEY", stale_qwen_key)
+    else:
+        monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
     app = AppTest.from_file(str(REPO_ROOT / "streamlit_app.py"), default_timeout=30).run()
     for toggle in app.toggle:
         if toggle.label in {"启用 LLM 抽取", "启用 LLM 匹配", "启用模型选择候选"}:

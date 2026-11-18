@@ -79,6 +79,8 @@ RESUME_UPLOAD_BLOCKED_KEY = "resume-upload-blocked"
 
 DEFAULT_TARGET_COUNT = 3
 DEFAULT_OFFICIAL_SPECS = ("xiaomi",)
+# Retired providers must stay hidden even if a legacy deployment retains their key.
+UI_LLM_PROVIDERS = ("deepseek",)
 
 TERMINAL_REASON_LABELS = {
     "budget_exhausted": "本轮检查步数已用完，已交付确认的部分岗位",
@@ -1096,8 +1098,8 @@ def main() -> None:
             )
         st.markdown('<div class="ui-sidebar-label">模型与执行</div>', unsafe_allow_html=True)
         with st.expander("高级设置（模型与执行）", expanded=False):
-            model_providers = [provider for provider, env_name in PROVIDER_API_KEY_ENV.items()
-                               if str(os.environ.get(env_name, "")).strip()]
+            model_providers = [provider for provider in UI_LLM_PROVIDERS
+                               if str(os.environ.get(PROVIDER_API_KEY_ENV[provider], "")).strip()]
             if not model_providers:
                 st.caption("未配置模型服务，当前可使用规则抽取与匹配。")
             use_llm_extractor = bool(st.toggle("启用 LLM 抽取", value=False,
