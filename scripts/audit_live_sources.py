@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import platform
 import sys
 from datetime import UTC, datetime
@@ -45,7 +46,10 @@ async def audit(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sources", nargs="+", choices=list(VERIFIED_SOURCES), default=list(VERIFIED_SOURCES))
+    parser.add_argument("--sources", nargs="+", choices=list(VERIFIED_SOURCES),
+                        default=os.environ.get("AUDIT_SOURCE_SPECS", "").split() or list(VERIFIED_SOURCES))
     parser.add_argument("--output", type=Path, default=ROOT / "output" / "live-source-audit")
     arguments = parser.parse_args()
+    if any(source not in VERIFIED_SOURCES for source in arguments.sources):
+        parser.error("AUDIT_SOURCE_SPECS contains an unregistered source")
     raise SystemExit(0 if asyncio.run(audit(arguments)) else 1)

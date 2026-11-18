@@ -357,6 +357,9 @@ class BrowserUseClient:
             # Force Background Tab keeps Linux headless pages hidden and stalls
             # visibility-dependent SPA rendering despite successful API responses.
             enable_default_extensions=False,
+            # Some Chinese careers sites redirect English browsers to a homepage,
+            # silently dropping a valid native job ID (NetEase cloud regression).
+            args=["--lang=zh-CN", "--accept-lang=zh-CN,zh"],
         )
 
     async def _read_title(self, page: Any) -> str:

@@ -21,6 +21,7 @@ async def main() -> None:
         f"<html><head><title>{title}</title></head><body><script>"
         f"setTimeout(() => requestAnimationFrame(() => {{document.body.innerText = {json.dumps(content)};"
         "const button = document.createElement('button');button.innerText = '申 请';document.body.append(button);"
+        "document.body.append(' Browser language: ' + navigator.language);"
         "}), 10000);"
         "</script></body></html>"
     )
@@ -33,6 +34,7 @@ async def main() -> None:
     )
     assert page.title == title, f"Unexpected browser title: {page.title!r}"
     assert content.strip() in page.content, "Browser did not read the rendered body"
+    assert "Browser language: zh-CN" in page.content, "Cloud browser did not use the required Chinese locale"
     assert any(control["text"] == "申 请" for control in page.metadata["apply_controls"]), (
         "Browser did not observe the visible enabled spaced Chinese apply button")
     print("Cloud browser smoke passed: BrowserSession read a delayed SPA title/body.")
